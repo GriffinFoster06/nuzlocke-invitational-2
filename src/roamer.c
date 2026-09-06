@@ -3,6 +3,7 @@
 #include "ow_abilities.h"
 #include "pokemon.h"
 #include "random.h"
+#include "randomizer.h"
 #include "roamer.h"
 
 // Despite having a variable to track it, the roamer is
@@ -140,6 +141,8 @@ static u8 GetFirstInactiveRoamerIndex(void)
 bool8 TryAddRoamer(enum Species species, u8 level)
 {
     u8 index = GetFirstInactiveRoamerIndex();
+
+    species = Randomizer_RoamerSpecies(species, level);   // docs/SPEC.md "Static Pokemon"
 
     if (index < ROAMER_COUNT)
     {

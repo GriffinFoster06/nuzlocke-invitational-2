@@ -10,6 +10,7 @@
 #include "palette.h"
 #include "pokedex.h"
 #include "pokemon.h"
+#include "randomizer.h"
 #include "scanline_effect.h"
 #include "sound.h"
 #include "sprite.h"
@@ -351,7 +352,10 @@ u16 GetStarterPokemon(u16 chosenStarterId)
 {
     if (chosenStarterId > STARTER_MON_COUNT)
         chosenStarterId = 0;
-    return sStarterMon[chosenStarterId];
+    // Phase 2: persistent randomized starter trio (docs/SPEC.md "Starter
+    // randomization"). Returns the vanilla mon when randomization is off. Backs
+    // the choose-screen preview (sprite/cry/name) and the given starter alike.
+    return Randomizer_StarterSpecies(chosenStarterId);
 }
 
 static void VblankCB_StarterChoose(void)

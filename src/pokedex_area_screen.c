@@ -23,6 +23,7 @@
 #include "trig.h"
 #include "pokedex_area_region_map.h"
 #include "wild_encounter.h"
+#include "randomizer.h"
 #include "window.h"
 #include "constants/region_map_sections.h"
 #include "constants/rgb.h"
@@ -463,7 +464,8 @@ static bool8 MonListHasSpecies(const struct WildPokemonInfo *info, enum Species 
     {
         for (i = 0; i < size; i++)
         {
-            if (info->wildPokemon[i].species == species)
+            // Show the persistent randomized replacement, not the vanilla slot.
+            if (Randomizer_WildSlotSpecies(info, i, info->wildPokemon[i].species) == species)
                 return TRUE;
         }
     }

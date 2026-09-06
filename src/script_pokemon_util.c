@@ -22,6 +22,7 @@
 #include "pokemon_storage_system.h"
 #include "random.h"
 #include "random_mon_generation.h"
+#include "randomizer.h"
 #include "script.h"
 #include "sprite.h"
 #include "string_util.h"
@@ -124,6 +125,8 @@ void CreateScriptedWildMon(enum Species species, u8 level, enum Item item)
 {
     u8 heldItem[2];
 
+    species = Randomizer_StaticSpecies(species, level, 0);   // docs/SPEC.md "Static Pokemon"
+
     ZeroEnemyPartyMons();
     u32 personality = GetMonPersonality(species,
         GetSynchronizedGender(STATIC_WILDMON_ORIGIN, species),
@@ -142,6 +145,9 @@ void CreateScriptedDoubleWildMon(enum Species species1, u8 level1, enum Item ite
 {
     u8 heldItem1[2];
     u8 heldItem2[2];
+
+    species1 = Randomizer_StaticSpecies(species1, level1, 0);
+    species2 = Randomizer_StaticSpecies(species2, level2, 1);
 
     ZeroEnemyPartyMons();
     u32 personality = GetMonPersonality(species1,
@@ -455,6 +461,7 @@ void ScrCmd_createmon(struct ScriptContext *ctx)
     {
         Script_RequestEffects(SCREFF_V1 | SCREFF_SAVE);
         monTemplate.origin = GIFTMON_ORIGIN;
+        Randomizer_ApplyGiftTemplate(&monTemplate);   // docs/SPEC.md "Gift Pokemon"
     }
     else
     {

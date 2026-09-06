@@ -26,6 +26,11 @@ struct WildPokemonInfo
 {
     u8 encounterRate;
     const struct WildPokemon *wildPokemon;
+    // Build-time stable keys for the persistent randomizer encounter-slot map
+    // (docs/SPEC.md "Fixed encounter-slot mapping"). slotSeed is unique per
+    // (route, encounter type); routeSeed is shared by every table on the route.
+    u32 slotSeed;
+    u32 routeSeed;
 };
 
 struct WildEncounterTypes

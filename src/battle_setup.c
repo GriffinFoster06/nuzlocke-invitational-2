@@ -36,6 +36,7 @@
 #include "script_pokemon_util.h"
 #include "secret_base.h"
 #include "sound.h"
+#include "randomizer.h"
 #include "starter_choose.h"
 #include "strings.h"
 #include "string_util.h"
@@ -1007,6 +1008,9 @@ static void CB2_GiveStarter(void)
     *GetVarPointer(VAR_STARTER_MON) = gSpecialVar_Result;
     starterMon = GetStarterPokemon(gSpecialVar_Result);
     ScriptGiveMon(starterMon, 5, ITEM_NONE);
+    // Phase 2: guaranteed starter IV spread + freeze the generation settings.
+    Randomizer_ApplyStarterIVs(&gParties[B_TRAINER_PLAYER][0]);
+    Randomizer_MarkRunStarted();
     ResetTasks();
     PlayBattleBGM();
     SetMainCallback2(CB2_StartFirstBattle);

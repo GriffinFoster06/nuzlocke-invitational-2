@@ -26,6 +26,7 @@
 #include "strings.h"
 #include "task.h"
 #include "wild_encounter.h"
+#include "randomizer.h"
 #include "window.h"
 #include "field_name_box.h"
 #include "constants/abilities.h"
@@ -1757,16 +1758,18 @@ static void PopulateSpeciesFromTrainerLocation(int matchCallId, u8 *destStr)
             numSpecies = 0;
             if (gWildMonHeaders[i].encounterTypes[timeOfDay].landMonsInfo)
             {
+                const struct WildPokemonInfo *info = gWildMonHeaders[i].encounterTypes[timeOfDay].landMonsInfo;
                 slot = GetLandEncounterSlotForMatchCall();
-                species[numSpecies] = gWildMonHeaders[i].encounterTypes[timeOfDay].landMonsInfo->wildPokemon[slot].species;
+                species[numSpecies] = Randomizer_WildSlotSpecies(info, slot, info->wildPokemon[slot].species);
                 numSpecies++;
             }
 
             timeOfDay = GetTimeOfDayForEncounters(i, WILD_AREA_WATER);
             if (gWildMonHeaders[i].encounterTypes[timeOfDay].waterMonsInfo)
             {
+                const struct WildPokemonInfo *info = gWildMonHeaders[i].encounterTypes[timeOfDay].waterMonsInfo;
                 slot = GetWaterEncounterSlotForMatchCall();
-                species[numSpecies] = gWildMonHeaders[i].encounterTypes[timeOfDay].waterMonsInfo->wildPokemon[slot].species;
+                species[numSpecies] = Randomizer_WildSlotSpecies(info, slot, info->wildPokemon[slot].species);
                 numSpecies++;
             }
 

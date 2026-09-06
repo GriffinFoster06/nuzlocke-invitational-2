@@ -1,5 +1,13 @@
 import json
 import re
+import zlib
+
+
+def stable_seed(text):
+    # Stable 32-bit hash for deterministic per-slot / per-route randomizer keys
+    # (docs/SPEC.md "Fixed encounter-slot mapping"). Survives JSON reordering and
+    # game-version switches because it is keyed on the label, not the array index.
+    return zlib.crc32(text.encode("utf-8")) & 0xFFFFFFFF
 
 class Config:
     def __init__(self, config_file_name, rtc_constants_file_name, encounters_json_data):
@@ -119,7 +127,7 @@ class WildEncounterAssembler:
                     macro_total_name = macro_base + group_name_mapping[-1] + "_TOTAL"
                     self.WriteLine()
     
-    def WriteMonInfos(self, name, mons, encounter_rate):
+    def WriteMonInfos(self, name, mons, encounter_rate, base_label):
         info_name = name + "Info"
         self.WriteLine(f"const struct WildPokemon {name}[] =")
         self.WriteLine("{")
@@ -131,7 +139,10 @@ class WildEncounterAssembler:
 
         self.WriteLine("};")
         self.WriteLine()
-        self.WriteLine(f"const struct WildPokemonInfo {info_name} = {{ {encounter_rate}, {name} }};")
+        slot_seed = stable_seed(name)          # unique per (route, encounter type)
+        route_seed = stable_seed(base_label)   # shared by every table on the route
+        self.WriteLine(f"const struct WildPokemonInfo {info_name} = "
+                       f"{{ {encounter_rate}, {name}, {slot_seed}u, {route_seed}u }};")
         self.WriteLine()
     
     def WriteTerminator(self):
@@ -252,7 +263,7 @@ class WildEncounterAssembler:
                     mons = mons_entry["mons"]
 
                     mon_array_name = base_label + "_" + mon_type.title().replace("_", "")
-                    self.WriteMonInfos(mon_array_name, mons, encounter_rate)
+                    self.WriteMonInfos(mon_array_name, mons, encounter_rate, base_label)
                     headers["data"][shared_label][time][mon_type] = mon_array_name + "Info"
                 self.WriteLine(f"#endif")
 

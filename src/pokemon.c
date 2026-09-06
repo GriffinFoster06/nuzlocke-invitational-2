@@ -45,6 +45,7 @@
 #include "pokerus.h"
 #include "random.h"
 #include "random_mon_generation.h"
+#include "randomizer.h"
 #include "recorded_battle.h"
 #include "regions.h"
 #include "rtc.h"
@@ -1323,6 +1324,11 @@ void CreateEnemyEventMon(void)
     s32 species = gSpecialVar_0x8004;
     s32 level = gSpecialVar_0x8005;
     s32 itemId = gSpecialVar_0x8006;
+
+    // docs/SPEC.md "Static Pokemon" / "Legendary encounter balancing". The
+    // pre-battle playmoncry and post-battle bookkeeping vars in these scripts
+    // still reference the vanilla species - deferred to Phase 10.
+    species = Randomizer_StaticSpecies(species, level, 0);
 
     ZeroEnemyPartyMons();
 

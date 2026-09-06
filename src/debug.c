@@ -45,6 +45,7 @@
 #include "random_mon_generation.h"
 #include "region_map.h"
 #include "rtc.h"
+#include "ruleset_menu.h"
 #include "script.h"
 #include "script_pokemon_util.h"
 #include "sound.h"
@@ -288,6 +289,7 @@ static void DebugAction_Selection_StepUpdate(u8 taskId);
 static void DebugAction_Selection_NextStep(u8 taskId);
 
 static void DebugAction_Util_Fly(u8 taskId);
+static void DebugAction_OpenRulesetMenu(u8 taskId);
 static void DebugAction_Util_WatchCredits(u8 taskId);
 static void DebugAction_Util_CheatStart(u8 taskId);
 
@@ -780,6 +782,7 @@ static const struct DebugMenuOption sDebugMenu_Actions_Main[] =
     { COMPOUND_STRING("Flags & Vars…"), DebugAction_OpenSubMenuFlagsVars, sDebugMenu_Actions_Flags, },
     { COMPOUND_STRING("Sound…"),        DebugAction_OpenSubMenu, sDebugMenu_Actions_Sound, },
     { COMPOUND_STRING("ROM Info…"),     DebugAction_OpenSubMenu, sDebugMenu_Actions_ROMInfo2, },
+    { COMPOUND_STRING("Ruleset Settings…"), DebugAction_OpenRulesetMenu, },
     { COMPOUND_STRING("Cancel"),        DebugAction_Cancel, },
     { NULL }
 };
@@ -1970,6 +1973,14 @@ static void DebugAction_Util_WatchCredits(u8 taskId)
 {
     Debug_DestroyMenu_Full(taskId);
     SetMainCallback2(CB2_StartCreditsSequence);
+}
+
+static void DebugAction_OpenRulesetMenu(u8 taskId)
+{
+    Debug_DestroyMenu_Full(taskId);
+    gMain.savedCallback = CB2_ReturnToFieldContinueScriptPlayMapMusic;
+    gMain.state = 0;
+    SetMainCallback2(CB2_InitRulesetMenu);
 }
 
 static void DebugAction_Player_Name(u8 taskId)

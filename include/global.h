@@ -25,6 +25,7 @@
 #include "constants/trainer_tower.h"
 #include "constants/items.h"
 #include "constants/moves.h"
+#include "constants/ruleset.h"
 #include "config/save.h"
 
 // Prevent cross-jump optimization.
@@ -254,6 +255,22 @@ struct NPCFollower
 #include "constants/items.h"
 #define ITEM_FLAGS_COUNT ((ITEMS_COUNT / 8) + ((ITEMS_COUNT % 8) ? 1 : 0))
 
+// Custom Nuzlocke-Randomizer ruleset store (docs/SPEC.md "Settings behavior").
+// Phase 1 scaffolding: persisted here, but no gameplay code reads it yet.
+// Append fields only - never insert - so an older save's zeroed tail keeps
+// validating (there is no save-migration system in this fork).
+struct RulesetSettings
+{
+    u32 runSeed;              // the run's stored seed (docs/SPEC.md "Run seed")
+    u16 rulesetVersion;      // RULESET_VERSION; 0 == never initialized
+    u8 displayedPreset;      // enum RulesetPreset, incl. RULESET_PRESET_CUSTOM
+    u8 lastNamedPreset;      // last preset explicitly applied; source for "restore"
+    u8 runStarted:1;         // generation settings lock once this is set (Phase 2)
+    u8 runActive:1;          // rules settings lock while a strict run is live (Phase 3)
+    u8 reserved:6;
+    u8 values[NUM_SETTINGS]; // one byte per setting, indexed by enum SettingId
+};
+
 struct SaveBlock3
 {
 #if OW_USE_FAKE_RTC
@@ -272,6 +289,7 @@ struct SaveBlock3
 #if APRICORN_TREE_COUNT > 0
     u8 apricornTrees[NUM_APRICORN_TREE_BYTES];
 #endif
+    struct RulesetSettings ruleset;
 }; /* max size 1624 bytes */
 
 extern struct SaveBlock3 *gSaveBlock3Ptr;

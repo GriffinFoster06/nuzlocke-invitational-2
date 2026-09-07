@@ -30,10 +30,19 @@ DesertRuins_EventScript_HideRegiEntrance::
 DesertRuins_OnTransition:
 	setflag FLAG_LANDMARK_DESERT_RUINS
 	call_if_unset FLAG_DEFEATED_REGIROCK, DesertRuins_EventScript_ShowRegirock
+	call_if_set FLAG_SOOTOPOLIS_ARCHIE_MAXIE_LEAVE, DesertRuins_EventScript_UnlockRegiEntrance
 	end
 
 DesertRuins_EventScript_ShowRegirock::
 	clearflag FLAG_HIDE_REGIROCK
+	return
+
+@ Once Rayquaza has resolved the Sootopolis crisis the Regi caves open on
+@ their own, no Braille puzzle required (docs/SPEC.md "Late-game unlocks").
+@ OnTransition runs before OnLoad, so setting the puzzle flag here makes
+@ DesertRuins_OnLoad skip DesertRuins_EventScript_HideRegiEntrance.
+DesertRuins_EventScript_UnlockRegiEntrance::
+	setflag FLAG_SYS_REGIROCK_PUZZLE_COMPLETED
 	return
 
 DesertRuins_EventScript_CaveEntranceMiddle::

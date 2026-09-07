@@ -257,6 +257,172 @@ SlateportCity_Harbor_Movement_BoardFerryNorth:
 	walk_up
 	step_end
 
+@ ---------------------------------------------------------------------------
+@ Legendary-map dealer (docs/SPEC.md "Late-game unlocks").
+@ Appears near the ferry building once Rayquaza has resolved the Sootopolis
+@ crisis (FLAG_SOOTOPOLIS_ARCHIE_MAXIE_LEAVE). Hands over the event tickets
+@ / sea maps and enables the corresponding S.S. Tidal routes so the islands
+@ can also be revisited from the harbor sailors afterwards, then offers to
+@ sail the player out there immediately. Unlimited money means the price is
+@ not the gate -- the Sootopolis progression flag is -- so access is free.
+@ Legendary species on each island are handled by the Phase 2 randomizer.
+@ ---------------------------------------------------------------------------
+SlateportCity_Harbor_EventScript_LegendaryMapDealer::
+	lock
+	faceplayer
+	goto_if_unset FLAG_SOOTOPOLIS_ARCHIE_MAXIE_LEAVE, SlateportCity_Harbor_EventScript_LegendaryMapDealerNotYet
+	msgbox SlateportCity_Harbor_Text_LegendaryMapDealerIntro, MSGBOX_DEFAULT
+SlateportCity_Harbor_EventScript_LegendaryMapDealerMenu::
+	message SlateportCity_Harbor_Text_LegendaryMapDealerWhichMap
+	waitmessage
+	dynmultipush SlateportCity_Harbor_Text_MapSouthernIsland, 0
+	dynmultipush SlateportCity_Harbor_Text_MapNavelRock, 1
+	dynmultipush SlateportCity_Harbor_Text_MapBirthIsland, 2
+	dynmultipush SlateportCity_Harbor_Text_MapFarawayIsland, 3
+	dynmultipush SlateportCity_Harbor_Text_MapNevermind, 4
+	dynmultistack 0, 0, FALSE, 6, 0, 0, DYN_MULTICHOICE_CB_NONE
+	switch VAR_RESULT
+	case 0, SlateportCity_Harbor_EventScript_MapSouthernIsland
+	case 1, SlateportCity_Harbor_EventScript_MapNavelRock
+	case 2, SlateportCity_Harbor_EventScript_MapBirthIsland
+	case 3, SlateportCity_Harbor_EventScript_MapFarawayIsland
+	case 4, SlateportCity_Harbor_EventScript_LegendaryMapDealerDone
+	case MULTI_B_PRESSED, SlateportCity_Harbor_EventScript_LegendaryMapDealerDone
+	end
+
+SlateportCity_Harbor_EventScript_MapSouthernIsland::
+	checkitem ITEM_EON_TICKET
+	goto_if_eq VAR_RESULT, FALSE, SlateportCity_Harbor_EventScript_GiveEonTicket
+SlateportCity_Harbor_EventScript_MapSouthernIslandSail::
+	setflag FLAG_ENABLE_SHIP_SOUTHERN_ISLAND
+	msgbox SlateportCity_Harbor_Text_SetSailNow, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, SlateportCity_Harbor_EventScript_LegendaryMapDealerMenu
+	msgbox SlateportCity_Harbor_Text_CastOff, MSGBOX_DEFAULT
+	closemessage
+	warp MAP_SOUTHERN_ISLAND_EXTERIOR, 13, 22
+	waitstate
+	release
+	end
+
+SlateportCity_Harbor_EventScript_GiveEonTicket::
+	giveitem ITEM_EON_TICKET
+	goto_if_eq VAR_RESULT, FALSE, Common_EventScript_ShowBagIsFull
+	goto SlateportCity_Harbor_EventScript_MapSouthernIslandSail
+	end
+
+SlateportCity_Harbor_EventScript_MapNavelRock::
+	checkitem ITEM_MYSTIC_TICKET
+	goto_if_eq VAR_RESULT, FALSE, SlateportCity_Harbor_EventScript_GiveMysticTicket
+SlateportCity_Harbor_EventScript_MapNavelRockSail::
+	setflag FLAG_ENABLE_SHIP_NAVEL_ROCK
+	msgbox SlateportCity_Harbor_Text_SetSailNow, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, SlateportCity_Harbor_EventScript_LegendaryMapDealerMenu
+	msgbox SlateportCity_Harbor_Text_CastOff, MSGBOX_DEFAULT
+	closemessage
+	warp MAP_NAVEL_ROCK_HARBOR, 8, 4
+	waitstate
+	release
+	end
+
+SlateportCity_Harbor_EventScript_GiveMysticTicket::
+	giveitem ITEM_MYSTIC_TICKET
+	goto_if_eq VAR_RESULT, FALSE, Common_EventScript_ShowBagIsFull
+	goto SlateportCity_Harbor_EventScript_MapNavelRockSail
+	end
+
+SlateportCity_Harbor_EventScript_MapBirthIsland::
+	checkitem ITEM_AURORA_TICKET
+	goto_if_eq VAR_RESULT, FALSE, SlateportCity_Harbor_EventScript_GiveAuroraTicket
+SlateportCity_Harbor_EventScript_MapBirthIslandSail::
+	setflag FLAG_ENABLE_SHIP_BIRTH_ISLAND
+	msgbox SlateportCity_Harbor_Text_SetSailNow, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, SlateportCity_Harbor_EventScript_LegendaryMapDealerMenu
+	msgbox SlateportCity_Harbor_Text_CastOff, MSGBOX_DEFAULT
+	closemessage
+	warp MAP_BIRTH_ISLAND_HARBOR, 8, 4
+	waitstate
+	release
+	end
+
+SlateportCity_Harbor_EventScript_GiveAuroraTicket::
+	giveitem ITEM_AURORA_TICKET
+	goto_if_eq VAR_RESULT, FALSE, Common_EventScript_ShowBagIsFull
+	goto SlateportCity_Harbor_EventScript_MapBirthIslandSail
+	end
+
+SlateportCity_Harbor_EventScript_MapFarawayIsland::
+	checkitem ITEM_OLD_SEA_MAP
+	goto_if_eq VAR_RESULT, FALSE, SlateportCity_Harbor_EventScript_GiveOldSeaMap
+SlateportCity_Harbor_EventScript_MapFarawayIslandSail::
+	setflag FLAG_ENABLE_SHIP_FARAWAY_ISLAND
+	msgbox SlateportCity_Harbor_Text_SetSailNow, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, SlateportCity_Harbor_EventScript_LegendaryMapDealerMenu
+	msgbox SlateportCity_Harbor_Text_CastOff, MSGBOX_DEFAULT
+	closemessage
+	warp MAP_FARAWAY_ISLAND_ENTRANCE, 13, 38
+	waitstate
+	release
+	end
+
+SlateportCity_Harbor_EventScript_GiveOldSeaMap::
+	giveitem ITEM_OLD_SEA_MAP
+	goto_if_eq VAR_RESULT, FALSE, Common_EventScript_ShowBagIsFull
+	goto SlateportCity_Harbor_EventScript_MapFarawayIslandSail
+	end
+
+SlateportCity_Harbor_EventScript_LegendaryMapDealerDone::
+	msgbox SlateportCity_Harbor_Text_LegendaryMapDealerFairWinds, MSGBOX_DEFAULT
+	release
+	end
+
+SlateportCity_Harbor_EventScript_LegendaryMapDealerNotYet::
+	msgbox SlateportCity_Harbor_Text_LegendaryMapDealerNotYet, MSGBOX_DEFAULT
+	release
+	end
+
+SlateportCity_Harbor_Text_LegendaryMapDealerIntro:
+	.string "So you're the one who quieted the sea\n"
+	.string "over SOOTOPOLIS.\p"
+	.string "I chart the routes to islands most\n"
+	.string "captains won't sail to -- the sort\l"
+	.string "where the old legends still linger.\p"
+	.string "Pick one and the map's yours. No\n"
+	.string "charge for you.$"
+
+SlateportCity_Harbor_Text_LegendaryMapDealerWhichMap:
+	.string "Which map do you want?$"
+
+SlateportCity_Harbor_Text_LegendaryMapDealerFairWinds:
+	.string "Fair winds. Come back when you're\n"
+	.string "ready to chase another legend.$"
+
+SlateportCity_Harbor_Text_LegendaryMapDealerNotYet:
+	.string "The sea's still in a temper.\p"
+	.string "Calm the crisis at SOOTOPOLIS first,\n"
+	.string "then we'll talk about the far islands.$"
+
+SlateportCity_Harbor_Text_MapSouthernIsland:
+	.string "SOUTHERN ISLAND$"
+
+SlateportCity_Harbor_Text_MapNavelRock:
+	.string "NAVEL ROCK$"
+
+SlateportCity_Harbor_Text_MapBirthIsland:
+	.string "BIRTH ISLAND$"
+
+SlateportCity_Harbor_Text_MapFarawayIsland:
+	.string "FARAWAY ISLAND$"
+
+SlateportCity_Harbor_Text_MapNevermind:
+	.string "Never mind$"
+
+SlateportCity_Harbor_Text_SetSailNow:
+	.string "Want me to sail you out there right\n"
+	.string "now?$"
+
+SlateportCity_Harbor_Text_CastOff:
+	.string "Then hop aboard. Casting off!$"
+
 SlateportCity_Harbor_EventScript_Sailor::
 	lock
 	faceplayer

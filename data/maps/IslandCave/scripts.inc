@@ -31,10 +31,19 @@ IslandCave_OnTransition:
 	setflag FLAG_LANDMARK_ISLAND_CAVE
 	call IslandCave_EventScript_ClearSteps
 	call_if_unset FLAG_DEFEATED_REGICE, IslandCave_EventScript_ShowRegice
+	call_if_set FLAG_SOOTOPOLIS_ARCHIE_MAXIE_LEAVE, IslandCave_EventScript_UnlockRegiEntrance
 	end
 
 IslandCave_EventScript_ShowRegice::
 	clearflag FLAG_HIDE_REGICE
+	return
+
+@ Once Rayquaza has resolved the Sootopolis crisis the Regi caves open on
+@ their own, no Braille puzzle required (docs/SPEC.md "Late-game unlocks").
+@ OnTransition runs before OnLoad, so setting the completed flag here makes
+@ IslandCave_OnLoad skip IslandCave_EventScript_HideRegiEntrance.
+IslandCave_EventScript_UnlockRegiEntrance::
+	setflag FLAG_SYS_BRAILLE_REGICE_COMPLETED
 	return
 
 IslandCave_EventScript_OpenRegiEntrance::

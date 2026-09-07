@@ -69,44 +69,13 @@ DewfordTown_EventScript_HallSign::
 	msgbox DewfordTown_Text_HallSign, MSGBOX_SIGN
 	end
 
+@ The Old Rod sailor was moved to Route 103 for earlier fishing access
+@ (docs/SPEC.md "Map additions"). His fishing logic now lives in
+@ data/maps/Route103/scripts.inc as Route103_EventScript_OldRodFisherman.
 DewfordTown_EventScript_OldRodFisherman::
 	lock
 	faceplayer
-	goto_if_set FLAG_RECEIVED_OLD_ROD, DewfordTown_EventScript_HowsFishing
-	msgbox DewfordTown_Text_GettingItchToFish, MSGBOX_YESNO
-	goto_if_eq VAR_RESULT, YES, DewfordTown_EventScript_GiveOldRod
-	goto_if_eq VAR_RESULT, NO, DewfordTown_EventScript_NotGettingItchToFish
-	end
-
-DewfordTown_EventScript_GiveOldRod::
-	msgbox DewfordTown_Text_GiveYouOneOfMyRods, MSGBOX_DEFAULT
-	giveitem ITEM_OLD_ROD
-	goto_if_eq VAR_RESULT, FALSE, Common_EventScript_ShowBagIsFull
-	setflag FLAG_RECEIVED_OLD_ROD
-	msgbox DewfordTown_Text_ThrowInFishingAdvice, MSGBOX_DEFAULT
-	release
-	end
-
-DewfordTown_EventScript_NotGettingItchToFish::
-	msgbox DewfordTown_Text_ThatsTooBadThen, MSGBOX_DEFAULT
-	release
-	end
-
-DewfordTown_EventScript_HowsFishing::
-	message DewfordTown_Text_HowsYourFishing
-	waitmessage
-	multichoice 20, 8, MULTI_HOWS_FISHING, TRUE
-	goto_if_eq VAR_RESULT, 0, DewfordTown_EventScript_FishingExcellent
-	goto_if_eq VAR_RESULT, 1, DewfordTown_EventScript_FishingNotSoGood
-	end
-
-DewfordTown_EventScript_FishingExcellent::
-	msgbox DewfordTown_Text_GreatHaulInSomeBigOnes, MSGBOX_DEFAULT
-	release
-	end
-
-DewfordTown_EventScript_FishingNotSoGood::
-	msgbox DewfordTown_Text_FishingAdvice, MSGBOX_DEFAULT
+	msgbox DewfordTown_Text_OldRodFishermanMovedAway, MSGBOX_DEFAULT
 	release
 	end
 
@@ -691,6 +660,16 @@ DewfordTown_Text_JustTellMeWhenYouNeedToSetSail:
 	.string "MR. BRINEY: You just tell me whenever\n"
 	.string "you need to set sail again!$"
 
+DewfordTown_Text_OldRodFishermanMovedAway:
+	.string "I used to hand out OLD RODS to any\n"
+	.string "rookie who wandered by here.\p"
+	.string "Nowadays my buddy runs that racket up\n"
+	.string "on ROUTE 103, closer to where folks\l"
+	.string "start their journey.\p"
+	.string "Go see him if you want to take up\n"
+	.string "fishing.$"
+
+@ Unreferenced since the Old Rod sailor moved to Route 103. Kept for reference.
 DewfordTown_Text_GettingItchToFish:
 	.string "This is a renowned fishing spot.\n"
 	.string "Are you getting the itch to fish?$"

@@ -17,10 +17,19 @@ AncientTomb_EventScript_TryRemoveRegisteel::
 AncientTomb_OnTransition:
 	setflag FLAG_LANDMARK_ANCIENT_TOMB
 	call_if_unset FLAG_DEFEATED_REGISTEEL, AncientTomb_EventScript_ShowRegisteel
+	call_if_set FLAG_SOOTOPOLIS_ARCHIE_MAXIE_LEAVE, AncientTomb_EventScript_UnlockRegiEntrance
 	end
 
 AncientTomb_EventScript_ShowRegisteel::
 	clearflag FLAG_HIDE_REGISTEEL
+	return
+
+@ Once Rayquaza has resolved the Sootopolis crisis the Regi caves open on
+@ their own, no Braille puzzle required (docs/SPEC.md "Late-game unlocks").
+@ OnTransition runs before OnLoad, so setting the puzzle flag here makes
+@ AncientTomb_OnLoad skip AncientTomb_EventScript_HideRegiEntrance.
+AncientTomb_EventScript_UnlockRegiEntrance::
+	setflag FLAG_SYS_REGISTEEL_PUZZLE_COMPLETED
 	return
 
 AncientTomb_OnLoad:

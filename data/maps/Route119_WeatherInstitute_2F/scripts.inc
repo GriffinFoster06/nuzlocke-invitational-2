@@ -126,6 +126,10 @@ Route119_WeatherInstitute_2F_EventScript_ExplainCastform::
 
 Route119_WeatherInstitute_2F_EventScript_ScientistMentionWeather::
 	goto_if_set FLAG_SYS_GAME_CLEAR, Route119_WeatherInstitute_2F_EventScript_TryStartAbnormalWeather
+@ The abnormal-weather system (Marine Cave / Terra Cave) opens as soon as
+@ Rayquaza resolves the Sootopolis crisis, not only at postgame
+@ (docs/SPEC.md "Late-game unlocks").
+	goto_if_set FLAG_SOOTOPOLIS_ARCHIE_MAXIE_LEAVE, Route119_WeatherInstitute_2F_EventScript_TryStartAbnormalWeather
 	msgbox Route119_WeatherInstitute_2F_Text_ChangingWeatherRidiculous, MSGBOX_DEFAULT
 	release
 	end

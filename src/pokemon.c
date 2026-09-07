@@ -17,6 +17,7 @@
 #include "dexnav.h"
 #include "event_data.h"
 #include "event_object_movement.h"
+#include "evolution_fixes.h"
 #include "evolution_scene.h"
 #include "field_player_avatar.h"
 #include "field_specials.h"
@@ -3350,7 +3351,18 @@ bool32 SpeciesHasEggMove(enum Species species, enum Move move)
 
 const struct Evolution *GetSpeciesEvolutions(enum Species species)
 {
-    const struct Evolution *evolutions = gSpeciesInfo[SanitizeSpeciesId(species)].evolutions;
+    const struct Evolution *evolutions;
+
+    species = SanitizeSpeciesId(species);
+
+    // docs/SPEC.md "Trade evolutions" / "Species-specific evolution fixes":
+    // a small override table replaces the stock evolutions for species that
+    // can't otherwise reach their final form in single-player.
+    evolutions = EvoFix_GetOverride(species);
+    if (evolutions != NULL)
+        return evolutions;
+
+    evolutions = gSpeciesInfo[species].evolutions;
     if (evolutions == NULL)
         return gSpeciesInfo[SPECIES_NONE].evolutions;
     return evolutions;

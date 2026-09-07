@@ -34,7 +34,7 @@ static u32 ProgressionCapFromFlags(void)
         {FLAG_BADGE06_GET, 43}, // before Winona
         {FLAG_BADGE07_GET, 47}, // before Tate & Liza
         {FLAG_BADGE08_GET, 50}, // before Juan
-        {FLAG_IS_CHAMPION,  63}, // eight badges / before Elite Four
+        {FLAG_IS_CHAMPION,  PRE_CHAMPION_LEVEL_CAP}, // eight badges / before Elite Four
     };
 
     for (u32 i = 0; i < ARRAY_COUNT(sLevelCapFlagMap); i++)

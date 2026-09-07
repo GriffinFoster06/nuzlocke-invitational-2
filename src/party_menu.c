@@ -35,6 +35,7 @@
 #include "item_menu.h"
 #include "item_use.h"
 #include "caps.h"
+#include "evolve_menu.h"
 #include "level_to_cap.h"
 #include "link.h"
 #include "link_rfu.h"
@@ -112,6 +113,7 @@ enum {
     MENU_CHANGE_FORM,
     MENU_CHANGE_ABILITY,
     MENU_LEVEL_TO_CAP,   // docs/SPEC.md "Level to Cap"; must stay before MENU_FIELD_MOVES
+    MENU_EVOLVE,         // docs/SPEC.md "Evolve command"; must stay before MENU_FIELD_MOVES
     MENU_FIELD_MOVES
 };
 
@@ -187,7 +189,7 @@ struct PartyMenuInternal
     u32 spriteIdCancelPokeball:7;
     u32 messageId:14;
     u8 windowId[3];
-    u8 actions[10]; // was 8; +1 for the "Level to Cap" field-menu entry (SUMMARY + 4 field moves + SWITCH + ITEM/MAIL + CANCEL already reaches 8)
+    u8 actions[11]; // was 8; +1 "Level to Cap", +1 "Evolve" (SUMMARY + LV TO CAP + EVOLVE + 4 field moves + SWITCH + ITEM/MAIL + CANCEL = 11)
     u8 numActions;
     // In vanilla Emerald, only the first 0xB0 hwords (0x160 bytes) are actually used.
     // However, a full 0x100 hwords (0x200 bytes) are allocated.
@@ -489,6 +491,7 @@ static void CursorCb_CatalogMower(u8);
 static void CursorCb_ChangeForm(u8);
 static void CursorCb_ChangeAbility(u8);
 static void CursorCb_LevelToCap(u8);
+static void CursorCb_Evolve(u8);
 void TryItemHoldFormChange(struct Pokemon *mon, s8 slotId, enum BattleTrainer trainer);
 static void ShowMoveSelectWindow(u8 slot);
 static void Task_HandleWhichMoveInput(u8 taskId);
@@ -2964,6 +2967,10 @@ static void SetPartyMonFieldSelectionActions(struct Pokemon *mons, u8 slotId)
     // docs/SPEC.md "Level to Cap"
     if (LevelToCap_IsAvailable(&mons[slotId]))
         AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_LEVEL_TO_CAP);
+
+    // docs/SPEC.md "Evolve command"
+    if (EvolveMenu_IsAvailable(&mons[slotId]))
+        AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_EVOLVE);
 
     // Add field moves to action list
     for (i = 0; i < MAX_MON_MOVES; i++)
@@ -7024,6 +7031,112 @@ static void CursorCb_LevelToCap(u8 taskId)
     DisplayPartyMenuMessage(gStringVar4, TRUE);
     ScheduleBgCopyTilemapToVram(2);
     gTasks[taskId].func = Task_DisplayLevelUpStatsPg1;
+}
+
+// ---- docs/SPEC.md "Evolve command" / "Move-dependent evolution anti-softlock"
+// The evolution move Evolution Assistance is about to offer (0 = none pending).
+static EWRAM_DATA u16 sEvolveAssistMove = MOVE_NONE;
+
+static const u8 sText_EvolveAssistPrompt[] = _("{STR_VAR_1} may be able to evolve\nif it learns {STR_VAR_2}. Teach it?");
+
+static void Task_EvolveAssistYesNo(u8 taskId);
+static void Task_HandleEvolveAssistYesNoInput(u8 taskId);
+
+// Kick off the current mon's evolution when GetEvolutionTargetSpecies already
+// says it is due. Mirrors the success tail of PartyMenuTryEvolution, minus the
+// Rare Candy bookkeeping (this path is never reached from an item).
+static void EvolveMenu_BeginNow(u8 taskId)
+{
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][gPartyMenu.slotId];
+    bool32 canStopEvo = TRUE;
+    enum Species targetSpecies;
+
+    sInitialLevel = 0;
+    sFinalLevel = 0;
+
+    targetSpecies = GetEvolutionTargetSpecies(mon, EVO_MODE_NORMAL, ITEM_NONE, NULL, &canStopEvo, CHECK_EVO);
+    GetEvolutionTargetSpecies(mon, EVO_MODE_NORMAL, ITEM_NONE, NULL, &canStopEvo, DO_EVO);
+
+    FreePartyPointers();
+    gCB2_AfterEvolution = gPartyMenu.exitCallback;
+    BeginEvolutionScene(mon, targetSpecies, canStopEvo, gPartyMenu.slotId);
+    DestroyTask(taskId);
+}
+
+static void CursorCb_Evolve(u8 taskId)
+{
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][gPartyMenu.slotId];
+
+    PlaySE(SE_SELECT);
+    gPartyMenuUseExitCallback = FALSE;
+
+    switch (EvolveMenu_Check(mon, &sEvolveAssistMove))
+    {
+    case EVOLVE_CHECK_READY:
+        EvolveMenu_BeginNow(taskId);
+        break;
+    case EVOLVE_CHECK_NEEDS_MOVE:
+        GetMonNickname(mon, gStringVar1);
+        StringCopy(gStringVar2, GetMoveName(sEvolveAssistMove));
+        StringExpandPlaceholders(gStringVar4, sText_EvolveAssistPrompt);
+        DisplayPartyMenuMessage(gStringVar4, TRUE);
+        gTasks[taskId].func = Task_EvolveAssistYesNo;
+        break;
+    case EVOLVE_CHECK_NONE:
+    default:
+        DisplayPartyMenuMessage(gText_WontHaveEffect, TRUE);
+        ScheduleBgCopyTilemapToVram(2);
+        gTasks[taskId].func = Task_ReturnToChooseMonAfterText;
+        break;
+    }
+}
+
+static void Task_EvolveAssistYesNo(u8 taskId)
+{
+    if (IsPartyMenuTextPrinterActive() != TRUE)
+    {
+        PartyMenuDisplayYesNoMenu();
+        gTasks[taskId].func = Task_HandleEvolveAssistYesNoInput;
+    }
+}
+
+static void Task_HandleEvolveAssistYesNoInput(u8 taskId)
+{
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][gPartyMenu.slotId];
+
+    switch (Menu_ProcessInputNoWrapClearOnChoose())
+    {
+    case 0: // Yes - teach the evolution move (tutor-style: no bag item consumed,
+            // no friendship change; evolution itself stays player-initiated).
+        GetMonNickname(mon, gStringVar1);
+        gPartyMenu.data1 = sEvolveAssistMove;
+        gPartyMenu.learnMoveState = 2;
+        StringCopy(gStringVar2, GetMoveName(gPartyMenu.data1));
+        switch (CanTeachMove(mon, gPartyMenu.data1))
+        {
+        case CANNOT_LEARN_MOVE:
+            DisplayLearnMoveMessageAndClose(taskId, gText_PkmnCantLearnMove);
+            return;
+        case ALREADY_KNOWS_MOVE:
+            DisplayLearnMoveMessageAndClose(taskId, gText_PkmnAlreadyKnows);
+            return;
+        default:
+            if (GiveMoveToMon(mon, gPartyMenu.data1) != MON_HAS_MAX_MOVES)
+            {
+                Task_LearnedMove(taskId);
+                return;
+            }
+            DisplayLearnMoveMessage(gText_PkmnNeedsToReplaceMove);
+            gTasks[taskId].func = Task_ReplaceMoveYesNo;
+            return;
+        }
+    case MENU_B_PRESSED:
+        PlaySE(SE_SELECT);
+        // fallthrough
+    case 1: // No
+        gTasks[taskId].func = Task_ReturnToChooseMonAfterText;
+        break;
+    }
 }
 
 void TryItemHoldFormChange(struct Pokemon *mon, s8 slotId, enum BattleTrainer trainer)

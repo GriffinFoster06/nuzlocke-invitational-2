@@ -18,6 +18,11 @@
 #error "Invalid choice for B_EV_CAP_TYPE, must be one of [EV_CAP_NONE, EV_CAP_FLAG_LIST, EV_CAP_VARIABLE, EV_CAP_NO_GAIN]"
 #endif
 
+// docs/SPEC.md "Default cap progression": the cap in force from the eighth badge
+// until the Champion is beaten. Also the ceiling Phase 7 lowers any higher
+// evolution level down to (src/data/evolution_fixes.h).
+#define PRE_CHAMPION_LEVEL_CAP 63
+
 u32 GetProgressionLevelCap(void);        // docs/SPEC.md "Default cap progression" - always meaningful
 u32 GetCurrentLevelCap(void);            // enforcement cap: progression cap in hard mode, else MAX_LEVEL
 u32 GetSoftLevelCapExpValue(u32 level, u32 expValue);

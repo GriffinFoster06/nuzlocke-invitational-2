@@ -10,6 +10,7 @@
 // ============================================================================
 
 #include "global.h"
+#include "learnset_gen.h"
 #include "power_score.h"
 #include "random.h"
 #include "ruleset.h"
@@ -87,6 +88,7 @@ static void ApplyPresetInternal(u32 preset)
         r->values[i] = expanded[i];
 
     PowerScore_Invalidate();
+    LearnsetGen_Invalidate();
 
     if (preset < RULESET_NAMED_PRESET_COUNT)
     {
@@ -230,6 +232,7 @@ void SetRulesetSetting(u32 settingId, u8 value)
     // A species-pool / ability / form toggle may have moved; the Phase 2 power
     // cache re-checks its signature on the next EnsureBuilt.
     PowerScore_Invalidate();
+    LearnsetGen_Invalidate();
 }
 
 // Menu helper: step one option in the direction of `delta` (sign only), wrapping

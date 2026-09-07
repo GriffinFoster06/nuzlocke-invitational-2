@@ -3,39 +3,91 @@
 #include "event_data.h"
 #include "caps.h"
 #include "pokemon.h"
+#include "ruleset.h"
+#include "constants/ruleset.h"
 
+// ============================================================================
+// Phase 4 - Level caps (docs/SPEC.md "Default cap progression", "Hard level
+// caps"). Two distinct notions:
+//   GetProgressionLevelCap() - the spec's per-badge cap, ALWAYS meaningful,
+//     used for UI, the Level-to-Cap target, and clamping found Pokemon.
+//   GetCurrentLevelCap()     - the ENFORCEMENT cap the upstream call sites see;
+//     equals the progression cap only in hard-cap mode, otherwise MAX_LEVEL so
+//     those sites (battle exp clamp, TryIncrementMonLevel, daycare, rare candy)
+//     become no-ops without being touched.
+// The runtime mode comes from SETTING_CAP_MODE, not from include/config/caps.h.
+// ============================================================================
+
+// docs/SPEC.md "Default cap progression". The value returned is the one at the
+// FIRST unset flag, i.e. the row keyed by FLAG_BADGEnn_GET is the cap that
+// applies while that badge is still missing. Returns 0 once the Champion is
+// beaten - the caller substitutes the post-Champion cap.
+static u32 ProgressionCapFromFlags(void)
+{
+    static const u16 sLevelCapFlagMap[][2] =
+    {
+        {FLAG_BADGE01_GET, 14}, // before Roxanne
+        {FLAG_BADGE02_GET, 21}, // after Roxanne / before Brawly
+        {FLAG_BADGE03_GET, 24}, // before Wattson
+        {FLAG_BADGE04_GET, 29}, // before Flannery
+        {FLAG_BADGE05_GET, 36}, // before Norman
+        {FLAG_BADGE06_GET, 43}, // before Winona
+        {FLAG_BADGE07_GET, 47}, // before Tate & Liza
+        {FLAG_BADGE08_GET, 50}, // before Juan
+        {FLAG_IS_CHAMPION,  63}, // eight badges / before Elite Four
+    };
+
+    for (u32 i = 0; i < ARRAY_COUNT(sLevelCapFlagMap); i++)
+    {
+        if (!FlagGet(sLevelCapFlagMap[i][0]))
+            return sLevelCapFlagMap[i][1];
+    }
+    return 0;
+}
+
+u32 GetProgressionLevelCap(void)
+{
+    u32 cap = ProgressionCapFromFlags();
+
+    if (cap == 0) // Champion beaten
+    {
+        cap = GetRulesetSetting(SETTING_POST_CHAMPION_CAP);
+        if (cap < 63) // guard against a malformed stored value
+            cap = 63;
+    }
+    if (cap > MAX_LEVEL)
+        cap = MAX_LEVEL;
+    return cap;
+}
 
 u32 GetCurrentLevelCap(void)
 {
-    static const u32 sLevelCapFlagMap[][2] =
-    {
-        {FLAG_BADGE01_GET, 15},
-        {FLAG_BADGE02_GET, 19},
-        {FLAG_BADGE03_GET, 24},
-        {FLAG_BADGE04_GET, 29},
-        {FLAG_BADGE05_GET, 31},
-        {FLAG_BADGE06_GET, 33},
-        {FLAG_BADGE07_GET, 42},
-        {FLAG_BADGE08_GET, 46},
-        {FLAG_IS_CHAMPION, 58},
-    };
-
-    u32 i;
-
-    if (B_LEVEL_CAP_TYPE == LEVEL_CAP_FLAG_LIST)
-    {
-        for (i = 0; i < ARRAY_COUNT(sLevelCapFlagMap); i++)
-        {
-            if (!FlagGet(sLevelCapFlagMap[i][0]))
-                return sLevelCapFlagMap[i][1];
-        }
-    }
-    else if (B_LEVEL_CAP_TYPE == LEVEL_CAP_VARIABLE)
-    {
-        return VarGet(B_LEVEL_CAP_VARIABLE);
-    }
-
+    if (GetRulesetSetting(SETTING_CAP_MODE) == CAPMODE_HARD)
+        return GetProgressionLevelCap();
     return MAX_LEVEL;
+}
+
+bool32 IsLevelOverCap(u32 level)
+{
+    if (GetRulesetSetting(SETTING_CAP_MODE) == CAPMODE_OFF)
+        return FALSE;
+    return level > GetProgressionLevelCap();
+}
+
+// docs/SPEC.md "Caught Pokemon above the cap": found Pokemon should simply never
+// exist above the cap. Callers apply this to wild / gift / static levels. No-op
+// when caps are turned off entirely.
+u8 Caps_ClampLevel(u8 level)
+{
+    u32 cap;
+
+    if (GetRulesetSetting(SETTING_CAP_MODE) == CAPMODE_OFF)
+        return level;
+
+    cap = GetProgressionLevelCap();
+    if (level > cap)
+        return cap;
+    return level;
 }
 
 u32 GetSoftLevelCapExpValue(u32 level, u32 expValue)
@@ -43,43 +95,34 @@ u32 GetSoftLevelCapExpValue(u32 level, u32 expValue)
     static const u32 sExpScalingDown[5] = { 4, 8, 16, 32, 64 };
     static const u32 sExpScalingUp[5]   = { 16, 8, 4, 2, 1 };
 
+    u32 mode = GetRulesetSetting(SETTING_CAP_MODE);
+    u32 cap = GetProgressionLevelCap();
     u32 levelDifference;
-    u32 currentLevelCap = GetCurrentLevelCap();
 
-    if (B_EXP_CAP_TYPE == EXP_CAP_NONE)
+    if (mode == CAPMODE_OFF || mode == CAPMODE_WARNING)
         return expValue;
 
-    if (level < currentLevelCap)
+    if (level < cap)
     {
         if (B_LEVEL_CAP_EXP_UP)
         {
-            levelDifference = currentLevelCap - level;
+            levelDifference = cap - level;
             if (levelDifference > ARRAY_COUNT(sExpScalingUp) - 1)
                 return expValue + (expValue / sExpScalingUp[ARRAY_COUNT(sExpScalingUp) - 1]);
             else
                 return expValue + (expValue / sExpScalingUp[levelDifference]);
         }
-        else
-        {
-            return expValue;
-        }
+        return expValue;
     }
-    else if (B_EXP_CAP_TYPE == EXP_CAP_HARD)
-    {
+
+    if (mode == CAPMODE_HARD)
         return 0;
-    }
-    else if (B_EXP_CAP_TYPE == EXP_CAP_SOFT)
-    {
-        levelDifference = level - currentLevelCap;
-        if (levelDifference > ARRAY_COUNT(sExpScalingDown) - 1)
-            return expValue / sExpScalingDown[ARRAY_COUNT(sExpScalingDown) - 1];
-        else
-            return expValue / sExpScalingDown[levelDifference];
-    }
-    else
-    {
-       return expValue;
-    }
+
+    // CAPMODE_SOFT: reduced experience past the cap.
+    levelDifference = level - cap;
+    if (levelDifference > ARRAY_COUNT(sExpScalingDown) - 1)
+        return expValue / sExpScalingDown[ARRAY_COUNT(sExpScalingDown) - 1];
+    return expValue / sExpScalingDown[levelDifference];
 }
 
 u32 GetCurrentEVCap(void)

@@ -18,8 +18,11 @@
 #error "Invalid choice for B_EV_CAP_TYPE, must be one of [EV_CAP_NONE, EV_CAP_FLAG_LIST, EV_CAP_VARIABLE, EV_CAP_NO_GAIN]"
 #endif
 
-u32 GetCurrentLevelCap(void);
+u32 GetProgressionLevelCap(void);        // docs/SPEC.md "Default cap progression" - always meaningful
+u32 GetCurrentLevelCap(void);            // enforcement cap: progression cap in hard mode, else MAX_LEVEL
 u32 GetSoftLevelCapExpValue(u32 level, u32 expValue);
 u32 GetCurrentEVCap(void);
+bool32 IsLevelOverCap(u32 level);        // TRUE if level is past the progression cap (and caps aren't off)
+u8 Caps_ClampLevel(u8 level);            // clamp a found-Pokemon level to the progression cap
 
 #endif /* GUARD_CAPS_H */

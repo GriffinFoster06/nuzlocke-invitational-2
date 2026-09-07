@@ -126,6 +126,7 @@ void CreateScriptedWildMon(enum Species species, u8 level, enum Item item)
     u8 heldItem[2];
 
     species = Randomizer_StaticSpecies(species, level, 0);   // docs/SPEC.md "Static Pokemon"
+    level = Caps_ClampLevel(level);                          // docs/SPEC.md "Caught Pokemon above the cap"
 
     ZeroEnemyPartyMons();
     u32 personality = GetMonPersonality(species,
@@ -148,6 +149,8 @@ void CreateScriptedDoubleWildMon(enum Species species1, u8 level1, enum Item ite
 
     species1 = Randomizer_StaticSpecies(species1, level1, 0);
     species2 = Randomizer_StaticSpecies(species2, level2, 1);
+    level1 = Caps_ClampLevel(level1);                        // docs/SPEC.md "Caught Pokemon above the cap"
+    level2 = Caps_ClampLevel(level2);
 
     ZeroEnemyPartyMons();
     u32 personality = GetMonPersonality(species1,
@@ -393,6 +396,7 @@ u32 ScriptGiveMon(enum Species species, u8 level, enum Item item)
     struct Pokemon mon;
     u8 heldItem[2];
 
+    level = Caps_ClampLevel(level); // docs/SPEC.md "Caught Pokemon above the cap"
     CreateRandomMon(&mon, species, level);
     if (item)
     {
@@ -462,6 +466,8 @@ void ScrCmd_createmon(struct ScriptContext *ctx)
         Script_RequestEffects(SCREFF_V1 | SCREFF_SAVE);
         monTemplate.origin = GIFTMON_ORIGIN;
         Randomizer_ApplyGiftTemplate(&monTemplate);   // docs/SPEC.md "Gift Pokemon"
+        if (!monTemplate.isEgg)                        // docs/SPEC.md "Caught Pokemon above the cap"
+            monTemplate.level = Caps_ClampLevel(monTemplate.level);
     }
     else
     {

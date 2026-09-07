@@ -18,6 +18,7 @@
 #include "pokemon.h"
 #include "random.h"
 #include "randomizer.h"
+#include "caps.h"
 #include "nuzlocke.h"
 #include "roamer.h"
 #include "safari_zone.h"
@@ -372,7 +373,7 @@ static u32 ChooseWildMonIndex_Fishing(u8 rod)
     return wildMonIndex;
 }
 
-u8 ChooseWildMonLevel(const struct WildPokemon *wildPokemon, u8 wildMonIndex, enum WildPokemonArea area)
+static u8 ChooseWildMonLevelUnclamped(const struct WildPokemon *wildPokemon, u8 wildMonIndex, enum WildPokemonArea area)
 {
     u8 min;
     u8 max;
@@ -419,6 +420,13 @@ u8 ChooseWildMonLevel(const struct WildPokemon *wildPokemon, u8 wildMonIndex, en
         else // Failsafe
             return wildPokemon[wildMonIndex].maxLevel + 1;
     }
+}
+
+// docs/SPEC.md "Caught Pokemon above the cap": a wild Pokemon must never appear
+// above the current progression cap.
+u8 ChooseWildMonLevel(const struct WildPokemon *wildPokemon, u8 wildMonIndex, enum WildPokemonArea area)
+{
+    return Caps_ClampLevel(ChooseWildMonLevelUnclamped(wildPokemon, wildMonIndex, area));
 }
 
 u16 GetCurrentMapWildMonHeaderId(void)

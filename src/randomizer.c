@@ -8,22 +8,14 @@
 #include "power_score.h"
 #include "random.h"
 #include "randomizer.h"
+#include "run_rng.h"
 #include "ruleset.h"
 #include "constants/pokemon.h"
 #include "constants/ruleset.h"
 #include "constants/species.h"
 
-// Distinct per-category salts (docs/SPEC.md "Separate deterministic
-// randomization systems"). ASCII mnemonics; values are arbitrary but fixed.
-#define SALT_WILD_SLOT    0x574C5344  // "WLSD"
-#define SALT_WILD_ROUTE   0x574C5254  // "WLRT"
-#define SALT_WILD_GLOBAL  0x574C4742  // "WLGB"
-#define SALT_STARTER      0x53544152  // "STAR"
-#define SALT_STARTER_IV   0x53544956  // "STIV"
-#define SALT_GIFT         0x47494654  // "GIFT"
-#define SALT_STATIC       0x53544154  // "STAT"
-#define SALT_ROAMER       0x524F414D  // "ROAM"
-// Reserved for later phases: trainers, learnsets, abilities, TMs, tutors, items.
+// Per-category salts and the seed helper now live in include/run_rng.h so the
+// Phase 4 learnset generator shares one implementation.
 
 #define STARTER_DEDUP_ATTEMPTS 24
 
@@ -39,11 +31,7 @@ bool32 Randomizer_LegendaryEnabled(void) { return GetRulesetSetting(SETTING_LEGE
 
 // ---- seeding ------------------------------------------------------------------
 
-static rng_value_t SeedFor(u32 salt, u32 k0, u32 k1, u32 k2)
-{
-    const u32 pieces[5] = { GetRunSeed(), salt, k0, k1, k2 };
-    return LocalRandomSeed(Crc32B((const u8 *)pieces, sizeof(pieces)));
-}
+#define SeedFor(salt, k0, k1, k2) RunRng_Seed((salt), (k0), (k1), (k2))
 
 static bool32 IsReplaceableTarget(enum Species species)
 {

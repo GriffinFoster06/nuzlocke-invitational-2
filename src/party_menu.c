@@ -35,6 +35,7 @@
 #include "item_menu.h"
 #include "item_use.h"
 #include "caps.h"
+#include "level_to_cap.h"
 #include "link.h"
 #include "link_rfu.h"
 #include "mail.h"
@@ -110,6 +111,7 @@ enum {
     MENU_CATALOG_MOWER,
     MENU_CHANGE_FORM,
     MENU_CHANGE_ABILITY,
+    MENU_LEVEL_TO_CAP,   // docs/SPEC.md "Level to Cap"; must stay before MENU_FIELD_MOVES
     MENU_FIELD_MOVES
 };
 
@@ -185,7 +187,7 @@ struct PartyMenuInternal
     u32 spriteIdCancelPokeball:7;
     u32 messageId:14;
     u8 windowId[3];
-    u8 actions[8];
+    u8 actions[10]; // was 8; +1 for the "Level to Cap" field-menu entry (SUMMARY + 4 field moves + SWITCH + ITEM/MAIL + CANCEL already reaches 8)
     u8 numActions;
     // In vanilla Emerald, only the first 0xB0 hwords (0x160 bytes) are actually used.
     // However, a full 0x100 hwords (0x200 bytes) are allocated.
@@ -222,6 +224,10 @@ static EWRAM_DATA enum Item sPartyMenuItemId = 0;
 EWRAM_DATA u8 gBattlePartyCurrentOrder[PARTY_SIZE / 2] = {0}; // bits 0-3 are the current pos of Slot 1, 4-7 are Slot 2, and so on
 static EWRAM_DATA u8 sInitialLevel = 0;
 static EWRAM_DATA u8 sFinalLevel = 0;
+// docs/SPEC.md "Level to Cap": suppress the auto-evolution that the shared
+// level-up move catch-up loop performs when it finishes. Set by
+// CursorCb_LevelToCap, consumed once by PartyMenuTryEvolution.
+static EWRAM_DATA bool8 sLevelToCapSuppressEvo = FALSE;
 
 // IWRAM common
 COMMON_DATA void (*gItemUseCB)(u8, TaskFunc) = NULL;
@@ -482,6 +488,7 @@ static void CursorCb_CatalogFan(u8);
 static void CursorCb_CatalogMower(u8);
 static void CursorCb_ChangeForm(u8);
 static void CursorCb_ChangeAbility(u8);
+static void CursorCb_LevelToCap(u8);
 void TryItemHoldFormChange(struct Pokemon *mon, s8 slotId, enum BattleTrainer trainer);
 static void ShowMoveSelectWindow(u8 slot);
 static void Task_HandleWhichMoveInput(u8 taskId);
@@ -2953,6 +2960,10 @@ static void SetPartyMonFieldSelectionActions(struct Pokemon *mons, u8 slotId)
 
     sPartyMenuInternal->numActions = 0;
     AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_SUMMARY);
+
+    // docs/SPEC.md "Level to Cap"
+    if (LevelToCap_IsAvailable(&mons[slotId]))
+        AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, MENU_LEVEL_TO_CAP);
 
     // Add field moves to action list
     for (i = 0; i < MAX_MON_MOVES; i++)
@@ -6040,6 +6051,15 @@ static void PartyMenuTryEvolution(u8 taskId)
     sInitialLevel = 0;
     sFinalLevel = 0;
 
+    // docs/SPEC.md "Level to Cap" must not auto-evolve - evolution is a
+    // separate, deliberate decision. Return to the party list instead.
+    if (sLevelToCapSuppressEvo)
+    {
+        sLevelToCapSuppressEvo = FALSE;
+        gTasks[taskId].func = Task_ReturnToChooseMonAfterText;
+        return;
+    }
+
     targetSpecies = GetEvolutionTargetSpecies(mon, EVO_MODE_NORMAL, ITEM_NONE, NULL, &canStopEvo, CHECK_EVO);
 
     if (targetSpecies != SPECIES_NONE)
@@ -6959,6 +6979,51 @@ static void CursorCb_ChangeAbility(u8 taskId)
 {
     gSpecialVar_Result = 1;
     TryMultichoiceFormChange(taskId);
+}
+
+// docs/SPEC.md "Level to Cap". Jump the mon to its target level, then hand off
+// to the shared level-up stats / move catch-up flow (Task_DisplayLevelUpStatsPg1
+// -> Task_TryLearnNewMoves), which presents every skipped level-up move in
+// chronological order. sLevelToCapSuppressEvo stops that flow from evolving the
+// mon when it finishes.
+static void CursorCb_LevelToCap(u8 taskId)
+{
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][gPartyMenu.slotId];
+    struct PartyMenuInternal *ptr = sPartyMenuInternal;
+    s16 *arrayPtr = ptr->data;
+    u8 target;
+
+    PlaySE(SE_SELECT);
+
+    sInitialLevel = GetMonData(mon, MON_DATA_LEVEL);
+    target = LevelToCap_GetTargetLevel(mon);
+
+    if (target <= sInitialLevel) // nothing to do
+    {
+        sInitialLevel = 0;
+        gPartyMenuUseExitCallback = FALSE;
+        DisplayPartyMenuMessage(gText_WontHaveEffect, TRUE);
+        ScheduleBgCopyTilemapToVram(2);
+        gTasks[taskId].func = Task_ReturnToChooseMonAfterText;
+        return;
+    }
+
+    BufferMonStatsToTaskData(mon, arrayPtr);
+    LevelToCap_ApplyLevel(mon, target);
+    BufferMonStatsToTaskData(mon, &ptr->data[NUM_STATS]);
+
+    sFinalLevel = GetMonData(mon, MON_DATA_LEVEL);
+    sLevelToCapSuppressEvo = TRUE;
+    gPartyMenuUseExitCallback = TRUE;
+    UpdateMonDisplayInfoAfterRareCandy(gPartyMenu.slotId, mon);
+
+    GetMonNickname(mon, gStringVar1);
+    PlayFanfareByFanfareNum(FANFARE_LEVEL_UP);
+    ConvertIntToDecimalStringN(gStringVar2, sFinalLevel, STR_CONV_MODE_LEFT_ALIGN, 3);
+    StringExpandPlaceholders(gStringVar4, gText_PkmnElevatedToLvVar2);
+    DisplayPartyMenuMessage(gStringVar4, TRUE);
+    ScheduleBgCopyTilemapToVram(2);
+    gTasks[taskId].func = Task_DisplayLevelUpStatsPg1;
 }
 
 void TryItemHoldFormChange(struct Pokemon *mon, s8 slotId, enum BattleTrainer trainer)

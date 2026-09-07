@@ -11,12 +11,19 @@
 #define LEVEL_CAP_VARIABLE              2 // Level cap is chosen according to the contents of the event variable specified by B_LEVEL_CAP_VARIABLE
 
 // Level Cap Configs
-#define B_EXP_CAP_TYPE                  EXP_CAP_NONE   // [EXP_CAP_NONE, EXP_CAP_HARD, EXP_CAP_SOFT] choose the type of level cap to apply
-#define B_LEVEL_CAP_TYPE                LEVEL_CAP_NONE // [LEVEL_CAP_NONE, LEVEL_CAP_FLAG_LIST, LEVEL_CAP_VARIABLE] choose the method to derive the level cap
-#define B_LEVEL_CAP_VARIABLE            0 // event variable used to derive level cap if B_LEVEL_CAP_TYPE is set to LEVEL_CAP_VARIABLE
+// Nuzlocke-Randomizer: the cap system is always compiled in; the runtime
+// behavior (hard / soft / warning / off) and the per-badge cap table are driven
+// by SETTING_CAP_MODE / SETTING_POST_CHAMPION_CAP, not by these switches. See
+// src/caps.c (GetProgressionLevelCap / GetCurrentLevelCap). Leaving
+// B_EXP_CAP_TYPE at EXP_CAP_HARD keeps the upstream call sites compiled in;
+// GetCurrentLevelCap() returns MAX_LEVEL whenever the run isn't in hard-cap
+// mode, so those sites become no-ops on their own.
+#define B_EXP_CAP_TYPE                  EXP_CAP_HARD       // see note above
+#define B_LEVEL_CAP_TYPE               LEVEL_CAP_FLAG_LIST // see note above
+#define B_LEVEL_CAP_VARIABLE            0 // unused - the flag table lives in src/caps.c
 
-#define B_RARE_CANDY_CAP                FALSE // If set to true, Rare Candies can't be used to go over the level cap
-#define B_LEVEL_CAP_EXP_UP              FALSE // If set to true, mons under level cap will receive more experience
+#define B_RARE_CANDY_CAP               TRUE  // Rare Candy can't cross the cap (only enforced in hard-cap mode)
+#define B_LEVEL_CAP_EXP_UP             FALSE // If set to true, mons under level cap will receive more experience
 
 // EV Cap Constants
 #define EV_CAP_NONE                     0 // Regular behavior, no EV caps are applied

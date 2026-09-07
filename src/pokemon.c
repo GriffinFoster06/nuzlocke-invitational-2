@@ -26,6 +26,7 @@
 #include "frontier_util.h"
 #include "graphics.h"
 #include "item.h"
+#include "learnset_gen.h"
 #include "link.h"
 #include "m4a.h"
 #include "main.h"
@@ -1330,6 +1331,7 @@ void CreateEnemyEventMon(void)
     // pre-battle playmoncry and post-battle bookkeeping vars in these scripts
     // still reference the vanilla species - deferred to Phase 10.
     species = Randomizer_StaticSpecies(species, level, 0);
+    level = Caps_ClampLevel(level); // docs/SPEC.md "Caught Pokemon above the cap"
 
     ZeroEnemyPartyMons();
 
@@ -3300,7 +3302,19 @@ u32 GetSpeciesBaseStatTotal(enum Species species)
 
 const struct LevelUpMove *GetSpeciesLevelUpLearnset(enum Species species)
 {
-    const struct LevelUpMove *learnset = gSpeciesInfo[SanitizeSpeciesId(species)].levelUpLearnset;
+    const struct LevelUpMove *learnset;
+
+    // docs/SPEC.md "Randomized level-up moves": when learnset randomization is
+    // on, every reader of the level-up learnset (initial moveset, level-up
+    // learning, relearner, dex) sees the generated one instead.
+    if (LearnsetGen_IsActive())
+    {
+        const struct LevelUpMove *generated = LearnsetGen_GetLearnset(species);
+        if (generated != NULL)
+            return generated;
+    }
+
+    learnset = gSpeciesInfo[SanitizeSpeciesId(species)].levelUpLearnset;
     if (learnset == NULL)
         return gSpeciesInfo[SPECIES_NONE].levelUpLearnset;
     return learnset;

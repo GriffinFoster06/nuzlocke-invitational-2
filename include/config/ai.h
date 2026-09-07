@@ -13,43 +13,43 @@
 
 // AI smart switching chances; if you want more complex behaviour, modify GetSwitchChance
 #define SHOULD_SWITCH_ABSORBS_MOVE_PERCENTAGE                       100
-#define SHOULD_SWITCH_ABSORBS_HIDDEN_POWER_PERCENTAGE               50
+#define SHOULD_SWITCH_ABSORBS_HIDDEN_POWER_PERCENTAGE               66 // Pro Fair: HP type is not revealed, so this stays a hedge rather than a certainty
 #define SHOULD_SWITCH_TRAPPER_PERCENTAGE                            100
-#define SHOULD_SWITCH_FREE_TURN_PERCENTAGE                          50
+#define SHOULD_SWITCH_FREE_TURN_PERCENTAGE                          90 // Pro Fair: a near-free pivot is almost always taken
 #define STAY_IN_ABSORBING_PERCENTAGE                                66  // Chance to stay in if outgoing mon has super effective move against player, will prevent switching out for an absorber with this likelihood
-#define SHOULD_SWITCH_HASBADODDS_PERCENTAGE                         50
+#define SHOULD_SWITCH_HASBADODDS_PERCENTAGE                         85 // Pro Fair: voluntarily leave losing matchups
 #define SHOULD_SWITCH_ENCORE_STATUS_PERCENTAGE                      100
-#define SHOULD_SWITCH_ENCORE_DAMAGE_PERCENTAGE                      50
+#define SHOULD_SWITCH_ENCORE_DAMAGE_PERCENTAGE                      100 // Pro Fair: escape Encore (spec) whether locked into a status or damaging move
 #define SHOULD_SWITCH_CHOICE_LOCKED_PERCENTAGE                      100 // Only if locked into status move
-#define SHOULD_SWITCH_ATTACKING_STAT_MINUS_TWO_PERCENTAGE           50
+#define SHOULD_SWITCH_ATTACKING_STAT_MINUS_TWO_PERCENTAGE           90 // Pro Fair: -2 offense is a "severe stat reduction" (spec)
 #define SHOULD_SWITCH_ATTACKING_STAT_MINUS_THREE_PLUS_PERCENTAGE    100
 #define SHOULD_SWITCH_ALL_SCORES_BAD_PERCENTAGE                     100
-#define SHOULD_SWITCH_DYN_FUNC_PERCENTAGE                           50 // Dynamic switching function switch chance
-#define SHOULD_SWITCH_LOSES_1V1_PERCENTAGE                          0 // Keeping this disabled by default makes evaluating and testing switching behaviour when developing much easier
+#define SHOULD_SWITCH_DYN_FUNC_PERCENTAGE                           100 // Pro Fair: designer-scripted per-battle switch decision should always execute
+#define SHOULD_SWITCH_LOSES_1V1_PERCENTAGE                          60 // Pro Fair: act on a lost 1v1 read; kept <100 so it is not a free double-switch tell. NEEDS PLAYTESTING - was 0 to ease dev testing
 
 // AI smart switching chances for bad statuses
 #define SHOULD_SWITCH_PERISH_SONG_PERCENTAGE                    100
 #define SHOULD_SWITCH_YAWN_PERCENTAGE                           100
-#define SHOULD_SWITCH_BADLY_POISONED_PERCENTAGE                 50
-#define SHOULD_SWITCH_BADLY_POISONED_STATS_RAISED_PERCENTAGE    20
-#define SHOULD_SWITCH_CURSED_PERCENTAGE                         50
-#define SHOULD_SWITCH_CURSED_STATS_RAISED_PERCENTAGE            20
-#define SHOULD_SWITCH_NIGHTMARE_PERCENTAGE                      33
-#define SHOULD_SWITCH_NIGHTMARE_STATS_RAISED_PERCENTAGE         15
-#define SHOULD_SWITCH_SEEDED_PERCENTAGE                         25
+#define SHOULD_SWITCH_BADLY_POISONED_PERCENTAGE                 80 // Pro Fair: preserve mons vs escalating passive damage
+#define SHOULD_SWITCH_BADLY_POISONED_STATS_RAISED_PERCENTAGE    20 // Left low on purpose: after setup, eating chip to keep the sweep is the correct read
+#define SHOULD_SWITCH_CURSED_PERCENTAGE                         80 // Pro Fair
+#define SHOULD_SWITCH_CURSED_STATS_RAISED_PERCENTAGE            20 // Left low on purpose (see above)
+#define SHOULD_SWITCH_NIGHTMARE_PERCENTAGE                      66 // Pro Fair
+#define SHOULD_SWITCH_NIGHTMARE_STATS_RAISED_PERCENTAGE         15 // Left low on purpose (see above)
+#define SHOULD_SWITCH_SEEDED_PERCENTAGE                         60 // Pro Fair
 #define SHOULD_SWITCH_SEEDED_STATS_RAISED_PERCENTAGE            10
 #define SHOULD_SWITCH_INFATUATION_PERCENTAGE                    100
 
 // AI smart switching chances for beneficial abilities
-#define SHOULD_SWITCH_NATURAL_CURE_STRONG_PERCENTAGE                66
+#define SHOULD_SWITCH_NATURAL_CURE_STRONG_PERCENTAGE                85 // Pro Fair: use Natural Cure pivots (spec)
 #define SHOULD_SWITCH_NATURAL_CURE_STRONG_STATS_RAISED_PERCENTAGE   10
-#define SHOULD_SWITCH_NATURAL_CURE_WEAK_PERCENTAGE                  25
+#define SHOULD_SWITCH_NATURAL_CURE_WEAK_PERCENTAGE                  50 // Pro Fair
 #define SHOULD_SWITCH_NATURAL_CURE_WEAK_STATS_RAISED_PERCENTAGE     10
-#define SHOULD_SWITCH_REGENERATOR_PERCENTAGE                        50
+#define SHOULD_SWITCH_REGENERATOR_PERCENTAGE                        80 // Pro Fair: use Regenerator pivots (spec)
 #define SHOULD_SWITCH_REGENERATOR_STATS_RAISED_PERCENTAGE           20
-#define SHOULD_SWITCH_INTIMIDATE_PERCENTAGE                         25
+#define SHOULD_SWITCH_INTIMIDATE_PERCENTAGE                         25 // Left as-is: cycling Intimidate for chip value usually wastes tempo
 #define SHOULD_SWITCH_INTIMIDATE_STATS_RAISED_PERCENTAGE            10
-#define SHOULD_SWITCH_WISH_PASSING_PERCENTAGE                       50
+#define SHOULD_SWITCH_WISH_PASSING_PERCENTAGE                       75 // Pro Fair: pass Wish to preserve valuable mons
 
 // AI switchin considerations
 #define ALL_MOVES_BAD_STATUS_MOVES_BAD                          FALSE // If the AI has no moves that affect the target, ShouldSwitchIfAllMovesBad can prompt a switch. Enabling this config will ignore status moves that can affect the target when making this decision.
@@ -69,19 +69,19 @@
 // AI move scoring
 #define STATUS_MOVE_FOCUS_PUNCH_CHANCE                          50 // Chance the AI will use a status move if the player's best move is Focus Punch
 #define BOOST_INTO_HAZE_CHANCE                                  0 // Chance the AI will use a stat boosting move if the player has used Haze
-#define SHOULD_RECOVER_CHANCE                                   50 // Chance the AI will give recovery moves score increase if less than ENABLE_RECOVERY_THRESHOLD and in no immediate danger
+#define SHOULD_RECOVER_CHANCE                                   85 // Pro Fair: reliably recover when below threshold and not in immediate danger
 #define ENABLE_RECOVERY_THRESHOLD                               60 // HP percentage beneath which SHOULD_RECOVER_CHANCE is active
 #define SUCKER_PUNCH_CHANCE                                     50 // Chance for the AI to not use Sucker Punch if the player has a status move
 #define SUCKER_PUNCH_PREDICTION_CHANCE                          50 // Additional chance for the AI to not use Sucker Punch if actively predicting a status move if SUCKER_PUNCH_CHANCE fails
-#define PRIORITIZE_LAST_CHANCE_CHANCE                           50 // Chance the AI will prioritize Last Chance (priority move in the face of being outsped and KO'd) over Slow KO
+#define PRIORITIZE_LAST_CHANCE_CHANCE                           80 // Pro Fair: a guaranteed priority hit before dying beats a coin-flip slow KO
 #define LAST_MON_PREFERS_NOT_SACRIFICE                          FALSE // Whether the AI will be hesitant to use self-sacrificing moves (Explosion, Final Gambit) with their last mon
 #define EXPLOSION_LOWER_HP_THRESHOLD                            10 // HP percentage at or beneath which the AI has a 90% chance to explode; otherwise scales between this and higher threshold
 #define EXPLOSION_HIGHER_HP_THRESHOLD                           90 // HP percentage at or above which the AI has a 0% chance to explode; otherwise scales between this and lower threshold
 #define EXPLOSION_MINIMUM_CHANCE                                0 // Lowest possible percent chance of the AI using explosion based on its current HP
 #define EXPLOSION_MAXIMUM_CHANCE                                90 // Highest possible percent chance of the AI using explosion based on its current HP
 #define FINAL_GAMBIT_CHANCE                                     50 // Chance for AI to consider using Final Gambit if it outspeeds the player and thinks it has more HP
-#define SHOULD_PIVOT_BREAK_SASH_CHANCE                          50 // Chance for ShouldPivot to return true when trying to break Multiscale and Focus Sash type effects while having a good switchin
-#define FAKE_OUT_SAVE_ALLY_CHANCE                               50 // Chance for AI to Fake Out to save its ally when ally is fast KO'd by both opponents
+#define SHOULD_PIVOT_BREAK_SASH_CHANCE                          85 // Pro Fair: break Sash/Multiscale with a pivot move when a good switchin is in hand
+#define FAKE_OUT_SAVE_ALLY_CHANCE                               80 // Pro Fair: coordinate doubles - Fake Out to save a threatened ally
 
 // AI damage calc considerations
 #define RISKY_AI_CRIT_STAGE_THRESHOLD                           2   // Stat stages at which Risky will assume it gets a crit
@@ -105,7 +105,7 @@
 #define AI_ROLL_ATTACKING_PARTNER                               AI_ROLL_MAX
 
 // AI prediction chances
-#define PREDICT_SWITCH_CHANCE                                   50
+#define PREDICT_SWITCH_CHANCE                                   80 // Pro Fair: strong switch prediction. Still fallible - AI never sees the player's actual choice (spec)
 #define PREDICT_MOVE_CHANCE                                     100
 
 // AI Terastalization chances
@@ -113,7 +113,7 @@
 #define AI_TERA_PREDICT_CHANCE                                  40 // Chance for AI with smart tera flag to tera in the situation where tera would save it from a KO, but could be punished by a KO from a different move.
 
 // AI_FLAG_PP_STALL_PREVENTION settings
-#define PP_STALL_DISREGARD_MOVE_PERCENTAGE                      50 // Detection chance per roll
+#define PP_STALL_DISREGARD_MOVE_PERCENTAGE                      75 // Detection chance per roll. Pro Fair: notice immunity/stall switching patterns from legal info
 #define PP_STALL_SCORE_REDUCTION                                20 // Score reduction if any roll for PP stall detection passes
 
 // AI_FLAG_ASSUME_STAB settings
@@ -122,10 +122,10 @@
 // AI_FLAG_ASSUME_STATUS_MOVES settings
 #define ASSUME_STATUS_MOVES_HAS_TUNING                  TRUE // Flag has varying rates for different kinds of status move.
                                                              // Setting to false also means it will not alert on Fake Out or Super Fang.
-#define ASSUME_STATUS_HIGH_ODDS                         90 // Chance for AI to see extremely likely moves for a Pokémon to have, like Spore
-#define ASSUME_STATUS_MEDIUM_ODDS                       70 // Chance for AI to see moderately likely moves for a Pokémon to have, like Protect
-#define ASSUME_STATUS_LOW_ODDS                          40 // Chance for AI to see niche moves a Pokémon may have but probably won't, like Entrainment
-#define ASSUME_ALL_STATUS_ODDS                          25 // Chance for the AI to see any kind of status move.
+#define ASSUME_STATUS_HIGH_ODDS                         90 // Chance for AI to see extremely likely moves for a Pokémon to have, like Spore (already near-certain)
+#define ASSUME_STATUS_MEDIUM_ODDS                       80 // Pro Fair: hedge harder against plausible status tools (spec "AI uncertainty" explicitly sanctions this)
+#define ASSUME_STATUS_LOW_ODDS                          50 // Pro Fair
+#define ASSUME_ALL_STATUS_ODDS                          33 // Pro Fair
 
 // AI_FLAG_SMART_SWITCHING settings
 #define SMART_SWITCHING_OMNISCIENT                              FALSE // AI will use omniscience for switching calcs, regardless of omniscience setting otherwise

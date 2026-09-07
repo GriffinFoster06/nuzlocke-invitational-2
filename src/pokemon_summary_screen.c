@@ -34,6 +34,8 @@
 #include "pokemon_storage_system.h"
 #include "pokemon_summary_screen.h"
 #include "pokerus.h"
+#include "caps.h"
+#include "nuzlocke.h"
 #include "region_map.h"
 #include "scanline_effect.h"
 #include "sound.h"
@@ -3183,38 +3185,49 @@ static void PrintMonInfo(void)
     ScheduleBgCopyTilemapToVram(0);
 }
 
+// Nuzlocke-Randomizer (docs/SPEC.md "Pokemon Summary improvements"): a dead
+// Pokemon or one whose level is past the active cap is flagged in place of the
+// Pokedex number, so the marker rides along on every summary page.
+static const u8 sText_SummaryMarkerDead[] = _("DEAD");
+static const u8 sText_SummaryMarkerOverCap[] = _("{UP_ARROW}CAP");
+
+static const u8 *GetSummaryPortraitStatusMarker(void)
+{
+    if (Nuzlocke_MonIsDead(&sMonSummaryScreen->currentMon))
+        return sText_SummaryMarkerDead;
+    if (IsLevelOverCap(sMonSummaryScreen->summary.level))
+        return sText_SummaryMarkerOverCap;
+    return NULL;
+}
+
 static void PrintNotEggInfo(void)
 {
     struct Pokemon *mon = &sMonSummaryScreen->currentMon;
     struct PokeSummary *summary = &sMonSummaryScreen->summary;
     u16 dexNum = SpeciesToPokedexNum(summary->species);
+    bool8 isShiny = IsMonShiny(mon);
+    const u8 *statusMarker = GetSummaryPortraitStatusMarker();
 
-    if (dexNum != 0xFFFF)
+    if (statusMarker != NULL)
+    {
+        PrintTextOnWindow(PSS_LABEL_WINDOW_PORTRAIT_DEX_NUMBER, statusMarker, 0, 1, 0, 7);
+        PutWindowTilemap(PSS_LABEL_WINDOW_PORTRAIT_DEX_NUMBER);
+    }
+    else if (dexNum != 0xFFFF)
     {
         u8 digitCount = (NATIONAL_DEX_COUNT > 999 && IsNationalPokedexEnabled()) ? 4 : 3;
         StringCopy(gStringVar1, &gText_NumberClear01[0]);
         ConvertIntToDecimalStringN(gStringVar2, dexNum, STR_CONV_MODE_LEADING_ZEROS, digitCount);
         StringAppend(gStringVar1, gStringVar2);
-        if (!IsMonShiny(mon))
-        {
-            PrintTextOnWindow(PSS_LABEL_WINDOW_PORTRAIT_DEX_NUMBER, gStringVar1, 0, 1, 0, 1);
-            SetMonPicBackgroundPalette(FALSE);
-        }
-        else
-        {
-            PrintTextOnWindow(PSS_LABEL_WINDOW_PORTRAIT_DEX_NUMBER, gStringVar1, 0, 1, 0, 7);
-            SetMonPicBackgroundPalette(TRUE);
-        }
+        PrintTextOnWindow(PSS_LABEL_WINDOW_PORTRAIT_DEX_NUMBER, gStringVar1, 0, 1, 0, isShiny ? 7 : 1);
         PutWindowTilemap(PSS_LABEL_WINDOW_PORTRAIT_DEX_NUMBER);
     }
     else
     {
         ClearWindowTilemap(PSS_LABEL_WINDOW_PORTRAIT_DEX_NUMBER);
-        if (!IsMonShiny(mon))
-            SetMonPicBackgroundPalette(FALSE);
-        else
-            SetMonPicBackgroundPalette(TRUE);
     }
+    SetMonPicBackgroundPalette(isShiny);
+
     StringCopy(gStringVar1, gText_LevelSymbol);
     ConvertIntToDecimalStringN(gStringVar2, summary->level, STR_CONV_MODE_LEFT_ALIGN, 3);
     StringAppend(gStringVar1, gStringVar2);
@@ -3593,11 +3606,51 @@ static void PrintMonTrainerMemo(void)
     PrintTextOnWindow(AddWindowFromTemplateList(sPageInfoTemplate, PSS_DATA_WINDOW_INFO_MEMO), gStringVar4, 0, 1, 0, 0);
 }
 
+// Nuzlocke-Randomizer (docs/SPEC.md "IV / EV / Nature display"): the trainer
+// memo spells out which stat the nature raises and which it lowers, so the
+// boost/drop is legible without decoding the skills-page stat colours. Neutral
+// natures get no suffix.
+static const u8 *GetNatureStatIndicator(u32 nature)
+{
+    static const u8 sStatAbbrevAtk[]   = _("AT");
+    static const u8 sStatAbbrevDef[]   = _("DF");
+    static const u8 sStatAbbrevSpeed[] = _("SP");
+    static const u8 sStatAbbrevSpAtk[] = _("SA");
+    static const u8 sStatAbbrevSpDef[] = _("SD");
+    static const u8 sArrowUp[]         = _(" {UP_ARROW}");
+    static const u8 sArrowDown[]       = _(" {DOWN_ARROW}");
+    static const u8 *const sStatAbbrev[NUM_STATS] =
+    {
+        [STAT_HP]    = gText_EmptyString5,
+        [STAT_ATK]   = sStatAbbrevAtk,
+        [STAT_DEF]   = sStatAbbrevDef,
+        [STAT_SPEED] = sStatAbbrevSpeed,
+        [STAT_SPATK] = sStatAbbrevSpAtk,
+        [STAT_SPDEF] = sStatAbbrevSpDef,
+    };
+    static u8 sBuffer[24];
+    enum Stat up = gNaturesInfo[nature].statUp;
+    enum Stat down = gNaturesInfo[nature].statDown;
+    u8 *ptr = sBuffer;
+
+    if (up == down || up >= NUM_STATS || down >= NUM_STATS)
+    {
+        sBuffer[0] = EOS;
+        return sBuffer;
+    }
+
+    ptr = StringCopy(ptr, sArrowUp);
+    ptr = StringCopy(ptr, sStatAbbrev[up]);
+    ptr = StringCopy(ptr, sArrowDown);
+    StringCopy(ptr, sStatAbbrev[down]);
+    return sBuffer;
+}
+
 static void BufferNatureString(void)
 {
     struct PokemonSummaryScreenData *sumStruct = sMonSummaryScreen;
     DynamicPlaceholderTextUtil_SetPlaceholderPtr(2, gNaturesInfo[sumStruct->summary.nature].name);
-    DynamicPlaceholderTextUtil_SetPlaceholderPtr(5, gText_EmptyString5);
+    DynamicPlaceholderTextUtil_SetPlaceholderPtr(5, GetNatureStatIndicator(sumStruct->summary.nature));
 }
 
 static void GetMetLevelString(u8 *output)

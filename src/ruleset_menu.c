@@ -67,11 +67,16 @@ static void Task_RulesetMenuFadeInReal(u8 taskId);
 static void Task_RulesetMenuProcessInput(u8 taskId);
 static void Task_RulesetMenuFadeOut(u8 taskId);
 
-static const u8 sText_HeaderFmt[]   = _("RULESET  {STR_VAR_1}");
-static const u8 sText_CategoryFmt[] = _("{STR_VAR_1}/{STR_VAR_2}  {STR_VAR_3}");
-static const u8 sText_Locked[]      = _("  (locked)");
-static const u8 sText_Controls[]    = _("{DPAD_LEFTRIGHT}value  L R page  START preset  SELECT reset");
-static const u8 sText_SeedPrefix[]  = _("0x");
+// docs/SPEC.md "Run seed": Run Information shows the active ruleset, its stored
+// format version (so a seed stays reproducible across ROM updates), and the run
+// seed itself. This screen is that panel - the header carries all three and the
+// Preset/Seed category lists the seed row for manual entry / reroll.
+static const u8 sText_HeaderFmt[]     = _("RULESET  {STR_VAR_1}  v{STR_VAR_2}");
+static const u8 sText_SeedHeaderFmt[] = _("SEED 0x{STR_VAR_1}");
+static const u8 sText_CategoryFmt[]   = _("{STR_VAR_1}/{STR_VAR_2}  {STR_VAR_3}");
+static const u8 sText_Locked[]        = _("  (locked)");
+static const u8 sText_Controls[]      = _("{DPAD_LEFTRIGHT}value  L R page  START preset  SELECT reset");
+static const u8 sText_SeedPrefix[]    = _("0x");
 
 static const struct BgTemplate sRulesetMenuBgTemplates[] =
 {
@@ -162,8 +167,13 @@ static void RulesetMenu_DrawHeader(void)
     FillWindowPixelBuffer(sState->windowIds[RSWIN_HEADER], PIXEL_FILL(1));
 
     StringCopy(gStringVar1, GetRulesetPresetName(GetDisplayedRulesetPreset()));
+    ConvertIntToDecimalStringN(gStringVar2, RULESET_VERSION, STR_CONV_MODE_LEFT_ALIGN, 3);
     StringExpandPlaceholders(gStringVar4, sText_HeaderFmt);
     AddTextPrinterParameterized(sState->windowIds[RSWIN_HEADER], FONT_NORMAL, gStringVar4, 0, 0, TEXT_SKIP_DRAW, NULL);
+
+    ConvertIntToHexStringN(gStringVar1, GetRunSeed(), STR_CONV_MODE_LEADING_ZEROS, 8);
+    StringExpandPlaceholders(gStringVar4, sText_SeedHeaderFmt);
+    AddTextPrinterParameterized(sState->windowIds[RSWIN_HEADER], FONT_SMALL, gStringVar4, 0, 4, TEXT_SKIP_DRAW, NULL);
 
     ConvertIntToDecimalStringN(gStringVar1, sState->category + 1, STR_CONV_MODE_LEFT_ALIGN, 2);
     ConvertIntToDecimalStringN(gStringVar2, SETTING_CAT_COUNT, STR_CONV_MODE_LEFT_ALIGN, 2);

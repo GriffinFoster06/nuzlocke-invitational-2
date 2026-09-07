@@ -26,11 +26,26 @@ struct FieldMoveInfo
     u32 partyMsgID:7;
     u32 arg:8;
     u32 hideIfLocked:1;
-    u32 padding:3;
+    u32 hmFree:1;       // docs/SPEC.md "HM-free traversal": a required field
+                        // interaction that HM-Free Traversal frees from the
+                        // "a party member must know the move" requirement.
+    u32 padding:2;
 };
 
 extern const struct FieldMoveInfo gFieldMoveInfo[];
 extern const struct FieldMoveUnlock gFieldMoveUnlocks[];
+
+// docs/SPEC.md "HM-free traversal". When SETTING_HM_FREE_TRAVERSAL is on, a
+// required field interaction only needs story/badge permission, not a party
+// member that knows the move.
+bool32 FieldMove_HmFreeOn(void);
+bool32 FieldMove_IsHmFree(enum FieldMove fieldMove);
+// Party slot to show performing fieldMove: the first mon that knows it, else
+// (HM-free only) a sensible stand-in, else PARTY_SIZE.
+u32 FieldMove_GetUserSlot(enum FieldMove fieldMove);
+// Whether Fly may be triggered from the Town Map / region map (OW_FLAG_POKE_RIDER
+// or HM-free with the Fly badge).
+bool32 FieldMove_PokeRiderEnabled(void);
 
 static inline bool32 SetUpFieldMove(enum FieldMove fieldMove)
 {

@@ -4,6 +4,7 @@
 #include "landmark.h"
 #include "event_data.h"
 #include "field_effect.h"
+#include "field_move.h"
 #include "main.h"
 #include "menu.h"
 #include "overworld.h"
@@ -220,7 +221,7 @@ static u32 HandleRegionMapInput(struct Pokenav_RegionMapMenu *state)
         state->callback = GetExitRegionMapMenuId;
         return POKENAV_MAP_FUNC_EXIT;
     case MAP_INPUT_R_BUTTON:
-        if (regionMap->mapSecType == MAPSECTYPE_CITY_CANFLY && FlagGet(OW_FLAG_POKE_RIDER)
+        if (regionMap->mapSecType == MAPSECTYPE_CITY_CANFLY && FieldMove_PokeRiderEnabled()
         && Overworld_MapTypeAllowsTeleportAndFly(gMapHeader.mapType) == TRUE)
             return POKENAV_MAP_FUNC_FLY;
     }
@@ -772,7 +773,7 @@ void UpdateRegionMapHelpBarText(void)
 {
     struct RegionMap* regionMap = GetSubstructPtr(POKENAV_SUBSTRUCT_REGION_MAP);
 
-    if (regionMap->mapSecType == MAPSECTYPE_CITY_CANFLY && FlagGet(OW_FLAG_POKE_RIDER)
+    if (regionMap->mapSecType == MAPSECTYPE_CITY_CANFLY && FieldMove_PokeRiderEnabled()
         && Overworld_MapTypeAllowsTeleportAndFly(gMapHeader.mapType) == TRUE)
     {
         if (IsRegionMapZoomed())

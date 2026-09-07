@@ -221,6 +221,7 @@ gSpecials::
 	def_special SetCB2WhiteOut, waitstate=1
 	def_special BufferNuzlockeRunOverStats
 	def_special StartNuzlockeNewAttempt, waitstate=1
+	def_special TryGiveBallNpc999
 	def_special RotatingGate_InitPuzzle
 	def_special RotatingGate_InitPuzzleAndGraphics
 	def_special SetSSTidalFlag

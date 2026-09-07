@@ -631,8 +631,8 @@ Phase 10.)*
   Birch introduction shortened; forced rival-house trip removed; starter
   selection reached almost immediately; Birch rescue tutorial battle
   shortenable/skippable in strict mode.
-- **First rival battle** (Route 103): retained; no forced walk back to
-  Birch's lab afterward; Pokédex/Balls/Running can be awarded
+- **First rival battle** (Route 103): retained; walk back to
+  Birch's lab afterward retained so the player gets 5x random items; Pokédex/Balls/Running can be automatically given.
   automatically or via immediate transition.
 - **Petalburg/Wally tutorial**: Norman's story gate remains; Wally's
   catching tutorial removed (he leaves offscreen); later meaningful Wally
@@ -730,13 +730,6 @@ Phase 10.)*
 Final six Pokémon recorded, along with species, nicknames, abilities,
 moves, held items, IVs, EVs, nature, seed, and ruleset — useful for
 recreating/exporting the tournament team.
-
-## Hall-of-Fame species exclusion (Tournament preset only)
-Once a player defeats the Champion, all six species used for that victory
-are added to the tournament exclusion list and cannot appear in
-subsequently generated fresh saves. Existing active runs are unaffected.
-Solo preset leaves this off (no second competitor whose pool must be
-affected).
 
 ## Postgame
 Nuzlocke run formally ends at Champion by default. Player can optionally

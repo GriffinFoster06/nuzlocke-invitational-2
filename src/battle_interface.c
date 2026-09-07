@@ -34,6 +34,7 @@
 #include "constants/songs.h"
 #include "constants/items.h"
 #include "caps.h"
+#include "ruleset_qol.h"
 
 #define HEALTHBOX_BG_INDEX 2
 
@@ -2982,6 +2983,8 @@ static const struct SpriteSheet sSpriteSheet_MoveInfoWindow =
 bool32 CanThrowLastUsedBall(void)
 {
     if (B_LAST_USED_BALL == FALSE)
+        return FALSE;
+    if (!Ruleset_RButtonBallShortcutOn()) // docs/SPEC.md "R-button Ball shortcut"
         return FALSE;
     if (!CanThrowBall())
         return FALSE;

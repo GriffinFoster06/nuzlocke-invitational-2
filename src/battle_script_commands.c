@@ -42,6 +42,7 @@
 #include "naming_screen.h"
 #include "battle_setup.h"
 #include "nuzlocke.h"
+#include "ruleset_qol.h"
 #include "overworld.h"
 #include "wild_encounter.h"
 #include "rtc.h"
@@ -8055,7 +8056,7 @@ static u32 ComputeCaptureOdds(u32 wildMonBattler, u32 playerBattler)
     struct BallData ball;
     ComputeBallData(wildMonBattler, playerBattler, &ball);
 
-    if (ball.guaranteedCapture)
+    if (ball.guaranteedCapture || Ruleset_CatchGuaranteed()) // docs/SPEC.md "Catch rates"
         return CAPTURE_GUARANTEED;
     struct BattlePokemon *battleMon = &gBattleMons[wildMonBattler];
     u32 odds = (battleMon->maxHP * 3 -  battleMon->hp * 2);
@@ -8101,6 +8102,8 @@ static u32 ComputeCaptureOdds(u32 wildMonBattler, u32 playerBattler)
     }
     if (battleMon->status1 & STATUS1_CAN_MOVE)
         odds = odds * 15 / 10;
+
+    odds *= Ruleset_CatchOddsMultiplier(); // docs/SPEC.md "Catch rates"
 
     return odds;
 }

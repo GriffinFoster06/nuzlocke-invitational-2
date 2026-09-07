@@ -14,6 +14,7 @@
 #include "power_score.h"
 #include "random.h"
 #include "ruleset.h"
+#include "ruleset_qol.h"
 
 #include "data/ruleset.h"
 
@@ -233,6 +234,10 @@ void SetRulesetSetting(u32 settingId, u8 value)
     // cache re-checks its signature on the next EnsureBuilt.
     PowerScore_Invalidate();
     LearnsetGen_Invalidate();
+
+    // docs/SPEC.md "Unlimited money": switching it on mid-run tops the wallet up.
+    if (settingId == SETTING_UNLIMITED_MONEY && value != 0)
+        Ruleset_ApplyUnlimitedMoneyGrant();
 }
 
 // Menu helper: step one option in the direction of `delta` (sign only), wrapping

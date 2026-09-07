@@ -11,6 +11,7 @@
 #include "strings.h"
 #include "decompress.h"
 #include "tv.h"
+#include "ruleset_qol.h"
 
 EWRAM_DATA static u8 sMoneyBoxWindowId = 0;
 EWRAM_DATA static u8 sMoneyLabelSpriteId = 0;
@@ -106,7 +107,13 @@ void AddMoney(u32 *moneyPtr, u32 toAdd)
 
 void RemoveMoney(u32 *moneyPtr, u32 toSub)
 {
-    u32 toSet = GetMoney(moneyPtr);
+    u32 toSet;
+
+    // docs/SPEC.md "Unlimited money": purchases never deplete spending ability.
+    if (moneyPtr == &gSaveBlock1Ptr->money && Ruleset_UnlimitedMoneyOn())
+        return;
+
+    toSet = GetMoney(moneyPtr);
 
     // can't subtract more than you already have
     if (toSet < toSub)

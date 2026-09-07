@@ -53,6 +53,7 @@
 #include "difficulty.h"
 #include "follower_npc.h"
 #include "ruleset.h"
+#include "ruleset_qol.h"
 #include "nuzlocke.h"
 
 extern const u8 EventScript_ResetAllMapFlags[];
@@ -238,6 +239,7 @@ void NewGameInitData(void)
     ClearFollowerNPCData();
     ResetRulesetSettings();
     Nuzlocke_ResetState();
+    Ruleset_ApplyUnlimitedMoneyGrant(); // docs/SPEC.md "Unlimited money"
 }
 
 static void ResetMiniGamesRecords(void)

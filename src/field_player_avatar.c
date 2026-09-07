@@ -7,6 +7,7 @@
 #include "field_control_avatar.h"
 #include "field_effect.h"
 #include "field_effect_helpers.h"
+#include "field_move.h"
 #include "field_screen_effect.h"
 #include "field_player_avatar.h"
 #include "fieldmap.h"
@@ -1619,6 +1620,10 @@ bool8 PartyHasMonWithSurf(void)
 
     if (!TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_SURFING))
     {
+        // docs/SPEC.md "HM-free traversal": Surf permission alone is enough,
+        // provided the party has some non-egg mon to ride out on.
+        if (FieldMove_IsHmFree(FIELD_MOVE_SURF) && FieldMove_GetUserSlot(FIELD_MOVE_SURF) < PARTY_SIZE)
+            return TRUE;
         for (i = 0; i < PARTY_SIZE; i++)
         {
             if (GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_SPECIES) == SPECIES_NONE)

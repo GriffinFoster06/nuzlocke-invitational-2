@@ -370,7 +370,7 @@
 #define B_CATCHING_CHARM_BOOST          100        // % increase in critical capture odds if the player has the Catching Charm.
 #define B_INCAPACITATED_CATCH_BONUS     GEN_LATEST // In Gen5+, the catch rate bonus for a sleeping or frozen Pokémon is 2.5x instead of 2x.
 #define B_LOW_LEVEL_CATCH_BONUS         GEN_LATEST // In Gen9+, a bonus is added to the catch rate when catching a Pokémon lower than level 13. In Gen8, the bonus is applied to Pokémon lower than level 20.
-#define B_MISSING_BADGE_CATCH_MALUS     GEN_LATEST // In Gen9+, a penalty is added to the catch rate when trying to catch a Pokémon 5 levels above the current obedience level, based on the number of Badges obtained.
+#define B_MISSING_BADGE_CATCH_MALUS     GEN_3      // docs/SPEC.md "Catch rates": disabled. Power is already governed by the hard level-cap system (src/caps.c); a badge-based catch penalty on top double-punishes.
 #define B_CRITICAL_CAPTURE              TRUE       // If set to TRUE, Critical Captures will be enabled.
 #define B_CRITICAL_CAPTURE_LOCAL_DEX    TRUE       // If set to FALSE, the Critical Capture chance is based off of the National Pokédex, estimated by enabled generations.
 #define B_CRITICAL_CAPTURE_IF_OWNED     GEN_LATEST // In Gen9+, a capture will appear critical if the Pokémon you're trying to catch is of a species that you have already caught.
@@ -381,7 +381,7 @@
 #define B_LAST_USED_BALL_BUTTON     R_BUTTON   // If last used Ball is implemented, this button (or button combination) will trigger throwing the last used Ball.
 #define B_LAST_USED_BALL_CYCLE      TRUE       // If set to TRUE, then holding B_LAST_USED_BALL_BUTTON while pressing the D-Pad cycles through the Balls.
 #define B_CATCH_SWAP_INTO_PARTY     GEN_LATEST // In Gen7+, the option to swap caught Pokémon into the party will appear, allowing you to send a different Pokémon to the Box.
-#define B_CATCH_SWAP_CHECK_HMS      TRUE       // If set to TRUE, the catch swap feature above will prevent returning Pokémon to the Box if they know HMs.
+#define B_CATCH_SWAP_CHECK_HMS      FALSE      // docs/SPEC.md "HM-free traversal": no HM slaves, so blocking a box swap for a known HM is pointless friction.
 
 // Other settings
 #define B_MULTI_BATTLE_WHITEOUT         GEN_LATEST // In Gen4+, Multi Battles end when the player as well as their partner don't have any Pokémon left.

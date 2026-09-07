@@ -21,6 +21,7 @@
 #include "list_menu.h"
 #include "overworld.h"
 #include "ow_abilities.h"
+#include "nuzlocke.h"
 #include "item.h"
 #include "regions.h"
 #include "malloc.h"
@@ -1015,6 +1016,9 @@ static void _GiveEggFromDaycare(struct DayCare *daycare)
     gParties[B_TRAINER_PLAYER][PARTY_SIZE - 1] = egg;
     CompactPartySlots();
     CalculatePlayerPartyCount();
+    // Phase 3: a daycare egg counts as this location's encounter (Dupes Clause
+    // + one-per-location).
+    Nuzlocke_OnMonObtained(&egg, FALSE);
     RemoveEggFromDayCare(daycare);
 }
 

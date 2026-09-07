@@ -47,6 +47,7 @@
 #include "mirage_tower.h"
 #include "money.h"
 #include "new_game.h"
+#include "nuzlocke.h"
 #include "oras_dowse.h"
 #include "palette.h"
 #include "play_time.h"
@@ -1962,11 +1963,16 @@ void CB2_WhiteOut(void)
         FieldClearVBlankHBlankCallbacks();
         StopMapMusic();
         ResetSafariZoneFlag_();
+        // Phase 3 Nuzlocke "Whiteout": no living Pokemon anywhere ends the run.
+        if (Nuzlocke_ShouldEndRunOnWhiteout())
+            Nuzlocke_SetRunOver();
         DoWhiteOut();
         ResetInitialPlayerAvatarState();
         ScriptContext_Init();
         UnlockPlayerFieldControls();
-        if (IsWhiteoutCutscene())
+        if (Nuzlocke_RunIsOver())
+            gFieldCallback = Nuzlocke_FieldCB_RunOver;
+        else if (IsWhiteoutCutscene())
             gFieldCallback = FieldCB_RushInjuredPokemonToCenter;
         else
             gFieldCallback = FieldCB_WarpExitFadeFromBlack;
@@ -2147,6 +2153,14 @@ void CB2_ContinueSavedGame(void)
     UnlockPlayerFieldControls();
     gExitStairsMovementDisabled = TRUE;
     InitMatchCallCounters();
+    if (Nuzlocke_RunIsOver())
+    {
+        // The run ended; a reset must not escape the run-over screen.
+        gFieldCallback = Nuzlocke_FieldCB_RunOver;
+        SetMainCallback1(CB1_Overworld);
+        CB2_ReturnToField();
+        return;
+    }
     if (UseContinueGameWarp() == TRUE)
     {
         ClearContinueGameWarpStatus();

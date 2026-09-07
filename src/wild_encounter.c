@@ -18,6 +18,7 @@
 #include "pokemon.h"
 #include "random.h"
 #include "randomizer.h"
+#include "nuzlocke.h"
 #include "roamer.h"
 #include "safari_zone.h"
 #include "script.h"
@@ -526,6 +527,36 @@ void CreateWildMon(enum Species species, u8 level)
 #define TRY_GET_ABILITY_INFLUENCED_WILD_MON_INDEX(wildMonInfo, type, ability, ptr, count) TryGetAbilityInfluencedWildMonIndex(wildMonInfo, type, ability, ptr)
 #endif
 
+// Phase 3 Dupes Clause (docs/SPEC.md "Dupes Clause"): if a fresh route
+// encounter's (seed-fixed) species belongs to a family the player already owns,
+// re-pick the SLOT - never the seed mapping - a bounded number of times using
+// the area's own weighted picker. If every roll is a dupe, the last one stands
+// and remains catchable.
+static u8 NuzlockeRerollDupeSlot(const struct WildPokemonInfo *info, enum WildPokemonArea area, u8 rod, u8 slot)
+{
+    u32 tries;
+
+    if (info == NULL || !Nuzlocke_DupesRerollActiveHere())
+        return slot;
+    if (!Nuzlocke_IsFamilyOwned(Randomizer_WildSlotSpecies(info, slot, info->wildPokemon[slot].species)))
+        return slot;
+
+    for (tries = 0; tries < 24; tries++)
+    {
+        switch (area)
+        {
+        case WILD_AREA_WATER:   slot = ChooseWildMonIndex_Water(); break;
+        case WILD_AREA_ROCKS:   slot = ChooseWildMonIndex_Rocks(); break;
+        case WILD_AREA_FISHING: slot = ChooseWildMonIndex_Fishing(rod); break;
+        case WILD_AREA_LAND:
+        default:                slot = ChooseWildMonIndex_Land(); break;
+        }
+        if (!Nuzlocke_IsFamilyOwned(Randomizer_WildSlotSpecies(info, slot, info->wildPokemon[slot].species)))
+            break;
+    }
+    return slot;
+}
+
 bool8 TryGenerateWildMon(const struct WildPokemonInfo *wildMonInfo, enum WildPokemonArea area, u8 flags)
 {
     u8 wildMonIndex = 0;
@@ -574,6 +605,9 @@ bool8 TryGenerateWildMon(const struct WildPokemonInfo *wildMonInfo, enum WildPok
         break;
     }
 
+    if (area == WILD_AREA_LAND || area == WILD_AREA_WATER || area == WILD_AREA_ROCKS)
+        wildMonIndex = NuzlockeRerollDupeSlot(wildMonInfo, area, 0, wildMonIndex);
+
     level = ChooseWildMonLevel(wildMonInfo->wildPokemon, wildMonIndex, area);
     if (flags & WILD_CHECK_REPEL && !IsWildLevelAllowedByRepel(level))
         return FALSE;
@@ -588,9 +622,13 @@ bool8 TryGenerateWildMon(const struct WildPokemonInfo *wildMonInfo, enum WildPok
 static u16 GenerateFishingWildMon(const struct WildPokemonInfo *wildMonInfo, u8 rod)
 {
     u8 wildMonIndex = ChooseWildMonIndex_Fishing(rod);
-    enum Species wildMonSpecies = Randomizer_WildSlotSpecies(wildMonInfo, wildMonIndex,
-                                      wildMonInfo->wildPokemon[wildMonIndex].species);
-    u8 level = ChooseWildMonLevel(wildMonInfo->wildPokemon, wildMonIndex, WILD_AREA_FISHING);
+    enum Species wildMonSpecies;
+    u8 level;
+
+    wildMonIndex = NuzlockeRerollDupeSlot(wildMonInfo, WILD_AREA_FISHING, rod, wildMonIndex);
+    wildMonSpecies = Randomizer_WildSlotSpecies(wildMonInfo, wildMonIndex,
+                         wildMonInfo->wildPokemon[wildMonIndex].species);
+    level = ChooseWildMonLevel(wildMonInfo->wildPokemon, wildMonIndex, WILD_AREA_FISHING);
 
     UpdateChainFishingStreak();
     CreateWildMon(wildMonSpecies, level);

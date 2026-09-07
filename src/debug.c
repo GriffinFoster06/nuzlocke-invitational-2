@@ -46,6 +46,7 @@
 #include "region_map.h"
 #include "rtc.h"
 #include "ruleset_menu.h"
+#include "nuzlocke.h"
 #include "script.h"
 #include "script_pokemon_util.h"
 #include "sound.h"
@@ -290,6 +291,11 @@ static void DebugAction_Selection_NextStep(u8 taskId);
 
 static void DebugAction_Util_Fly(u8 taskId);
 static void DebugAction_OpenRulesetMenu(u8 taskId);
+static void DebugAction_Nuzlocke_ClearThisLocation(u8 taskId);
+static void DebugAction_Nuzlocke_ClearAllLocations(u8 taskId);
+static void DebugAction_Nuzlocke_KillLeadMon(u8 taskId);
+static void DebugAction_Nuzlocke_WipeFamilies(u8 taskId);
+static void DebugAction_Nuzlocke_ClearRunOver(u8 taskId);
 static void DebugAction_Util_WatchCredits(u8 taskId);
 static void DebugAction_Util_CheatStart(u8 taskId);
 
@@ -769,6 +775,16 @@ static const u8 *const sDebugMenu_Actions_BagUse_Options[] =
     COMPOUND_STRING("No Bag: {STR_VAR_1}Invalid value"),
 };
 
+static const struct DebugMenuOption sDebugMenu_Actions_Nuzlocke[] =
+{
+    { COMPOUND_STRING("Clear This Location"),  DebugAction_Nuzlocke_ClearThisLocation, },
+    { COMPOUND_STRING("Clear All Locations"),  DebugAction_Nuzlocke_ClearAllLocations, },
+    { COMPOUND_STRING("Kill Lead Pokémon"),    DebugAction_Nuzlocke_KillLeadMon, },
+    { COMPOUND_STRING("Wipe Owned Families"),  DebugAction_Nuzlocke_WipeFamilies, },
+    { COMPOUND_STRING("Clear Run-Over Flag"),  DebugAction_Nuzlocke_ClearRunOver, },
+    { NULL }
+};
+
 static const struct DebugMenuOption sDebugMenu_Actions_Main[] =
 {
     { COMPOUND_STRING("Utilities…"),    DebugAction_OpenSubMenu, sDebugMenu_Actions_Utilities, },
@@ -783,6 +799,7 @@ static const struct DebugMenuOption sDebugMenu_Actions_Main[] =
     { COMPOUND_STRING("Sound…"),        DebugAction_OpenSubMenu, sDebugMenu_Actions_Sound, },
     { COMPOUND_STRING("ROM Info…"),     DebugAction_OpenSubMenu, sDebugMenu_Actions_ROMInfo2, },
     { COMPOUND_STRING("Ruleset Settings…"), DebugAction_OpenRulesetMenu, },
+    { COMPOUND_STRING("Nuzlocke State…"), DebugAction_OpenSubMenu, sDebugMenu_Actions_Nuzlocke, },
     { COMPOUND_STRING("Cancel"),        DebugAction_Cancel, },
     { NULL }
 };
@@ -1981,6 +1998,51 @@ static void DebugAction_OpenRulesetMenu(u8 taskId)
     gMain.savedCallback = CB2_ReturnToFieldContinueScriptPlayMapMusic;
     gMain.state = 0;
     SetMainCallback2(CB2_InitRulesetMenu);
+}
+
+static void DebugAction_Nuzlocke_ClearThisLocation(u8 taskId)
+{
+    Nuzlocke_ClearLocation(Nuzlocke_CurrentLocationTag());
+    Debug_DestroyMenu_Full(taskId);
+    ScriptContext_Enable();
+}
+
+static void DebugAction_Nuzlocke_ClearAllLocations(u8 taskId)
+{
+    memset(gSaveBlock3Ptr->nuzlocke.locationUsed, 0, sizeof(gSaveBlock3Ptr->nuzlocke.locationUsed));
+    memset(gSaveBlock3Ptr->nuzlocke.locationCaught, 0, sizeof(gSaveBlock3Ptr->nuzlocke.locationCaught));
+    Debug_DestroyMenu_Full(taskId);
+    ScriptContext_Enable();
+}
+
+static void DebugAction_Nuzlocke_KillLeadMon(u8 taskId)
+{
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][0];
+    u32 zero = 0;
+
+    if (GetMonData(mon, MON_DATA_SPECIES) != SPECIES_NONE)
+    {
+        SetMonData(mon, MON_DATA_HP, &zero);
+        Nuzlocke_MarkMonDead(mon);
+        CompactPartySlots();
+        CalculatePlayerPartyCount();
+    }
+    Debug_DestroyMenu_Full(taskId);
+    ScriptContext_Enable();
+}
+
+static void DebugAction_Nuzlocke_WipeFamilies(u8 taskId)
+{
+    memset(gSaveBlock3Ptr->nuzlocke.familyOwned, 0, sizeof(gSaveBlock3Ptr->nuzlocke.familyOwned));
+    Debug_DestroyMenu_Full(taskId);
+    ScriptContext_Enable();
+}
+
+static void DebugAction_Nuzlocke_ClearRunOver(u8 taskId)
+{
+    gSaveBlock3Ptr->nuzlocke.runOver = FALSE;
+    Debug_DestroyMenu_Full(taskId);
+    ScriptContext_Enable();
 }
 
 static void DebugAction_Player_Name(u8 taskId)

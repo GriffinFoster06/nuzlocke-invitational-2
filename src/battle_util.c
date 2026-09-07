@@ -1,5 +1,6 @@
 #include "global.h"
 #include "battle.h"
+#include "nuzlocke.h"
 #include "battle_anim.h"
 #include "battle_anim_scripts.h"
 #include "battle_arena.h"
@@ -10844,6 +10845,12 @@ bool32 IsBattlerInvalidForSpreadMove(enum BattlerId battlerAtk, enum BattlerId b
 
 bool32 IsAllowedToUseBag(void)
 {
+    // Phase 3 Nuzlocke "No battle items": disable Bag combat items in trainer
+    // battles. Wild battles keep Bag access so Poke Balls stay usable (the Bag
+    // itself is narrowed to the Ball pocket by Nuzlocke_BattleBagBallsOnly()).
+    if (Nuzlocke_BattleItemsBlocked())
+        return FALSE;
+
     switch (VarGet(B_VAR_NO_BAG_USE))
     {
     case NO_BAG_RESTRICTION:

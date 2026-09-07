@@ -53,6 +53,7 @@
 #include "difficulty.h"
 #include "follower_npc.h"
 #include "ruleset.h"
+#include "nuzlocke.h"
 
 extern const u8 EventScript_ResetAllMapFlags[];
 extern const u8 EventScript_ResetAllMapFlagsFrlg[];
@@ -236,6 +237,7 @@ void NewGameInitData(void)
     ResetDexNav();
     ClearFollowerNPCData();
     ResetRulesetSettings();
+    Nuzlocke_ResetState();
 }
 
 static void ResetMiniGamesRecords(void)

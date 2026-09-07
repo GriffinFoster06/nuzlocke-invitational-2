@@ -9,6 +9,8 @@
 #include "fldeff_misc.h"
 #include "frontier_util.h"
 #include "party_menu.h"
+#include "nuzlocke.h"
+#include "pokemon_storage_system.h"
 #include "pokenav.h"
 #include "script.h"
 #include "string_util.h"
@@ -77,6 +79,8 @@ static void Task_TryFieldPoisonWhiteOut(u8 taskId)
             if (MonFaintedFromPoison(tPartyIdx))
             {
                 FaintFromFieldPoison(tPartyIdx);
+                // Phase 3 Nuzlocke permadeath: field-poison faints are deaths too.
+                Nuzlocke_MarkMonDead(&gParties[B_TRAINER_PLAYER][tPartyIdx]);
                 ShowFieldMessage(gText_PkmnFainted_FldPsn);
                 tState++;
                 return;
@@ -105,6 +109,9 @@ static void Task_TryFieldPoisonWhiteOut(u8 taskId)
         else
         {
             gSpecialVar_Result = FLDPSN_NO_WHITEOUT;
+            // Phase 3: a graveyard move may have left party gaps - close them.
+            CompactPartySlots();
+            CalculatePlayerPartyCount();
             UpdateFollowingPokemon();
         }
         ScriptContext_Enable();

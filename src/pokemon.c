@@ -45,6 +45,7 @@
 #include "pokerus.h"
 #include "random.h"
 #include "random_mon_generation.h"
+#include "nuzlocke.h"
 #include "randomizer.h"
 #include "recorded_battle.h"
 #include "regions.h"
@@ -2446,6 +2447,9 @@ u32 GetBoxMonData3(struct BoxPokemon *boxMon, s32 field, u8 *data)
         case MON_DATA_HP_LOST:
             retVal = boxMon->hpLost;
             break;
+        case MON_DATA_IS_DEAD:
+            retVal = boxMon->isDead;
+            break;
         case MON_DATA_PERSONALITY:
             retVal = boxMon->personality;
             break;
@@ -2882,6 +2886,9 @@ void SetBoxMonData(struct BoxPokemon *boxMon, s32 field, const void *dataArg)
         case MON_DATA_HP_LOST:
             SET16(boxMon->hpLost);
             break;
+        case MON_DATA_IS_DEAD:
+            SET8(boxMon->isDead);
+            break;
         case MON_DATA_PERSONALITY:
             SET32(boxMon->personality);
             break;
@@ -2957,6 +2964,11 @@ u8 GiveCapturedMonToPlayer(struct Pokemon *mon)
         if (GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_SPECIES) == SPECIES_NONE)
             break;
     }
+
+    // Phase 3: a wild catch (in battle) marks the family owned; the location is
+    // consumed by the battle-end hook. ScriptGiveEgg reaches here from the
+    // overworld - that path consumes the location it is given in.
+    Nuzlocke_OnMonObtained(mon, gMain.inBattle);
 
     if (i >= PARTY_SIZE)
         return CopyMonToPC(mon);
@@ -3487,6 +3499,14 @@ bool8 PokemonUseItemEffects(struct Pokemon *mon, enum Item item, u8 partyIndex, 
     itemEffect = GetItemEffect(item);
     isLevelUpItem = (itemEffect[3] & ITEM3_LEVEL_UP) != 0;
     levelBefore = GetMonData(mon, MON_DATA_LEVEL, NULL);
+
+    // Phase 3 Nuzlocke permadeath: a dead Pokemon cannot be revived or healed.
+    if (Nuzlocke_MonIsDead(mon)
+     && ((itemEffect[0] & ITEM0_SACRED_ASH)
+      || (itemEffect[4] & (ITEM4_REVIVE | ITEM4_HEAL_HP))))
+        return TRUE; // no effect
+
+
 
     // Do item effect
     for (i = 0; i < ITEM_EFFECT_ARG_START; i++)
@@ -6476,6 +6496,10 @@ void HealPokemon(struct Pokemon *mon)
 {
     u32 data;
 
+    // Phase 3 Nuzlocke permadeath: a dead Pokemon is never healed back.
+    if (Nuzlocke_MonIsDead(mon))
+        return;
+
     data = GetMonData(mon, MON_DATA_MAX_HP);
     SetMonData(mon, MON_DATA_HP, &data);
 
@@ -6488,6 +6512,10 @@ void HealPokemon(struct Pokemon *mon)
 void HealBoxPokemon(struct BoxPokemon *boxMon)
 {
     u32 data;
+
+    // Phase 3 Nuzlocke permadeath: a dead Pokemon is never healed back.
+    if (Nuzlocke_PermadeathOn() && GetBoxMonData(boxMon, MON_DATA_IS_DEAD))
+        return;
 
     data = 0;
     SetBoxMonData(boxMon, MON_DATA_HP_LOST, &data);
@@ -6708,6 +6736,9 @@ u32 GiveScriptedMonToPlayer(struct Pokemon *mon, u8 slot)
     {
         HandleSetPokedexFlagFromMon(mon, FLAG_SET_SEEN);
         HandleSetPokedexFlagFromMon(mon, FLAG_SET_CAUGHT);
+        // Phase 3: a script gift / fossil revival / gift egg. Marks the family
+        // owned (Dupes Clause) and consumes the location it is received in.
+        Nuzlocke_OnMonObtained(mon, FALSE);
     }
     CalculatePlayerPartyCount();
     return sentToPc;

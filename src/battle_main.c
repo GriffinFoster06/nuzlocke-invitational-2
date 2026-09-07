@@ -40,6 +40,7 @@
 #include "m4a.h"
 #include "palette.h"
 #include "party_menu.h"
+#include "nuzlocke.h"
 #include "pokeball.h"
 #include "pokedex.h"
 #include "pokemon.h"
@@ -5441,6 +5442,9 @@ static void ReturnFromBattleToOverworld(void)
     gSpecialVar_Result = gBattleOutcome;
     gMain.inBattle = FALSE;
     gMain.callback1 = gPreBattleCallback1;
+
+    // Phase 3 Nuzlocke permadeath: party HP is final here - lock in any deaths.
+    Nuzlocke_ProcessPostBattleDeaths();
 
     if (gBattleTypeFlags & BATTLE_TYPE_ROAMER)
     {

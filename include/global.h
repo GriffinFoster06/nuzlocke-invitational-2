@@ -26,6 +26,7 @@
 #include "constants/items.h"
 #include "constants/moves.h"
 #include "constants/ruleset.h"
+#include "constants/region_map_sections.h"
 #include "config/save.h"
 
 // Prevent cross-jump optimization.
@@ -271,6 +272,27 @@ struct RulesetSettings
     u8 values[NUM_SETTINGS]; // one byte per setting, indexed by enum SettingId
 };
 
+// Phase 3 Nuzlocke ruleset engine (docs/SPEC.md "Nuzlocke permadeath",
+// "One encounter per location", "Dupes Clause", "Whiteout"). Self-contained
+// run state owned by src/nuzlocke.c. Append fields only - see the note on
+// struct RulesetSettings above; there is no save-migration system.
+struct NuzlockeState
+{
+    // One bit per region-map section. locationUsed: the one-per-location
+    // encounter has been resolved. locationCaught: it was resolved by a catch
+    // (drives the Phase 6 tracker and the run-over summary).
+    u8 locationUsed[ROUND_BITS_TO_BYTES(MAPSEC_COUNT)];
+    u8 locationCaught[ROUND_BITS_TO_BYTES(MAPSEC_COUNT)];
+    // One bit per species id: this species' whole evolutionary family is
+    // already owned (Dupes Clause). Set-only unless SETTING_DUPES_COUNT_DEAD
+    // is off. See Nuzlocke_MarkFamilyOwned / Nuzlocke_IsFamilyOwned.
+    u8 familyOwned[ROUND_BITS_TO_BYTES(NUM_SPECIES)];
+    u16 deathCount;
+    u8 graveyardBoxNamed:1; // the graveyard PC box has been renamed once
+    u8 runOver:1;           // whiteout ended the attempt; load re-enters run-over
+    u8 unused:6;
+};
+
 struct SaveBlock3
 {
 #if OW_USE_FAKE_RTC
@@ -290,6 +312,7 @@ struct SaveBlock3
     u8 apricornTrees[NUM_APRICORN_TREE_BYTES];
 #endif
     struct RulesetSettings ruleset;
+    struct NuzlockeState nuzlocke;
 }; /* max size 1624 bytes */
 
 extern struct SaveBlock3 *gSaveBlock3Ptr;

@@ -41,6 +41,7 @@
 #include "task.h"
 #include "naming_screen.h"
 #include "battle_setup.h"
+#include "nuzlocke.h"
 #include "overworld.h"
 #include "wild_encounter.h"
 #include "rtc.h"
@@ -8568,6 +8569,14 @@ static void Cmd_trygivecaughtmonnick(void)
     switch (gBattleCommunication[MULTIUSE_STATE])
     {
     case 0:
+        // Phase 3 Nuzlocke "Nicknames": Mandatory/Strict skips the Yes/No
+        // prompt and goes straight to the naming screen.
+        if (Nuzlocke_ForcedNicknamesOn())
+        {
+            gBattleCommunication[MULTIUSE_STATE] = 2;
+            BeginFastPaletteFade(3);
+            break;
+        }
         HandleBattleWindow(YESNOBOX_X_Y, 0);
         BattlePutTextOnWindow(gText_BattleYesNoChoice, B_WIN_YESNO);
         gBattleCommunication[MULTIUSE_STATE]++;
@@ -9919,6 +9928,32 @@ void BS_TryRevivalBlessing(void)
 {
     NATIVE_ARGS(const u8 *failInstr);
     u8 index = GetFirstFaintedPartyIndex(gBattlerAttacker);
+
+    // Phase 3 Nuzlocke permadeath: a dead Pokemon can never be revived. Fail the
+    // move when every fainted candidate is dead, or the chosen one is.
+    if (Nuzlocke_PermadeathOn())
+    {
+        struct Pokemon *party = GetBattlerParty(gBattlerAttacker);
+        u32 i;
+        bool32 anyRevivable = FALSE;
+
+        if (gSelectedMonPartyId != PARTY_SIZE && Nuzlocke_MonIsDead(&party[gSelectedMonPartyId]))
+        {
+            gSelectedMonPartyId = PARTY_SIZE;
+            gBattlescriptCurrInstr = cmd->failInstr;
+            return;
+        }
+        for (i = 0; i < PARTY_SIZE; i++)
+        {
+            if (GetMonData(&party[i], MON_DATA_SPECIES) != SPECIES_NONE
+             && !GetMonData(&party[i], MON_DATA_SANITY_IS_EGG)
+             && GetMonData(&party[i], MON_DATA_HP) == 0
+             && !Nuzlocke_MonIsDead(&party[i]))
+                anyRevivable = TRUE;
+        }
+        if (!anyRevivable)
+            index = PARTY_SIZE;
+    }
 
     // Move fails if there are no battlers to revive.
     if (index == PARTY_SIZE)

@@ -37,6 +37,7 @@
 #include "battle.h" // to get rid of later
 #include "constants/rgb.h"
 #include "party_menu.h"
+#include "nuzlocke.h"
 
 #define GFXTAG_EGG       12345
 #define GFXTAG_EGG_SHARD 23456
@@ -647,6 +648,17 @@ static void CB2_EggHatch(void)
         // Print the nickname prompt
         if (!IsTextPrinterActiveOnWindow(sEggHatchData->windowId))
         {
+            // Phase 3 Nuzlocke "Nicknames": Mandatory/Strict forces the screen.
+            if (Nuzlocke_ForcedNicknamesOn())
+            {
+                GetMonNickname(&gParties[B_TRAINER_PLAYER][sEggHatchData->eggPartyId], gStringVar3);
+                species = GetMonData(&gParties[B_TRAINER_PLAYER][sEggHatchData->eggPartyId], MON_DATA_SPECIES);
+                gender = GetMonGender(&gParties[B_TRAINER_PLAYER][sEggHatchData->eggPartyId]);
+                personality = GetMonData(&gParties[B_TRAINER_PLAYER][sEggHatchData->eggPartyId], MON_DATA_PERSONALITY, 0);
+                DoNamingScreen(NAMING_SCREEN_NICKNAME, gStringVar3, species, gender, personality, EggHatchSetMonNickname);
+                sEggHatchData->state = 11;
+                break;
+            }
             LoadUserWindowBorderGfx(sEggHatchData->windowId, 0x140, BG_PLTT_ID(14));
             CreateYesNoMenu(&sYesNoWinTemplate, 0x140, 0xE, 0);
             sEggHatchData->state++;

@@ -37,6 +37,7 @@
 #include "secret_base.h"
 #include "sound.h"
 #include "randomizer.h"
+#include "nuzlocke.h"
 #include "starter_choose.h"
 #include "strings.h"
 #include "string_util.h"
@@ -336,6 +337,7 @@ static bool8 CheckSilphScopeInPokemonTower(u16 mapGroup, u16 mapNum)
 
 void BattleSetup_StartWildBattle(void)
 {
+    Nuzlocke_NoteWildEncounterStart(FALSE);
     if (GetSafariZoneFlag())
         DoSafariBattle();
     else if (CheckSilphScopeInPokemonTower(gSaveBlock1Ptr->location.mapGroup, gSaveBlock1Ptr->location.mapNum))
@@ -346,6 +348,7 @@ void BattleSetup_StartWildBattle(void)
 
 void BattleSetup_StartDoubleWildBattle(void)
 {
+    Nuzlocke_NoteWildEncounterStart(FALSE);
     DoStandardWildBattle(TRUE);
 }
 
@@ -435,6 +438,7 @@ void DoStandardWildBattle_Debug(void)
 
 void BattleSetup_StartRoamerBattle(void)
 {
+    Nuzlocke_NoteWildEncounterStart(FALSE);
     LockPlayerFieldControls();
     FreezeObjectEvents();
     StopPlayerAvatar();
@@ -528,6 +532,7 @@ void StartOldManTutorialBattle(void)
 
 void BattleSetup_StartScriptedWildBattle(void)
 {
+    Nuzlocke_NoteWildEncounterStart(TRUE);
     LockPlayerFieldControls();
     gMain.savedCallback = CB2_EndScriptedWildBattle;
     gBattleTypeFlags = 0;
@@ -540,6 +545,7 @@ void BattleSetup_StartScriptedWildBattle(void)
 
 void BattleSetup_StartScriptedDoubleWildBattle(void)
 {
+    Nuzlocke_NoteWildEncounterStart(TRUE);
     LockPlayerFieldControls();
     gMain.savedCallback = CB2_EndScriptedWildBattle;
     gBattleTypeFlags = BATTLE_TYPE_DOUBLE;
@@ -571,6 +577,7 @@ void StartMarowakBattle(void)
 
 void BattleSetup_StartLatiBattle(void)
 {
+    Nuzlocke_NoteWildEncounterStart(TRUE);
     LockPlayerFieldControls();
     gMain.savedCallback = CB2_EndScriptedWildBattle;
     gBattleTypeFlags = BATTLE_TYPE_LEGENDARY;
@@ -583,6 +590,7 @@ void BattleSetup_StartLatiBattle(void)
 
 void BattleSetup_StartLegendaryBattle(void)
 {
+    Nuzlocke_NoteWildEncounterStart(TRUE);
     LockPlayerFieldControls();
     gMain.savedCallback = CB2_EndScriptedWildBattle;
     gBattleTypeFlags = BATTLE_TYPE_LEGENDARY;
@@ -691,6 +699,8 @@ static void CB2_EndWildBattle(void)
     CpuFill16(0, (void *)(BG_PLTT), BG_PLTT_SIZE);
     ResetOamRange(0, 128);
 
+    Nuzlocke_HandleWildBattleEnd();
+
     if (IsNPCFollowerWildBattle())
     {
         RestorePartyAfterFollowerNPCBattle();
@@ -716,6 +726,8 @@ static void CB2_EndScriptedWildBattle(void)
 {
     CpuFill16(0, (void *)(BG_PLTT), BG_PLTT_SIZE);
     ResetOamRange(0, 128);
+
+    Nuzlocke_HandleScriptedBattleEnd();
 
     if (IsPlayerDefeated(gBattleOutcome) == TRUE)
     {
@@ -1011,6 +1023,8 @@ static void CB2_GiveStarter(void)
     // Phase 2: guaranteed starter IV spread + freeze the generation settings.
     Randomizer_ApplyStarterIVs(&gParties[B_TRAINER_PLAYER][0]);
     Randomizer_MarkRunStarted();
+    // Phase 3: the Nuzlocke run is now live (rule settings lock).
+    Nuzlocke_BeginRun();
     ResetTasks();
     PlayBattleBGM();
     SetMainCallback2(CB2_StartFirstBattle);

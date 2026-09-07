@@ -125,6 +125,7 @@ enum MonData {
     MON_DATA_GIGANTAMAX_FACTOR,
     MON_DATA_TERA_TYPE,
     MON_DATA_EVOLUTION_TRACKER,
+    MON_DATA_IS_DEAD, // Phase 3 Nuzlocke permadeath (docs/SPEC.md "Nuzlocke permadeath")
 };
 
 #define BLOCK_AI_DYNAMAX 15 // Used as dynamax level value by the AI to indicate this mon shouldn't dynamax
@@ -274,7 +275,7 @@ struct BoxPokemon
     u16 checksum;
     u16 hpLost:14; // 16383 HP.
     u16 shinyModifier:1;
-    u16 unused_1E:1;
+    u16 isDead:1; // Phase 3 Nuzlocke permadeath: fainted and cannot be revived.
 
     union
     {

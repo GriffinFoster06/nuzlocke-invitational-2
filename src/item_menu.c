@@ -1,5 +1,6 @@
 #include "global.h"
 #include "item_menu.h"
+#include "nuzlocke.h"
 #include "battle.h"
 #include "battle_controllers.h"
 #include "battle_pyramid.h"
@@ -597,10 +598,21 @@ void CB2_BagMenuFromStartMenu(void)
 
 void CB2_BagMenuFromBattle(void)
 {
-    if (CurrentBattlePyramidLocation() == PYRAMID_LOCATION_NONE)
-        GoToBagMenu(ITEMMENULOCATION_BATTLE, POCKETS_COUNT, CB2_SetUpReshowBattleScreenAfterMenu2);
-    else
+    if (CurrentBattlePyramidLocation() != PYRAMID_LOCATION_NONE)
+    {
         GoToBattlePyramidBagMenu(PYRAMIDBAG_LOC_BATTLE, CB2_SetUpReshowBattleScreenAfterMenu2);
+    }
+    else if (Nuzlocke_BattleBagBallsOnly())
+    {
+        // Phase 3 "No battle items": wild battles expose only the Ball pocket.
+        GoToBagMenu(ITEMMENULOCATION_BATTLE, POCKET_POKE_BALLS, CB2_SetUpReshowBattleScreenAfterMenu2);
+        if (gBagMenu != NULL)
+            gBagMenu->pocketSwitchDisabled = TRUE;
+    }
+    else
+    {
+        GoToBagMenu(ITEMMENULOCATION_BATTLE, POCKETS_COUNT, CB2_SetUpReshowBattleScreenAfterMenu2);
+    }
 }
 
 // Choosing berry to plant

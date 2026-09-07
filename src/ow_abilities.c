@@ -1,5 +1,6 @@
 #include "global.h"
 #include "ow_abilities.h"
+#include "nuzlocke.h"
 #include "pokemon.h"
 #include "random.h"
 #include "constants/pokemon.h"
@@ -86,6 +87,9 @@ bool32 DoesLeadingMonHaveAbilityEffect(const enum Ability *abilityArray)
 {
     if (GetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_SANITY_IS_EGG))
         return FALSE;
+    // Phase 3 Nuzlocke permadeath: a dead lead cannot influence encounters.
+    if (Nuzlocke_MonIsDead(&gParties[B_TRAINER_PLAYER][0]))
+        return FALSE;
     enum Ability leadingMonAbility = GetMonAbility(&gParties[B_TRAINER_PLAYER][0]);
     for (u32 i = 0; abilityArray[i] != ABILITY_NONE; i++)
     {
@@ -100,6 +104,8 @@ bool32 DoesPartyMemberHaveAbilityEffect(const enum Ability *abilityArray)
     for (u32 j = 0; j < gPartiesCount[B_TRAINER_PLAYER]; j++)
     {
         if (GetMonData(&gParties[B_TRAINER_PLAYER][j], MON_DATA_SANITY_IS_EGG))
+            continue;
+        if (Nuzlocke_MonIsDead(&gParties[B_TRAINER_PLAYER][j]))
             continue;
         enum Ability monAbility = GetMonAbility(&gParties[B_TRAINER_PLAYER][j]);
         for (u32 i = 0; abilityArray[i] != ABILITY_NONE; i++)

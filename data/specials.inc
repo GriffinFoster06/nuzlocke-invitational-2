@@ -219,6 +219,9 @@ gSpecials::
 	def_special SubtractMoneyFromVar0x8005
 	def_special TryFieldPoisonWhiteOut, waitstate=1
 	def_special SetCB2WhiteOut, waitstate=1
+	def_special ApplyFieldItemRandomization
+	def_special ApplyGiftItemRandomization
+	def_special ApplyTutorMoveRandomization
 	def_special BufferNuzlockeRunOverStats
 	def_special StartNuzlockeNewAttempt, waitstate=1
 	def_special TryGiveBallNpc999

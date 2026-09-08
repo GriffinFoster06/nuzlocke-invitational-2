@@ -9,6 +9,7 @@
 #include "berry_tag_screen.h"
 #include "bg.h"
 #include "data.h"
+#include "randomizer.h"
 #include "decompress.h"
 #include "event_data.h"
 #include "event_object_movement.h"
@@ -2973,8 +2974,8 @@ static s32 CompareItemsAlphabetically(enum Pocket pocketId, struct ItemSlot item
 
     if (pocketId == POCKET_TM_HM)
     {
-        name1 = GetMoveName(GetTMHMMoveId(GetItemTMHMIndex(item1.itemId)));
-        name2 = GetMoveName(GetTMHMMoveId(GetItemTMHMIndex(item2.itemId)));
+        name1 = GetMoveName(Randomizer_TmMove(item1.itemId));
+        name2 = GetMoveName(Randomizer_TmMove(item2.itemId));
     }
     else
     {

@@ -4,15 +4,26 @@
 // ============================================================================
 
 #include "global.h"
+#include "data.h"
+#include "event_data.h"
+#include "item.h"
+#include "move.h"
+#include "learnset_gen.h"
 #include "pokemon.h"
 #include "power_score.h"
 #include "random.h"
 #include "randomizer.h"
 #include "run_rng.h"
+#include "string_util.h"
 #include "ruleset.h"
+#include "constants/abilities.h"
+#include "constants/items.h"
+#include "constants/moves.h"
+#include "constants/opponents.h"
 #include "constants/pokemon.h"
 #include "constants/ruleset.h"
 #include "constants/species.h"
+#include "constants/trainers.h"
 
 // Per-category salts and the seed helper now live in include/run_rng.h so the
 // Phase 4 learnset generator shares one implementation.
@@ -28,6 +39,7 @@ bool32 Randomizer_StarterEnabled(void)   { return GetRulesetSetting(SETTING_STAR
 bool32 Randomizer_GiftEnabled(void)      { return GetRulesetSetting(SETTING_GIFT_RANDOMIZATION) != 0; }
 bool32 Randomizer_StaticEnabled(void)    { return GetRulesetSetting(SETTING_STATIC_RANDOMIZATION) != 0; }
 bool32 Randomizer_LegendaryEnabled(void) { return GetRulesetSetting(SETTING_LEGENDARY_RANDOMIZATION) != 0; }
+bool32 Randomizer_TrainerEnabled(void)   { return GetRulesetSetting(SETTING_TRAINER_RANDOMIZATION) != 0; }
 
 // ---- seeding ------------------------------------------------------------------
 
@@ -443,4 +455,392 @@ enum Species Randomizer_RoamerSpecies(enum Species vanilla, u8 level)
 
     st = SeedFor(SALT_ROAMER, ((u32)vanilla << 8) | level, 0, 0);
     return PickReplacement(&st, vanilla, premium ? POOL_PREMIUM : POOL_ORDINARY);
+}
+
+// ---- trainer parties -------------------------------------------------------
+
+// docs/SPEC.md "Trainer Pokemon": "Bosses use stricter power matching than
+// ordinary route trainers." One step tighter, never past STRICT. BST-only and
+// unrestricted are deliberate global choices, so they are left alone.
+static bool32 TrainerClassIsBoss(u8 trainerClass)
+{
+    switch (trainerClass)
+    {
+    case TRAINER_CLASS_LEADER:
+    case TRAINER_CLASS_ELITE_FOUR:
+    case TRAINER_CLASS_CHAMPION:
+    case TRAINER_CLASS_RIVAL:
+    case TRAINER_CLASS_AQUA_LEADER:
+    case TRAINER_CLASS_MAGMA_LEADER:
+    case TRAINER_CLASS_AQUA_ADMIN:
+    case TRAINER_CLASS_MAGMA_ADMIN:
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
+static u32 TrainerMatchMode(u8 trainerClass)
+{
+    u32 mode = GetRulesetSetting(SETTING_POWER_MATCHING);
+
+    if (GetRulesetSetting(SETTING_BOSS_POWER_MATCHING) != BOSSMATCH_STRICTER)
+        return mode;
+    if (!TrainerClassIsBoss(trainerClass))
+        return mode;
+
+    if (mode == PWRMATCH_NORMAL)
+        return PWRMATCH_STRICT;
+    if (mode == PWRMATCH_LOOSE)
+        return PWRMATCH_NORMAL;
+    return mode;
+}
+
+void Randomizer_ApplyTrainerMon(struct TrainerMon *entry, u16 trainerId, u32 monIndex, u8 trainerClass)
+{
+    enum Species vanilla, pick;
+    bool32 premium;
+    rng_value_t st;
+    u32 i;
+
+    if (entry == NULL || trainerId == TRAINER_NONE || !Randomizer_TrainerEnabled())
+        return;
+
+    vanilla = entry->species;
+    if (!IsReplaceableTarget(vanilla))
+        return;
+
+    PowerScore_EnsureBuilt();
+
+    // Steven's / Wallace's aces and any other premium-tier authored mon draw from
+    // the premium pool, exactly as static encounters do, and obey the legendary
+    // toggle rather than the trainer one.
+    premium = VanillaIsPremiumTier(vanilla);
+    if (premium && !Randomizer_LegendaryEnabled())
+        return;
+
+    st = SeedFor(SALT_TRAINER, trainerId, monIndex, vanilla);
+    pick = PickReplacementCore(&st, vanilla, premium ? POOL_PREMIUM : POOL_ORDINARY,
+                               TrainerMatchMode(trainerClass),
+                               GetRulesetSetting(SETTING_EVO_STAGE_MATCHING));
+    if (pick == vanilla)
+        return;
+
+    entry->species = pick;
+
+    // The authored ability and moveset belonged to the vanilla species. Keeping
+    // either would be illegal for the replacement: SetCorrectAbilityNum() would
+    // fail on an ability the new species does not have, and the moves would be
+    // off-species. Clearing moves makes CustomTrainerPartyAssignMoves() fall back
+    // to GiveMonInitialMoveset(), which reads the Phase 4 *generated* learnset -
+    // the right answer in a randomized world.
+    entry->ability = ABILITY_NONE;
+    for (i = 0; i < MAX_MON_MOVES; i++)
+        entry->moves[i] = MOVE_NONE;
+}
+
+// ============================================================================
+// TMs (docs/SPEC.md "TMs", "Universal TM compatibility").
+//
+// The 50 TM->move assignments are drawn once from the same ban-filtered move
+// pool the Phase 4 learnset generator builds, and cached in a small EWRAM
+// table: the bag list, the relearner and the Pokedex all scan every TM index
+// while rendering, so a per-call reseed would be far too slow. HMs are never
+// randomized, per SPEC.
+// ============================================================================
+
+#define TM_DEDUP_ATTEMPTS 16
+
+static EWRAM_DATA u16 sTmMove[NUM_TECHNICAL_MACHINES] = {0};
+static EWRAM_DATA bool8 sTmBuilt = FALSE;
+static EWRAM_DATA u32 sTmSig = 0;
+
+bool32 Randomizer_TmEnabled(void) { return GetRulesetSetting(SETTING_TM_RANDOMIZATION) != 0; }
+
+static u32 TmSignature(void)
+{
+    return GetRunSeed()
+         ^ ((u32)GetRulesetSetting(SETTING_TM_RANDOMIZATION) << 1)
+         ^ ((u32)GetRulesetSetting(SETTING_ALLOW_DUPLICATE_TMS) << 2)
+         ^ (LearnsetGen_PoolSignature() << 8);
+}
+
+static void BuildTmTable(void)
+{
+    u32 poolCount = LearnsetGen_PoolCount();
+    bool32 allowDupes = GetRulesetSetting(SETTING_ALLOW_DUPLICATE_TMS) != 0;
+    u32 i, j, attempt;
+
+    for (i = 0; i < NUM_TECHNICAL_MACHINES; i++)
+    {
+        rng_value_t st;
+
+        // Fall back to the canonical move if the pool is unusable.
+        sTmMove[i] = GetTMHMMoveId(i + 1);
+        if (poolCount == 0)
+            continue;
+
+        st = SeedFor(SALT_TM, i + 1, 0, 0);
+        for (attempt = 0; attempt < TM_DEDUP_ATTEMPTS; attempt++)
+        {
+            enum Move pick = LearnsetGen_PoolMove(LocalRandom32(&st) % poolCount);
+            bool32 dup = FALSE;
+
+            if (!allowDupes)
+            {
+                for (j = 0; j < i; j++)
+                {
+                    if (sTmMove[j] == pick)
+                        dup = TRUE;
+                }
+            }
+
+            sTmMove[i] = pick;
+            if (!dup)
+                break;
+        }
+    }
+}
+
+static void EnsureTmTable(void)
+{
+    u32 sig = TmSignature();
+
+    if (sTmBuilt && sTmSig == sig)
+        return;
+
+    BuildTmTable();
+    sTmSig = sig;
+    sTmBuilt = TRUE;
+}
+
+void Randomizer_InvalidateTms(void)
+{
+    sTmBuilt = FALSE;
+}
+
+enum Move Randomizer_TmMoveByIndex(u32 tmhmIndex)
+{
+    // 1-based; 0 means "not a machine", and anything past the TM block is an HM.
+    if (tmhmIndex == 0 || tmhmIndex > NUM_TECHNICAL_MACHINES || !Randomizer_TmEnabled())
+        return GetTMHMMoveId(tmhmIndex);
+
+    EnsureTmTable();
+    return sTmMove[tmhmIndex - 1];
+}
+
+enum Move Randomizer_TmMove(enum Item item)
+{
+    return Randomizer_TmMoveByIndex(GetItemTMHMIndex(item));
+}
+
+enum Item Randomizer_TmItemForMove(enum Move move)
+{
+    u32 i;
+
+    if (move == MOVE_NONE)
+        return ITEM_NONE;
+
+    if (Randomizer_TmEnabled())
+    {
+        EnsureTmTable();
+        for (i = 0; i < NUM_TECHNICAL_MACHINES; i++)
+        {
+            if (sTmMove[i] == move)
+                return GetTMHMItemId(i + 1);
+        }
+        // Not on a TM; an HM may still teach it, and HMs keep their moves.
+        for (i = NUM_TECHNICAL_MACHINES; i < NUM_ALL_MACHINES; i++)
+        {
+            if (GetTMHMMoveId(i + 1) == move)
+                return GetTMHMItemId(i + 1);
+        }
+        return ITEM_NONE;
+    }
+
+    return GetTMHMItemIdFromMoveId(move);
+}
+
+// ============================================================================
+// Move Tutors (docs/SPEC.md "Move Tutors").
+//
+// The ten standard Hoenn tutors (data/scripts/move_tutors.inc) each draw one
+// move from the same ban-filtered pool as TMs, keyed on the tutor's vanilla
+// move so the assignment is stable for the run without needing a table - a
+// tutor is talked to, not rendered in a list. Battle Frontier tutors are a
+// separate list and stay vanilla, per SPEC's "every standard Tutor".
+// ============================================================================
+
+bool32 Randomizer_TutorEnabled(void) { return GetRulesetSetting(SETTING_TUTOR_RANDOMIZATION) != 0; }
+
+enum Move Randomizer_TutorMove(enum Move vanilla)
+{
+    u32 poolCount;
+    rng_value_t st;
+
+    if (vanilla == MOVE_NONE || !Randomizer_TutorEnabled())
+        return vanilla;
+
+    poolCount = LearnsetGen_PoolCount();
+    if (poolCount == 0)
+        return vanilla;
+
+    st = SeedFor(SALT_TUTOR, vanilla, 0, 0);
+    return LearnsetGen_PoolMove(LocalRandom32(&st) % poolCount);
+}
+
+// special: the move_tutor macro has just put the tutor's canonical move in
+// VAR_0x8005. Swap in the randomized one and buffer its name into STR_VAR_1 for
+// MoveTutor_Text_GenericWhichMon. Everything downstream (the party menu, the
+// PC-box filter, CanTeachMoveBoxMon) already reads VAR_0x8005.
+void ApplyTutorMoveRandomization(void)
+{
+    enum Move move = Randomizer_TutorMove(gSpecialVar_0x8005);
+
+    gSpecialVar_0x8005 = move;
+    StringCopy(gStringVar1, GetMoveName(move));
+}
+
+// ============================================================================
+// Items (docs/SPEC.md "Items", "Item-pool safety").
+//
+// Three sources - visible field balls, hidden items and script gifts - share
+// one pool and one safety filter, each with its own salt so they never
+// cross-reshuffle. The pool is walked with the same count-and-pick the species
+// picker uses rather than cached: an item is picked once per interaction, never
+// in a render loop, so ~2 x ITEMS_COUNT iterations costs nothing and the EWRAM
+// budget stays untouched.
+//
+// Evolution items need no special handling here: the Phase 7 Lilycove clerk is
+// a `pokemart` and shops are not randomized by default, so every stone stays
+// purchasable no matter how the field rolls ("Delayed is acceptable. Impossible
+// is not.").
+// ============================================================================
+
+// What may *appear*. Restricted to ordinary consumables, berries and balls, so
+// a field item can never become a key item or a machine.
+static bool32 ItemIsPoolEligible(enum Item item)
+{
+    if (item == ITEM_NONE || item >= ITEMS_COUNT)
+        return FALSE;
+    // Undefined item slots are all-zero, which reads as POCKET_ITEMS.
+    if (gItemsInfo[item].name == NULL)
+        return FALSE;
+    if (GetItemImportance(item) != 0)
+        return FALSE;
+
+    switch (GetItemPocket(item))
+    {
+    case POCKET_ITEMS:
+    case POCKET_BERRIES:
+    case POCKET_POKE_BALLS:
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
+// What may be *replaced*. Importance covers every progression item, HM and
+// reusable TM without a hand-maintained list; the pocket checks are belt and
+// braces, plus TMs, which already carry a randomized move of their own and
+// would simply be deleted from the run if they became Potions.
+static bool32 ItemIsReplaceableTarget(enum Item item)
+{
+    if (item == ITEM_NONE || item >= ITEMS_COUNT)
+        return FALSE;
+    if (gItemsInfo[item].name == NULL)
+        return FALSE;
+    if (GetItemImportance(item) != 0)
+        return FALSE;
+
+    switch (GetItemPocket(item))
+    {
+    case POCKET_KEY_ITEMS:
+    case POCKET_TM_HM:
+        return FALSE;
+    default:
+        return TRUE;
+    }
+}
+
+static enum Item PickPoolItem(rng_value_t *st)
+{
+    enum Item item;
+    u32 count = 0, n;
+
+    for (item = ITEM_NONE + 1; item < ITEMS_COUNT; item++)
+    {
+        if (ItemIsPoolEligible(item))
+            count++;
+    }
+    if (count == 0)
+        return ITEM_NONE;
+
+    n = LocalRandom32(st) % count;
+    for (item = ITEM_NONE + 1; item < ITEMS_COUNT; item++)
+    {
+        if (!ItemIsPoolEligible(item))
+            continue;
+        if (n == 0)
+            return item;
+        n--;
+    }
+    return ITEM_NONE;
+}
+
+static u32 CurrentMapKey(void)
+{
+    return ((u32)gSaveBlock1Ptr->location.mapGroup << 8) | gSaveBlock1Ptr->location.mapNum;
+}
+
+static enum Item ReplaceItem(enum Item vanilla, bool32 enabled, u32 salt, u32 k0, u32 k1)
+{
+    rng_value_t st;
+    enum Item pick;
+
+    if (!enabled || !ItemIsReplaceableTarget(vanilla))
+        return vanilla;
+
+    st = SeedFor(salt, k0, k1, vanilla);
+    pick = PickPoolItem(&st);
+    return (pick == ITEM_NONE) ? vanilla : pick;
+}
+
+bool32 Randomizer_FieldItemEnabled(void)  { return GetRulesetSetting(SETTING_FIELD_ITEM_RANDOMIZATION) != 0; }
+bool32 Randomizer_HiddenItemEnabled(void) { return GetRulesetSetting(SETTING_HIDDEN_ITEM_RANDOMIZATION) != 0; }
+bool32 Randomizer_GiftItemEnabled(void)   { return GetRulesetSetting(SETTING_GIFT_ITEM_RANDOMIZATION) != 0; }
+
+// Visible item balls: keyed on the map plus the ball's local object id, so two
+// balls on one map differ and neither moves when an unrelated map changes.
+enum Item Randomizer_FieldItem(enum Item vanilla, u32 objectId)
+{
+    return ReplaceItem(vanilla, Randomizer_FieldItemEnabled(), SALT_ITEM_FIELD,
+                       CurrentMapKey(), objectId);
+}
+
+// Hidden items: hiddenItemId is already unique per item across the game.
+enum Item Randomizer_HiddenItem(enum Item vanilla, u32 hiddenItemId)
+{
+    return ReplaceItem(vanilla, Randomizer_HiddenItemEnabled(), SALT_ITEM_HIDDEN,
+                       hiddenItemId, 0);
+}
+
+enum Item Randomizer_GiftItem(enum Item vanilla)
+{
+    return ReplaceItem(vanilla, Randomizer_GiftItemEnabled(), SALT_ITEM_GIFT,
+                       CurrentMapKey(), 0);
+}
+
+// special: Std_FindItem has the ball's item in VAR_0x8000 and the ball object in
+// VAR_LAST_TALKED. Rewrite the item before any of the downstream buffering runs,
+// so the message, pocket and fanfare all follow the new item.
+void ApplyFieldItemRandomization(void)
+{
+    gSpecialVar_0x8000 = Randomizer_FieldItem(gSpecialVar_0x8000, VarGet(VAR_LAST_TALKED));
+}
+
+// special: same for Std_ObtainItem (script gifts).
+void ApplyGiftItemRandomization(void)
+{
+    gSpecialVar_0x8000 = Randomizer_GiftItem(gSpecialVar_0x8000);
 }

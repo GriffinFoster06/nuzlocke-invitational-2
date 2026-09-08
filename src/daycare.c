@@ -1,5 +1,6 @@
 #include "global.h"
 #include "pokemon.h"
+#include "randomizer.h"
 #include "battle.h"
 #include "daycare.h"
 #include "string_util.h"
@@ -780,7 +781,7 @@ static void GiveParentTmMoves(struct Pokemon *egg, enum Move *parentMoves, enum 
             break;
         for (u32 j = 0; j < NUM_ALL_MACHINES; j++)
         {
-            enum Move moveId = GetTMHMMoveId(j + 1);
+            enum Move moveId = Randomizer_TmMoveByIndex(j + 1);
             if (parentMoves[i] == moveId)
             {
                 if (CanLearnTeachableMove(species, moveId))

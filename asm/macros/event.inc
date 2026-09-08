@@ -2708,7 +2708,11 @@
 	msgbox \tradeCompleteMsg, MSGBOX_DEFAULT
 	.endm
 
-	.macro move_tutor moveId:req, wantTeachingMsg:req, monSelectMsg:req, declinedJmp:req, taughtJmp:req, flagId=0
+	@ docs/SPEC.md "Move Tutors": the tutor keeps its flavor intro, but the
+	@ "which POKeMON" line is one shared string naming the move actually being
+	@ taught - the authored lines name the vanilla move, which is wrong once
+	@ ApplyTutorMoveRandomization has rewritten VAR_0x8005.
+	.macro move_tutor moveId:req, wantTeachingMsg:req, declinedJmp:req, taughtJmp:req, flagId=0
 	.if \flagId
 		goto_if_set \flagId, \taughtJmp
 	.endif
@@ -2718,8 +2722,9 @@
 		call MoveTutor_EventScript_CanOnlyBeLearnedOnce
 		goto_if_eq VAR_RESULT, NO, \declinedJmp
 	.endif
-	msgbox \monSelectMsg, MSGBOX_DEFAULT
 	setvar VAR_0x8005, \moveId
+	special ApplyTutorMoveRandomization
+	msgbox MoveTutor_Text_GenericWhichMon, MSGBOX_DEFAULT
 	call MoveTutor_EventScript_OpenBox
 	goto_if_eq VAR_RESULT, FALSE, \declinedJmp
 	.if \flagId

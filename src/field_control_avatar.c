@@ -12,6 +12,7 @@
 #include "event_scripts.h"
 #include "fieldmap.h"
 #include "field_control_avatar.h"
+#include "randomizer.h"
 #include "field_message_box.h"
 #include "field_move.h"
 #include "field_effect.h"
@@ -457,7 +458,10 @@ static const u8 *GetInteractedBackgroundEventScript(struct MapPosition *position
         if (bgEvent->bgUnion.hiddenItem.underfoot == TRUE)
             return NULL;
         gSpecialVar_0x8004 = bgEvent->bgUnion.hiddenItem.hiddenItemId + FLAG_HIDDEN_ITEMS_START;
-        gSpecialVar_0x8005 = bgEvent->bgUnion.hiddenItem.item;
+        // docs/SPEC.md "Items": hidden items are treated as field items. The
+        // coin piles (item == ITEM_NONE) and key items are left alone.
+        gSpecialVar_0x8005 = Randomizer_HiddenItem(bgEvent->bgUnion.hiddenItem.item,
+                                                   bgEvent->bgUnion.hiddenItem.hiddenItemId);
         gSpecialVar_0x8009 = bgEvent->bgUnion.hiddenItem.quantity;
         if (FlagGet(gSpecialVar_0x8004) == TRUE)
             return NULL;

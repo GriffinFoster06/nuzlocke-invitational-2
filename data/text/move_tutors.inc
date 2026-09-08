@@ -1,3 +1,11 @@
+@ docs/SPEC.md "Move Tutors": one shared line for every standard tutor. The
+@ authored per-tutor lines named the vanilla move, which is wrong once
+@ ApplyTutorMoveRandomization has swapped in the randomized one. STR_VAR_1 is
+@ the move actually being taught (the canonical move when randomization is off).
+MoveTutor_Text_GenericWhichMon:
+	.string "So, which POKéMON should learn\n"
+	.string "{STR_VAR_1}?$"
+
 MoveTutor_Text_ThisMoveCanOnlyBeLearnedOnce:
 	.string "This move can be learned only\n"
 	.string "once. Is that okay?$"
@@ -15,10 +23,6 @@ MoveTutor_Text_SwaggerTeach:
 MoveTutor_Text_SwaggerDeclined:
 	.string "What, no? Can't you get into\n"
 	.string "the spirit of things?$"
-
-MoveTutor_Text_SwaggerWhichMon:
-	.string "All right, which POKéMON wants to\n"
-	.string "learn how to SWAGGER?$"
 
 MoveTutor_Text_SwaggerTaught:
 	.string "I'll just praise my POKéMON from now\n"
@@ -39,10 +43,6 @@ MoveTutor_Text_RolloutDeclined:
 	.string "You don't need to be shy about it.\n"
 	.string "Let's roll!$"
 
-MoveTutor_Text_RolloutWhichMon:
-	.string "Ehehe, sure thing! It'd be great if\n"
-	.string "the POKéMON looked like me.$"
-
 MoveTutor_Text_RolloutTaught:
 	.string "Rolling around in the grass makes me\n"
 	.string "happy. Come on, let's roll!$"
@@ -57,10 +57,6 @@ MoveTutor_Text_FuryCutterTeach:
 
 MoveTutor_Text_FuryCutterDeclined:
 	.string "We're not on the same wavelength.$"
-
-MoveTutor_Text_FuryCutterWhichMon:
-	.string "Yay!\n"
-	.string "Show me which POKéMON I should teach.$"
 
 MoveTutor_Text_FuryCutterTaught:
 	.string "I get a thrill watching to see if\n"
@@ -78,11 +74,6 @@ MoveTutor_MimicTeach:
 MoveTutor_MimicDeclined:
 	.string "Oh, boo! I wanted to teach MIMIC\n"
 	.string "to your POKéMON!$"
-
-MoveTutor_Text_MimicWhichMon:
-	.string "Fwofwo! And so I shall!\n"
-	.string "Let me see the POKéMON\l"
-	.string "you wish me to teach.$"
 
 MoveTutor_Text_MimicTaught:
 	.string "MIMIC is a move of great depth.\p"
@@ -104,10 +95,6 @@ MoveTutor_Text_MetronomeDeclined:
 	.string "Okay. I'll be here if you change\n"
 	.string "your mind.$"
 
-MoveTutor_Text_MetronomeWhichMon:
-	.string "Okay! I'll teach it!\n"
-	.string "Which POKéMON should I teach?$"
-
 MoveTutor_Text_MetronomeTaught:
 	.string "When a POKéMON waggles its finger\n"
 	.string "like a METRONOME, all sorts of nice\l"
@@ -126,10 +113,6 @@ MoveTutor_Text_SleepTalkTeach:
 MoveTutor_Text_SleepTalkDeclined:
 	.string "Oh, fine, fine. You want to stay awake\n"
 	.string "with HIDDEN POWER, too…$"
-
-MoveTutor_Text_SleepTalkWhichMon:
-	.string "Ah, an appreciative child!\n"
-	.string "Which POKéMON should I teach?$"
 
 MoveTutor_Text_SleepTalkTaught:
 	.string "I've never once gotten my wife's\n"
@@ -153,11 +136,6 @@ MoveTutor_Text_SubstituteDeclined:
 	.string "A POKéMON can make a copy of\n"
 	.string "itself using it, you know.$"
 
-MoveTutor_Text_SubstituteWhichMon:
-	.string "Giggle…\n"
-	.string "Which POKéMON do you want me to\l"
-	.string "teach SUBSTITUTE?$"
-
 MoveTutor_Text_SubstituteTaught:
 	.string "We human beings should enjoy our\n"
 	.string "own lives to the utmost!\p"
@@ -180,10 +158,6 @@ MoveTutor_Text_DynamicPunchDeclined:
 	.string "Darn! You're even making fun of me?\n"
 	.string "Punch! Punch! Punch!$"
 
-MoveTutor_Text_DynamicPunchWhichMon:
-	.string "What? You do? You're a good person!\n"
-	.string "Which POKéMON should I teach?$"
-
 MoveTutor_Text_DynamicPunchTaught:
 	.string "I want you to win at the MOSSDEEP GYM\n"
 	.string "using that DYNAMICPUNCH!$"
@@ -203,10 +177,6 @@ MoveTutor_Text_DoubleEdgeDeclined:
 	.string "Oh…\n"
 	.string "Even you rejected me…$"
 
-MoveTutor_Text_DoubleEdgeWhichMon:
-	.string "Okay, which POKéMON should I teach\n"
-	.string "DOUBLE-EDGE?$"
-
 MoveTutor_Text_DoubleEdgeTaught:
 	.string "I won't live for love anymore!\n"
 	.string "I'll become tough!$"
@@ -224,10 +194,6 @@ MoveTutor_Text_ExplosionTeach:
 MoveTutor_Text_ExplosionDeclined:
 	.string "Gaah! You're turning me down because\n"
 	.string "I live in the country?$"
-
-MoveTutor_Text_ExplosionWhichMon:
-	.string "Fine! An EXPLOSION it is!\n"
-	.string "Which POKéMON wants to blow up?$"
 
 MoveTutor_Text_ExplosionTaught:
 	.string "For a long time, I've taught POKéMON\n"

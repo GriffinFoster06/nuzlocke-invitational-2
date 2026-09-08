@@ -213,6 +213,35 @@ bool32 LearnsetGen_IsActive(void)
     return GetRulesetSetting(SETTING_MOVE_RANDOMIZATION) != 0;
 }
 
+// ---- shared move pool ---------------------------------------------------
+// The ban-filtered pool is not specific to level-up learnsets: Phase 2's TM and
+// Move Tutor randomization draw from the same list, so it is exposed here
+// rather than rebuilt a second time. The pool is built regardless of
+// SETTING_MOVE_RANDOMIZATION, so those categories work independently of it.
+
+u32 LearnsetGen_PoolSignature(void)
+{
+    return PoolSignature();
+}
+
+u32 LearnsetGen_PoolCount(void)
+{
+    LearnsetGen_EnsureBuilt();
+    return (u32)sDmgCount + (LG_POOL_CAP - sStatusStart);
+}
+
+// Flat index over the pool: [0, sDmgCount) are damaging, the rest are status.
+enum Move LearnsetGen_PoolMove(u32 index)
+{
+    LearnsetGen_EnsureBuilt();
+    if (index < sDmgCount)
+        return sPool[index];
+    index += sStatusStart - sDmgCount;
+    if (index < LG_POOL_CAP)
+        return sPool[index];
+    return MOVE_NONE;
+}
+
 // ---- generation --------------------------------------------------------
 
 // kind: 0 = STAB (damaging, type t0/t1), 1 = any damaging, 2 = status.

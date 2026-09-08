@@ -2244,7 +2244,7 @@ void SetMultiTrainerBattle(struct ScriptContext *ctx)
     gPartnerTrainerId = TRAINER_PARTNER(ScriptReadHalfword(ctx));
 };
 
-void CreateNPCTrainerPartyFromTrainer(struct Pokemon *party, const struct Trainer *trainer)
+void CreateNPCTrainerPartyFromTrainer(struct Pokemon *party, const struct Trainer *trainer, u16 trainerId)
 {
     s32 i;
     u8 monsCount;
@@ -2266,7 +2266,12 @@ void CreateNPCTrainerPartyFromTrainer(struct Pokemon *party, const struct Traine
     for (i = 0; i < monsCount; i++)
     {
         u32 monIndex = monIndices[i];
-        GenerateMonFromTrainerMon(&party[i], &trainer->party[monIndex], trainerGen);
+        // docs/SPEC.md "Trainer Pokemon": trainer parties live in ROM, so the
+        // replacement is applied to a mutable copy on the way to the generator.
+        struct TrainerMon entry = trainer->party[monIndex];
+
+        Randomizer_ApplyTrainerMon(&entry, trainerId, monIndex, trainer->trainerClass);
+        GenerateMonFromTrainerMon(&party[i], &entry, trainerGen);
     }
     Free(trainerGen);
 }
@@ -2275,7 +2280,7 @@ static void CreateNPCTrainerParty(struct Pokemon *party, u16 trainerNum)
 {
     if (!GetTrainerStructFromId(trainerNum)->overrideTrainer)
     {
-        CreateNPCTrainerPartyFromTrainer(party, GetTrainerStructFromId(trainerNum));
+        CreateNPCTrainerPartyFromTrainer(party, GetTrainerStructFromId(trainerNum), trainerNum);
         return;
     }
 
@@ -2288,7 +2293,7 @@ static void CreateNPCTrainerParty(struct Pokemon *party, u16 trainerNum)
     tempTrainer.poolSize = origTrainer->poolSize;
     if (tempTrainer.partySize == 0)
         tempTrainer.partySize = origTrainer->partySize;
-    CreateNPCTrainerPartyFromTrainer(party, (const struct Trainer *)(&tempTrainer));
+    CreateNPCTrainerPartyFromTrainer(party, (const struct Trainer *)(&tempTrainer), trainerNum);
 }
 
 void CreateTrainerPartyForPlayer(void)
@@ -2296,5 +2301,5 @@ void CreateTrainerPartyForPlayer(void)
     Script_RequestEffects(SCREFF_V1);
 
     gPartnerTrainerId = gSpecialVar_0x8004;
-    CreateNPCTrainerPartyFromTrainer(gParties[B_TRAINER_PLAYER], GetTrainerStructFromId(gSpecialVar_0x8004));
+    CreateNPCTrainerPartyFromTrainer(gParties[B_TRAINER_PLAYER], GetTrainerStructFromId(gSpecialVar_0x8004), gSpecialVar_0x8004);
 }

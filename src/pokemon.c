@@ -27,6 +27,7 @@
 #include "frontier_util.h"
 #include "graphics.h"
 #include "item.h"
+#include "ability_gen.h"
 #include "learnset_gen.h"
 #include "link.h"
 #include "m4a.h"
@@ -3240,6 +3241,14 @@ enum Type GetSpeciesType(enum Species species, u8 slot)
 
 enum Ability GetSpeciesAbility(enum Species species, u8 slot)
 {
+    // docs/SPEC.md "Abilities": the generated ability overrides the canonical
+    // one at the single accessor, so every downstream reader stays consistent.
+    if (AbilityGen_IsActive())
+    {
+        enum Ability generated = AbilityGen_Get(species, slot);
+        if (generated != ABILITY_NONE)
+            return generated;
+    }
     return gSpeciesInfo[SanitizeSpeciesId(species)].abilities[slot];
 }
 

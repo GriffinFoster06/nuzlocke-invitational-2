@@ -2,6 +2,9 @@
 .set AMOUNT, VAR_0x8001
 
 Std_ObtainItem::
+	@ docs/SPEC.md "Items": rewrite ITEMID before any buffering, so the message,
+	@ pocket and fanfare all follow the randomized item. No-op for key items.
+	special ApplyGiftItemRandomization
 	copyvar VAR_0x8006, ITEMID
 	additem ITEMID, AMOUNT
 	copyvar VAR_0x8007, VAR_RESULT
@@ -107,6 +110,7 @@ Std_FindItem::
 	lock
 	faceplayer
 	waitse
+	special ApplyFieldItemRandomization
 	copyvar VAR_0x8006, ITEMID
 	copyvar VAR_0x8004, ITEMID
 	copyvar VAR_0x8005, AMOUNT

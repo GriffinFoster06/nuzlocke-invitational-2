@@ -50,6 +50,7 @@
 #include "overworld.h"
 #include "palette.h"
 #include "party_menu.h"
+#include "randomizer.h"
 #include "player_pc.h"
 #include "pokemon.h"
 #include "pokemon_icon.h"
@@ -5543,7 +5544,10 @@ void ItemUseCB_PPUp(u8 taskId, TaskFunc task)
 
 enum Move ItemIdToBattleMoveId(enum Item item)
 {
-    return (GetItemPocket(item) == POCKET_TM_HM) ? GetItemTMHMMoveId(item) : MOVE_NONE;
+    // docs/SPEC.md "TMs": the randomized move stands in for the canonical one at
+    // the single chokepoint, so the bag name, the boot-up message and the move
+    // actually taught all agree.
+    return (GetItemPocket(item) == POCKET_TM_HM) ? Randomizer_TmMove(item) : MOVE_NONE;
 }
 
 bool8 MonKnowsMove(struct Pokemon *mon, enum Move move)

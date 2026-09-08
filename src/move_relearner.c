@@ -6,6 +6,8 @@
 #include "chooseboxmon.h"
 #include "contest_effect.h"
 #include "data.h"
+#include "randomizer.h"
+#include "ruleset_field.h"
 #include "decompress.h"
 #include "event_data.h"
 #include "field_screen_effect.h"
@@ -530,7 +532,7 @@ static void UIEndTask(u8 taskId)
 {
     if (gSpecialVar_Result == TRUE && ShouldConsumeTmItem(gTasks[taskId].tMove))
     {
-        enum Item item = GetTMHMItemIdFromMoveId(gTasks[taskId].tMove);
+        enum Item item = Randomizer_TmItemForMove(gTasks[taskId].tMove);
         if (!GetItemImportance(item))
             RemoveBagItem(item, 1);
     }
@@ -704,7 +706,7 @@ static void Task_MoveRelearner_HandleInput(u8 taskId)
         const u8 *message = gText_MoveRelearnerTeachMoveConfirm;
         if (ShouldConsumeTmItem(gTasks[taskId].tMove))
         {
-            enum Item item = GetTMHMItemIdFromMoveId(gTasks[taskId].tMove);
+            enum Item item = Randomizer_TmItemForMove(gTasks[taskId].tMove);
             StringCopy(gStringVar3, GetItemName(item));
             if (!GetItemImportance(item))
                 message = gText_MoveRelearnerTeachMoveConfirmUseTm;
@@ -973,7 +975,7 @@ static u32 GetRelearnerTMMoves(struct BoxPokemon *mon, u16 *moves)
     for (u32 i = 0; i < NUM_ALL_MACHINES; i++)
     {
         enum Item item = GetTMHMItemId(i + 1);
-        enum Move move = GetTMHMMoveId(i + 1);
+        enum Move move = Randomizer_TmMoveByIndex(i + 1);
 
         if (move == MOVE_NONE)
             continue;
@@ -981,7 +983,9 @@ static u32 GetRelearnerTMMoves(struct BoxPokemon *mon, u16 *moves)
         if (!IsTmAvailable(item))
             continue;
 
-        if (!CanLearnTeachableMove(species, move))
+        // docs/SPEC.md "Universal TM compatibility": if any mon can be taught
+        // any machine from the bag, the relearner must offer the same list.
+        if (!Ruleset_UniversalTmCompatOn() && !CanLearnTeachableMove(species, move))
             continue;
 
         if (!BoxMonKnowsMove(mon, move))
@@ -1000,7 +1004,10 @@ static u32 GetRelearnerTutorMoves(struct BoxPokemon *mon, u16 *moves)
     {
         enum Move move = gTutorMoves[i];
 
-        if (!CanLearnTeachableMove(species, move))
+        // docs/SPEC.md "Move Tutors": universal Tutor compatibility applies to
+        // the relearner's Tutor category too, or it would offer a narrower list
+        // than an actual tutor accepts.
+        if (!Ruleset_UniversalTutorCompatOn() && !CanLearnTeachableMove(species, move))
             continue;
 
         if (!BoxMonKnowsMove(mon, move))
@@ -1084,7 +1091,7 @@ static bool32 HasRelearnerTMMoves(struct BoxPokemon *boxMon)
     for (u32 i = 0; i < NUM_ALL_MACHINES; i++)
     {
         enum Item item = GetTMHMItemId(i + 1);
-        enum Move move = GetTMHMMoveId(i + 1);
+        enum Move move = Randomizer_TmMoveByIndex(i + 1);
 
         if (move == MOVE_NONE)
             continue;
@@ -1093,7 +1100,7 @@ static bool32 HasRelearnerTMMoves(struct BoxPokemon *boxMon)
         if (!tmAvailable)
             continue;
 
-        if (!CanLearnTeachableMove(species, move))
+        if (!Ruleset_UniversalTmCompatOn() && !CanLearnTeachableMove(species, move))
             continue;
 
         if (!BoxMonKnowsMove(boxMon, move))
@@ -1110,7 +1117,7 @@ static bool32 HasRelearnerTutorMoves(struct BoxPokemon *boxMon)
     {
         enum Move move = gTutorMoves[i];
 
-        if (!CanLearnTeachableMove(species, move))
+        if (!Ruleset_UniversalTutorCompatOn() && !CanLearnTeachableMove(species, move))
             continue;
 
         if (!BoxMonKnowsMove(boxMon, move))

@@ -321,6 +321,19 @@ Required key items do not become Potions. Ordinary consumable pickups cannot
 replace progression flags. Evolution availability guaranteed independently
 of random field-item luck.
 
+Concrete rule as implemented (Phase 2, `src/randomizer.c`):
+- **Never replaced**: anything with non-zero `GetItemImportance()` (which covers
+  every key item, every HM, and reusable TMs), anything in `POCKET_KEY_ITEMS`,
+  and anything in `POCKET_TM_HM`. TMs are excluded because their *move* is
+  already randomized — turning a field TM into a Potion would delete a TM from
+  the run rather than randomize it.
+- **Never produced**: the replacement pool is `POCKET_ITEMS` + `POCKET_BERRIES`
+  + `POCKET_POKE_BALLS` only, with importance zero and a defined name, so a
+  pickup can never become a key item or a machine.
+- **Evolution items** need no special handling: the Lilycove evolution clerk is
+  a `pokemart` and shops are not randomized by default, so every stone stays
+  purchasable regardless of field-item luck.
+
 ## Modern held items
 Held items through Gen 9 supported with Gen 9 effect behavior. Randomized
 item pools can include useful modern held items.
@@ -466,6 +479,51 @@ dataset still requires a specific known move, the Evolution Assistance
 system (see below) has no remaining use case and should be confirmed
 removable rather than kept as dead code — verify this during
 implementation rather than assuming it.
+
+### As implemented (Phase 9.5 sweep)
+
+The sweep edits the species dataset directly
+(`src/data/pokemon/species_info/gen_*_families.h`, every change tagged
+`// NUZLOCKE:`) rather than growing `sEvoFixTable`, which is linear-scanned on
+every `GetSpeciesEvolutions()` call and must restate a species' whole evolution
+array. Only Zweilous is left in that table, and only because its level-64
+threshold clashes with the level cap.
+
+Two mechanics drive the result:
+
+- **First match wins.** `GetEvolutionTargetSpecies()` stops at the first
+  matching row (upstream changed this from vanilla). So where a condition used
+  to *select between targets* at one level, it is replaced by a **ladder**: each
+  branch gets its own level, listed highest-first, and the player declines the
+  earlier evolution with B to reach a later one. Used for Slowpoke, Clamperl,
+  Tyrogue, Wurmple, Toxel, Dunsparce, Tandemaus, Burmy x3, Espurr, Lechonk,
+  Basculin, Rockruff, Cosmoem, and every regional-form split.
+- **`GetCurrentRegion()` only returns `REGION_HOENN` or `REGION_KANTO`.** Every
+  `IF_REGION, REGION_ALOLA/GALAR/HISUI/PALDEA` branch was therefore already
+  *impossible*, not merely non-level.
+
+Level defaults, applied uniformly: `preEvolutionLevel + 12` where the species
+has one, otherwise **20** for a friendship gate or a baby-to-basic transition
+and **32** for anything else; clamped to [20, 50] except where an existing level
+row forces it higher. Ladder branches are spaced 8 levels apart.
+
+Three regional splits used the **same stone** on both branches, so the regional
+form was given a distinct stone (the pattern this document sets for Eevee), all
+of them sold by the Lilycove clerk:
+
+- Alolan Raichu -> **Dawn Stone** (Kanto Raichu keeps Thunder Stone)
+- Alolan Exeggutor -> **Sun Stone** (Kanto Exeggutor keeps Leaf Stone)
+- Hisuian Lilligant -> **Dusk Stone** (Unovan Lilligant keeps Sun Stone)
+
+Two deliberate exceptions to "everything becomes level-based":
+
+- **Nincada -> Shedinja** keeps its `IF_BAG_ITEM_COUNT` Poke Ball requirement.
+  That is an item requirement that is trivially satisfiable and *is* the
+  Shedinja mechanic; the rule exists for reachability, and this is reachable.
+- **Milcery** had 63 `EVO_SPIN` rows, one per Sweet x Cream x time-of-day
+  combination. A ladder is impossible at that width, so Milcery evolves on level
+  alone into the default Strawberry/Vanilla Alcremie and the other 62 cosmetic
+  forms are unreachable in this hack.
 
 ## Evolve command
 Default: ON. Available from the Pokémon menu; shows whether an evolution is

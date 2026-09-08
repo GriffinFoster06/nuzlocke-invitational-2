@@ -25,7 +25,13 @@
 #define SALT_STATIC       0x53544154  // "STAT"
 #define SALT_ROAMER       0x524F414D  // "ROAM"
 #define SALT_LEARNSET     0x4C524E53  // "LRNS"
-// Reserved for later phases: trainers, abilities, TMs, tutors, items.
+#define SALT_TRAINER      0x54524E52  // "TRNR"
+#define SALT_ABILITY      0x41424C54  // "ABLT"
+#define SALT_TM           0x544D4D56  // "TMMV"
+#define SALT_TUTOR        0x5455544F  // "TUTO"
+#define SALT_ITEM_FIELD   0x49544644  // "ITFD"
+#define SALT_ITEM_HIDDEN  0x49544844  // "ITHD"
+#define SALT_ITEM_GIFT    0x49544746  // "ITGF"
 
 static inline rng_value_t RunRng_Seed(u32 salt, u32 k0, u32 k1, u32 k2)
 {

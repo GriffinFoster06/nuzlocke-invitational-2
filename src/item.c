@@ -1,6 +1,8 @@
 #include "global.h"
 #include "item.h"
 #include "berry.h"
+#include "move.h"
+#include "randomizer.h"
 #include "pokeball.h"
 #include "string_util.h"
 #include "text.h"
@@ -863,6 +865,15 @@ u32 GetItemHoldEffectParam(enum Item itemId)
 
 const u8 *GetItemDescription(enum Item itemId)
 {
+    // docs/SPEC.md "TMs": a TM's canned description describes the move it used
+    // to teach, so a randomized TM shows its new move's description instead.
+    // HMs and unrandomized TMs fall through untouched.
+    if (GetItemPocket(itemId) == POCKET_TM_HM)
+    {
+        enum Move move = Randomizer_TmMove(itemId);
+        if (move != GetItemTMHMMoveId(itemId))
+            return GetMoveDescription(move);
+    }
     return gItemsInfo[SanitizeItemId(itemId)].description;
 }
 

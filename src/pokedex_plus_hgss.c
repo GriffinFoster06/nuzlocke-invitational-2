@@ -5,6 +5,7 @@
 #include "contest.h"
 #include "contest_effect.h"
 #include "data.h"
+#include "randomizer.h"
 #include "daycare.h"
 #include "debug.h"
 #include "decompress.h"
@@ -2273,7 +2274,7 @@ static void PrintStatsScreen_Moves_Top(u8 taskId)
         enum Item TMHMItemId = ITEM_NONE;
         for (u32 i = 0; i < NUM_ALL_MACHINES; i++)
         {
-            if (move == GetTMHMMoveId(i + 1))
+            if (move == Randomizer_TmMoveByIndex(i + 1))
                 TMHMItemId = GetTMHMItemId(i + 1);
         }
         if (TMHMItemId)

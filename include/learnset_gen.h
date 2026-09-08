@@ -29,6 +29,13 @@ bool32 LearnsetGen_IsActive(void); // SETTING_MOVE_RANDOMIZATION
 const struct LevelUpMove *LearnsetGen_GetLearnset(enum Species species);
 
 void LearnsetGen_EnsureBuilt(void); // rebuild pool / reset cache if settings moved
+
+// The ban-filtered move pool, shared with Phase 2's TM / Move Tutor
+// randomization. Built regardless of SETTING_MOVE_RANDOMIZATION, so those
+// categories do not depend on level-up randomization being on.
+u32 LearnsetGen_PoolSignature(void);        // changes when a SETTING_BAN_*_MOVES moves
+u32 LearnsetGen_PoolCount(void);            // 0 only under pathological ban settings
+enum Move LearnsetGen_PoolMove(u32 index);  // index < LearnsetGen_PoolCount()
 void LearnsetGen_Invalidate(void);  // force the above on next call
 
 #endif // GUARD_LEARNSET_GEN_H

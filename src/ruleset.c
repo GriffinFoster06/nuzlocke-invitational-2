@@ -10,8 +10,10 @@
 // ============================================================================
 
 #include "global.h"
+#include "ability_gen.h"
 #include "learnset_gen.h"
 #include "power_score.h"
+#include "randomizer.h"
 #include "random.h"
 #include "ruleset.h"
 #include "ruleset_qol.h"
@@ -90,6 +92,8 @@ static void ApplyPresetInternal(u32 preset)
 
     PowerScore_Invalidate();
     LearnsetGen_Invalidate();
+    AbilityGen_Invalidate();
+    Randomizer_InvalidateTms();
 
     if (preset < RULESET_NAMED_PRESET_COUNT)
     {
@@ -236,6 +240,8 @@ void SetRulesetSetting(u32 settingId, u8 value)
     // cache re-checks its signature on the next EnsureBuilt.
     PowerScore_Invalidate();
     LearnsetGen_Invalidate();
+    AbilityGen_Invalidate();
+    Randomizer_InvalidateTms();
 
     // docs/SPEC.md "Unlimited money": switching it on mid-run tops the wallet up.
     if (settingId == SETTING_UNLIMITED_MONEY && value != 0)

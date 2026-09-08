@@ -429,9 +429,34 @@ Every Pokémon must be capable of reaching its final evolution in
 single-player. No Pokémon can be permanently blocked because its original
 game required trading, another player, Pokémon HOME, another version, a
 feature not present in Emerald, or a region-specific environmental object.
-Some evolutions may still be legitimately progression-gated (e.g. a stone
-not available until Lilycove is fine). Rule: **Delayed is acceptable.
-Impossible is not.**
+
+**Global rule: every evolution is level-based except item/stone
+evolutions.** Friendship, time-of-day, specific-move-known, location,
+party-member-present, stat-comparison, weather, region, beauty, and any
+other non-item evolution condition is replaced with a specific level
+threshold instead. Item/stone evolutions (Thunder Stone, Water Stone,
+Fire Stone, Leaf Stone, Moon Stone, Sun Stone, Shiny Stone, Dusk Stone,
+Dawn Stone, Ice Stone, etc.) are the only evolutions that keep a
+non-level trigger. Trade evolutions also become plain level-based under
+this rule, not item-based — a held item during trade is not itself a
+stone.
+
+Some evolutions may still be legitimately progression-gated by when a
+required stone becomes available (e.g. a stone not available until
+Lilycove is fine). Rule: **Delayed is acceptable. Impossible is not.**
+
+**Eevee specifically:** Vaporeon/Jolteon/Flareon/Leafeon/Glaceon keep
+their existing stones (Water/Thunder/Fire/Leaf/Ice). The three currently
+non-stone Eeveelutions get stones unused by the others:
+- Espeon → Sun Stone
+- Umbreon → Moon Stone
+- Sylveon → Shiny Stone
+
+**Consequence for Evolution Assistance:** if no evolution in the final
+dataset still requires a specific known move, the Evolution Assistance
+system (see below) has no remaining use case and should be confirmed
+removable rather than kept as dead code — verify this during
+implementation rather than assuming it.
 
 ## Evolve command
 Default: ON. Available from the Pokémon menu; shows whether an evolution is
@@ -447,28 +472,36 @@ progression-gated by reaching Lilycove. Scroll of Darkness/Waters can also
 be made available here if Kubfu continues to use the canonical Scroll
 method. Replaces the arbitrary Mossdeep white-rock workaround.
 
-## Move-dependent evolution anti-softlock
-The Lilycove Tutor Mansion is removed ONLY because a guaranteed replacement
-exists: a Pokémon requiring a specific move to evolve can always obtain that
-move through an Evolution Assistance function, restricted specifically to
-evolution-necessary moves (not a general free Move Reminder). Randomized
-learnsets/TMs therefore cannot permanently prevent an evolution.
+## Move-dependent evolution anti-softlock (superseded — see global rule
+above; kept as historical context)
+Originally: the Lilycove Tutor Mansion was removed only because a
+guaranteed replacement system existed — a Pokémon requiring a specific
+move to evolve could always obtain that move through an Evolution
+Assistance function, restricted specifically to evolution-necessary moves
+(not a general free Move Reminder). Under the new global rule, move-gated
+evolutions no longer exist as a category (they're level-based now), so
+this concern should no longer apply — confirm during implementation and
+remove Evolution Assistance if genuinely unused rather than leaving it as
+dead infrastructure.
 
 ## Trade evolutions
-Converted into deterministic single-player evolutions with appropriate
-level/item requirements. No Link Cable / second game necessary.
+Converted into deterministic single-player evolutions using a specific
+level threshold, per the global rule above — not an item or held-item
+substitute. No Link Cable / second game necessary.
 
 ## Species-specific evolution fixes
 - **Shelmet and Karrablast**: Verdanturf forced trades removed; both get
-  deterministic single-player level-based evolutions.
+  deterministic single-player level-based evolutions (party-member
+  requirement removed per the global rule, not replaced with an item).
 - **Mantyke**: Fallarbor free Remoraid workaround removed; deterministic
-  single-player evolution level.
+  single-player evolution level (party-member requirement removed, not
+  replaced with an item).
 - **Gimmighoul**: 999-coin NPC removed; deterministic level-based evolution.
 - **Galarian Yamask**: Route 111 statue removed; deterministic level-based
   evolution.
 - **Bisharp**: Route 123 three-Leader's-Crest event removed; Kingambit gets
-  a deterministic single-player requirement, primarily level/progression
-  based.
+  a deterministic single-player level-based requirement (not a
+  repeated-item-collection trick).
 - **High-level evolutions generally**: if a canonical evolution level
   exceeds the final pre-Champion cap, the requirement is lowered to an
   appropriate reachable threshold (Randolocke changes Zweilous to 63
@@ -631,8 +664,8 @@ Phase 10.)*
   Birch introduction shortened; forced rival-house trip removed; starter
   selection reached almost immediately; Birch rescue tutorial battle
   shortenable/skippable in strict mode.
-- **First rival battle** (Route 103): retained; walk back to
-  Birch's lab afterward retained so the player gets 5x random items; Pokédex/Balls/Running can be automatically given.
+- **First rival battle** (Route 103): retained; no forced walk back to
+  Birch's lab afterward; Pokédex/Balls/Running can be awarded
   automatically or via immediate transition.
 - **Petalburg/Wally tutorial**: Norman's story gate remains; Wally's
   catching tutorial removed (he leaves offscreen); later meaningful Wally
@@ -730,6 +763,13 @@ Phase 10.)*
 Final six Pokémon recorded, along with species, nicknames, abilities,
 moves, held items, IVs, EVs, nature, seed, and ruleset — useful for
 recreating/exporting the tournament team.
+
+## Hall-of-Fame species exclusion (Tournament preset only)
+Once a player defeats the Champion, all six species used for that victory
+are added to the tournament exclusion list and cannot appear in
+subsequently generated fresh saves. Existing active runs are unaffected.
+Solo preset leaves this off (no second competitor whose pool must be
+affected).
 
 ## Postgame
 Nuzlocke run formally ends at Champion by default. Player can optionally

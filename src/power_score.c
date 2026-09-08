@@ -162,9 +162,13 @@ static bool32 SpeciesHasRealEvolution(enum Species species)
         return FALSE;
     for (i = 0; evos[i].method != EVOLUTIONS_END; i++)
     {
+        enum Species t = evos[i].targetSpecies;
+
         if (evos[i].method == EVO_NONE)
             continue;
-        if (evos[i].targetSpecies != SPECIES_NONE && IsSpeciesEnabled(SanitizeSpeciesId(evos[i].targetSpecies)))
+        // Test enabled-ness before SanitizeSpeciesId: the latter asserts on a
+        // disabled ID (e.g. the dataless SPECIES_LUGIA_SHADOW).
+        if (t != SPECIES_NONE && t < NUM_SPECIES && IsSpeciesEnabled(t))
             return TRUE;
     }
     return FALSE;
@@ -191,10 +195,13 @@ static u16 BestFinalRaw(enum Species species, u16 *rawTbl, u16 *memo, u32 depth)
         evos = GetSpeciesEvolutions(species);
         for (i = 0; evos != NULL && evos[i].method != EVOLUTIONS_END; i++)
         {
-            enum Species t = SanitizeSpeciesId(evos[i].targetSpecies);
+            enum Species t = evos[i].targetSpecies;
             u16 sub;
 
-            if (evos[i].method == EVO_NONE || t == SPECIES_NONE || t == species || t >= NUM_SPECIES)
+            // Filter before any sanitizing accessor: a disabled target (the
+            // dataless SPECIES_LUGIA_SHADOW) would assert in GetSpeciesEvolutions.
+            if (evos[i].method == EVO_NONE || t == SPECIES_NONE || t == species
+             || t >= NUM_SPECIES || !IsSpeciesEnabled(t))
                 continue;
             sub = BestFinalRaw(t, rawTbl, memo, depth + 1);
             if (sub > best)
@@ -294,8 +301,10 @@ void PowerScore_EnsureBuilt(void)
         evos = GetSpeciesEvolutions(s);
         for (i = 0; evos != NULL && evos[i].method != EVOLUTIONS_END; i++)
         {
-            enum Species t = SanitizeSpeciesId(evos[i].targetSpecies);
-            if (evos[i].method != EVO_NONE && t != SPECIES_NONE && t < NUM_SPECIES)
+            enum Species t = evos[i].targetSpecies;
+            // Guard before SanitizeSpeciesId, which asserts on a disabled ID.
+            if (evos[i].method != EVO_NONE && t != SPECIES_NONE && t < NUM_SPECIES
+             && IsSpeciesEnabled(t))
                 hasPreBits[t] = 1;
         }
     }

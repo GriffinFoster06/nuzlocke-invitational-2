@@ -183,6 +183,79 @@ since this phase includes the power-score formula design — run
 
 ---
 
+## Phase 9.5 — Pre-story checkpoint (audit + playable build)
+**Before pasting:** stay in normal mode for the audit itself. Consider
+`/effort xhigh` for this one session since it's reviewing across all nine
+prior phases at once, not a single focused task — run `/effort high` again
+once it's done. If it finds real bugs, it should stop and show you a plan
+before fixing anything that touches an already-built system — don't let it
+silently patch across phases.
+
+This is the point to stop and confirm everything built so far (Phases 1-9:
+settings/presets, the randomizer, Nuzlocke rules, level caps, AI, display,
+evolution fixes, remaining QoL, map additions) actually holds together
+before starting the biggest and riskiest phase. Story linearization touches
+scripts throughout the whole game — you want a solid, verified foundation
+under it, not nine phases of work you're hoping integrated correctly.
+
+**Prompt:**
+> Before we start Phase 10, I want a full checkpoint. Re-read docs/SPEC.md
+> in full and go category by category — settings/presets, the randomizer
+> (species/trainer/item/ability, power score, persistent slot mapping),
+> Nuzlocke rules (permadeath, one-per-location, Dupes Clause, Shiny Clause,
+> nicknames, no battle items, whiteout), level caps and Level to Cap,
+> learnset generation, AI tuning, display/UI additions, the evolution
+> overhaul, and the remaining QoL items (catch rate, repel, bag, ball
+> shortcut, money, HM-free traversal, map additions). For each one, confirm
+> what was actually implemented matches what the spec says, and specifically
+> check for integration problems between phases that were built in separate
+> sessions — for example, does the settings menu actually control the
+> randomizer's behavior, does the Nuzlocke over-cap marking correctly block
+> battle entry, does Level to Cap respect the current preset's rules, does
+> the evolution overhaul interact correctly with the randomized learnsets.
+> Don't fix anything yet — first give me a clear report: what's confirmed
+> working, what's missing or incomplete, and what looks like it might not
+> be wired together correctly and needs a closer look.
+
+**After reviewing its report,** for anything it flagged as broken or
+missing, ask for a plan before letting it fix things:
+> Show me your plan for fixing [the specific issues], one at a time, before
+> you touch anything.
+
+**Once everything's confirmed or fixed, get a clean playable build:**
+> Now do a full clean build — run `make clean` first, then build from
+> scratch, and confirm it compiles with no errors. Once it's built, copy
+> the resulting pokeemerald.gba to checkpoint-after-phase9.gba in the
+> project root so I have a preserved, working snapshot before story
+> linearization starts.
+
+**Then playtest it yourself before starting Phase 10.** Load
+`checkpoint-after-phase9.gba` in an emulator and actually check:
+- Start a new game — does the settings/preset menu appear and work?
+- Catch a few wild Pokémon — are they randomized, power-matched, and does
+  the same encounter slot stay consistent if you soft-reset and re-catch it?
+- Faint a Pokémon on purpose — does permadeath actually trigger (marked
+  dead, can't be used)?
+- Try to re-catch on an already-resolved encounter location — does the Dupes
+  Clause / one-per-location rule actually block it correctly?
+- Try to name a caught Pokémon nothing (skip the nickname) — is it actually
+  enforced as mandatory?
+- Level a Pokémon up near the first badge's cap — does the hard cap actually
+  stop it, and does Level to Cap correctly walk through skipped moves?
+- Open a Pokémon's summary — are IVs, EVs, nature, and legality status all
+  showing correctly?
+- Fight a trainer — does the AI feel noticeably smarter than vanilla, and
+  does it seem to only react to information it should actually know?
+- Try a couple of the QoL items — infinite Repel toggle, R-button Ball
+  throw, unlimited money at a shop with progression-gated Ball types.
+
+If anything on that list doesn't work as expected, that's exactly what you
+want to catch now — bring it back to Claude Code as its own focused fix
+before starting Phase 10, rather than discovering it buried under a story
+linearization pass later.
+
+---
+
 ## Phase 10 — Story linearization (do one area per session)
 **Before pasting:** turn on plan mode — always, every area, no exceptions.
 Replace `[AREA NAME]` with the specific area from the "Map-by-map story

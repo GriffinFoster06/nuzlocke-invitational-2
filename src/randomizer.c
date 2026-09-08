@@ -158,7 +158,12 @@ static enum Species PickReplacementCore(rng_value_t *st, enum Species vanilla, e
             if (!RungAccepts(&ladder[i], s, mode, target, tgtStage))
                 continue;
             if (pick == 0)
-                return s;
+            {
+                // Backstop: InPool() already excludes anything not power-eligible
+                // (and 1435 is never eligible), but keep the guarantee local to
+                // the one return point in case the score cache is ever stale.
+                return IsSpeciesEnabled(s) ? s : vanilla;
+            }
             pick--;
         }
     }

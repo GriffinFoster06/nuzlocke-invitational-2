@@ -246,9 +246,14 @@ bool32 Nuzlocke_CanCatchCurrentEncounter(void)
 
 #define FAMILY_BITSET_BYTES  ROUND_BITS_TO_BYTES(NUM_SPECIES)
 
+// Invariant: any species ID that did not come off a live struct Pokemon must
+// pass IsSpeciesEnabled() before it reaches a gSpeciesInfo accessor. The
+// sanitizing accessors (GetSpeciesEvolutions, SpeciesToNationalPokedexNum, ...)
+// assert on a disabled ID, and SPECIES_LUGIA_SHADOW (1435) is a reserved
+// upstream form ID with no data entry sitting in the middle of the range.
 static bool32 SpeciesInRange(u32 s)
 {
-    return s != SPECIES_NONE && s < NUM_SPECIES;
+    return s != SPECIES_NONE && s < NUM_SPECIES && IsSpeciesEnabled(s);
 }
 
 // Grow `set` to the full evolutionary family closure of its current members
@@ -266,14 +271,20 @@ static void ExpandFamilyClosure(u8 *set, bool32 countForms)
 
         for (s = 1; s < NUM_SPECIES; s++)
         {
-            const struct Evolution *evos = GetSpeciesEvolutions(s);
-            bool32 sIn = BITARR_GET(set, s);
+            const struct Evolution *evos;
+            bool32 sIn;
+
+            if (!IsSpeciesEnabled(s))
+                continue;
+
+            evos = GetSpeciesEvolutions(s);
+            sIn = BITARR_GET(set, s);
 
             if (evos == NULL)
                 continue;
             for (j = 0; evos[j].method != EVOLUTIONS_END; j++)
             {
-                u32 tgt = SanitizeSpeciesId(evos[j].targetSpecies);
+                u32 tgt = evos[j].targetSpecies;
 
                 if (!SpeciesInRange(tgt))
                     continue;
@@ -306,6 +317,8 @@ static void ExpandFamilyClosure(u8 *set, bool32 countForms)
                 dex = SpeciesToNationalPokedexNum(s);
                 for (j = 1; j < NUM_SPECIES; j++)
                 {
+                    if (!IsSpeciesEnabled(j))
+                        continue;
                     if (!BITARR_GET(set, j) && SpeciesToNationalPokedexNum(j) == dex)
                     {
                         BITARR_SET(set, j);
@@ -322,7 +335,6 @@ void Nuzlocke_MarkFamilyOwned(enum Species species)
     u8 set[FAMILY_BITSET_BYTES];
     u32 i;
 
-    species = SanitizeSpeciesId(species);
     if (!SpeciesInRange(species))
         return;
 
@@ -336,7 +348,6 @@ void Nuzlocke_MarkFamilyOwned(enum Species species)
 
 bool32 Nuzlocke_IsFamilyOwned(enum Species species)
 {
-    species = SanitizeSpeciesId(species);
     if (!SpeciesInRange(species))
         return FALSE;
     return BITARR_GET(gSaveBlock3Ptr->nuzlocke.familyOwned, species);
@@ -350,7 +361,6 @@ static void RecheckFamilyOwnership(enum Species species)
     u32 i, boxId, pos;
     bool32 aliveMember = FALSE;
 
-    species = SanitizeSpeciesId(species);
     if (!SpeciesInRange(species))
         return;
 

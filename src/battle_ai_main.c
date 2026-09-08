@@ -24,6 +24,8 @@
 #include "recorded_battle.h"
 #include "util.h"
 #include "script.h"
+#include "ruleset.h"
+#include "constants/ruleset.h"
 #include "constants/abilities.h"
 #include "constants/battle_ai.h"
 #include "constants/battle_move_effects.h"
@@ -256,6 +258,51 @@ static bool32 IsSmartBattle(void)
     return gBattleTypeFlags & BATTLE_TYPE_HAS_AI || IsWildMonSmart();
 }
 
+// ---------------------------------------------------------------------------
+// docs/SPEC.md "Maximum-strength fair AI" / "AI difficulty settings".
+//
+// The tuned percentages in include/config/ai.h only do anything when the
+// matching AI flag is set on the trainer, and the authored data in
+// src/data/trainers.party grants almost none of them (640 of 855 trainers carry
+// only AI_FLAG_CHECK_BAD_MOVE). These sets are OR'd on top of whatever a
+// trainer authored, so the tuning actually applies and per-trainer flavour
+// flags (Ace Pokemon, Risky, Force Setup, ...) are preserved.
+//
+// Every omniscience flag is deliberately absent - AI_FLAG_OMNISCIENT,
+// AI_FLAG_ABILITY/ITEM/MOVE_OMNISCIENCE, and AI_FLAG_KNOW_OPPONENT_PARTY
+// (the spec lists unseen reserve Pokemon as information the AI must not have).
+// AI_FLAG_PREDICTION and AI_FLAG_ASSUMPTIONS are included: the spec's "AI
+// uncertainty" section explicitly sanctions probabilistic hedging against
+// plausible moves, and neither flag reveals the player's actual choice.
+// ---------------------------------------------------------------------------
+#define AI_FLAGS_RULESET_IMPROVED   (AI_FLAG_BASIC_TRAINER                      \
+                                   | AI_FLAG_TRY_TO_2HKO                        \
+                                   | AI_FLAG_HP_AWARE)
+
+#define AI_FLAGS_RULESET_EXPERT     (AI_FLAGS_RULESET_IMPROVED                  \
+                                   | AI_FLAG_SMART_SWITCHING                    \
+                                   | AI_FLAG_SMART_MON_CHOICES                  \
+                                   | AI_FLAG_PP_STALL_PREVENTION                \
+                                   | AI_FLAG_RANDOMIZE_SWITCHIN                 \
+                                   | AI_FLAG_WILL_SUICIDE                       \
+                                   | AI_FLAG_SMART_TERA)
+
+#define AI_FLAGS_RULESET_PRO_FAIR   (AI_FLAGS_RULESET_EXPERT                    \
+                                   | AI_FLAG_PREDICTION                         \
+                                   | AI_FLAG_ASSUMPTIONS)
+
+static u64 GetRulesetAiFlags(void)
+{
+    switch (GetRulesetSetting(SETTING_AI_DIFFICULTY))
+    {
+    case AIDIFF_IMPROVED: return AI_FLAGS_RULESET_IMPROVED;
+    case AIDIFF_EXPERT:   return AI_FLAGS_RULESET_EXPERT;
+    case AIDIFF_PRO_FAIR: return AI_FLAGS_RULESET_PRO_FAIR;
+    case AIDIFF_VANILLA:
+    default:              return 0;   // keep exactly what the trainer authored
+    }
+}
+
 static u64 GetAiFlags(u16 trainerId, enum BattlerId battler)
 {
     u64 flags = 0;
@@ -283,7 +330,9 @@ static u64 GetAiFlags(u16 trainerId, enum BattlerId battler)
         else if (gBattleTypeFlags & (BATTLE_TYPE_FRONTIER | BATTLE_TYPE_EREADER_TRAINER | BATTLE_TYPE_TRAINER_HILL | BATTLE_TYPE_SECRET_BASE))
             flags = AI_FLAG_CHECK_BAD_MOVE | AI_FLAG_CHECK_VIABILITY | AI_FLAG_TRY_TO_FAINT;
         else
-            flags = GetTrainerAIFlagsFromId(trainerId);
+            // docs/SPEC.md "Maximum-strength fair AI": ordinary trainer battles
+            // get the difficulty tier's flags on top of the authored ones.
+            flags = GetTrainerAIFlagsFromId(trainerId) | GetRulesetAiFlags();
     }
 
     if (IsDoubleBattle() && flags != 0)

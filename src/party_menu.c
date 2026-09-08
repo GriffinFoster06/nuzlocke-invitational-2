@@ -7112,24 +7112,30 @@ static void Task_HandleEvolveAssistYesNoInput(u8 taskId)
         gPartyMenu.data1 = sEvolveAssistMove;
         gPartyMenu.learnMoveState = 2;
         StringCopy(gStringVar2, GetMoveName(gPartyMenu.data1));
-        switch (CanTeachMove(mon, gPartyMenu.data1))
+        // docs/SPEC.md "Move-dependent evolution anti-softlock": deliberately
+        // does NOT go through CanTeachMove(), which requires the move to sit in
+        // the species' canonical teachable learnset. Almost none of the
+        // evolution-necessary moves do - Double Hit is not in Aipom's list, nor
+        // Ancient Power in Tangela's / Piloswine's / Yanma's, Rage Fist in
+        // Primeape's, Psyshield Bash in Stantler's, Stomp in Steenee's, or
+        // Disarming Voice in Eevee's. Routing through it made every one of
+        // those evolutions impossible under generated learnsets, which is
+        // exactly what this function exists to prevent. The move is already
+        // restricted to evolution-necessary moves by EvolveMenu_Check(), so
+        // there is nothing further to gate on here.
+        if (MonKnowsMove(mon, gPartyMenu.data1) == TRUE)
         {
-        case CANNOT_LEARN_MOVE:
-            DisplayLearnMoveMessageAndClose(taskId, gText_PkmnCantLearnMove);
-            return;
-        case ALREADY_KNOWS_MOVE:
             DisplayLearnMoveMessageAndClose(taskId, gText_PkmnAlreadyKnows);
             return;
-        default:
-            if (GiveMoveToMon(mon, gPartyMenu.data1) != MON_HAS_MAX_MOVES)
-            {
-                Task_LearnedMove(taskId);
-                return;
-            }
-            DisplayLearnMoveMessage(gText_PkmnNeedsToReplaceMove);
-            gTasks[taskId].func = Task_ReplaceMoveYesNo;
+        }
+        if (GiveMoveToMon(mon, gPartyMenu.data1) != MON_HAS_MAX_MOVES)
+        {
+            Task_LearnedMove(taskId);
             return;
         }
+        DisplayLearnMoveMessage(gText_PkmnNeedsToReplaceMove);
+        gTasks[taskId].func = Task_ReplaceMoveYesNo;
+        return;
     case MENU_B_PRESSED:
         PlaySE(SE_SELECT);
         // fallthrough

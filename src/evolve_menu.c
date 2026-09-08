@@ -9,6 +9,7 @@
 #include "nuzlocke.h"       // Nuzlocke_MonIsDead
 #include "party_menu.h"     // MonKnowsMove
 #include "pokemon.h"
+#include "regions.h"    // GetCurrentRegion
 #include "ruleset.h"
 #include "constants/moves.h"
 #include "constants/pokemon.h"
@@ -79,9 +80,16 @@ static enum Move FindAssistMove(struct Pokemon *mon, const struct EvolutionParam
             if (!MonKnowsMove(mon, MOVE_DOUBLE_EDGE))
                 candidate = MOVE_DOUBLE_EDGE;
             break;
-        // Inherent traits: can't be changed, but they don't make teaching a
-        // move pointless either - the M/F, PID and nature split entries all
-        // still want the same move taught.
+        // Gates a move can't open, but which don't make teaching the move
+        // pointless either: the mon still needs the move once the gate is met,
+        // so keep scanning instead of withholding the offer.
+        //
+        // IF_MIN_FRIENDSHIP matters concretely - Sylveon is
+        // {IF_MIN_FRIENDSHIP, ...}, {IF_KNOWS_MOVE_TYPE, TYPE_FAIRY}, and
+        // withholding here meant the only Fairy-move offer was never reachable.
+        // The rest are inherent traits (M/F, PID and nature splits).
+        case IF_MIN_FRIENDSHIP:
+        case IF_MIN_OVERWORLD_STEPS:
         case IF_GENDER:
         case IF_PID_MODULO_100_GT:
         case IF_PID_MODULO_100_EQ:
@@ -96,8 +104,21 @@ static enum Move FindAssistMove(struct Pokemon *mon, const struct EvolutionParam
         case IF_ATK_EQ_DEF:
         case IF_ATK_LT_DEF:
             break;
-        // Anything else (friendship, time, weather, held item, map, region,
-        // beauty, party contents, ...) is a gate a move can't open. Withhold.
+        // Region gates are constant for this ROM, so resolve them instead of
+        // withholding: Mime Jr. -> Mr. Mime is {IF_KNOWS_MOVE, MIMIC} plus
+        // {IF_NOT_REGION, REGION_GALAR}, which always holds in Hoenn. An
+        // unsatisfiable region entry (Mr. Mime-Galar) drops out here so we
+        // never promise an evolution that cannot fire.
+        case IF_REGION:
+            if (GetCurrentRegion() != params[i].arg1)
+                return MOVE_NONE;
+            break;
+        case IF_NOT_REGION:
+            if (GetCurrentRegion() == params[i].arg1)
+                return MOVE_NONE;
+            break;
+        // Anything else (time, weather, held item, map, beauty, party
+        // contents, ...) is a gate a move can't open. Withhold.
         default:
             return MOVE_NONE;
         }

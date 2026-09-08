@@ -54,6 +54,7 @@
 #include "follower_npc.h"
 #include "ruleset.h"
 #include "ruleset_qol.h"
+#include "ruleset_field.h"
 #include "nuzlocke.h"
 
 extern const u8 EventScript_ResetAllMapFlags[];
@@ -240,6 +241,7 @@ void NewGameInitData(void)
     ResetRulesetSettings();
     Nuzlocke_ResetState();
     Ruleset_ApplyUnlimitedMoneyGrant(); // docs/SPEC.md "Unlimited money"
+    Ruleset_ApplyForcedBattleStyle();   // docs/SPEC.md "Set battle style"
 }
 
 static void ResetMiniGamesRecords(void)

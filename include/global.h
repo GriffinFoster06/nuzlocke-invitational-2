@@ -268,7 +268,8 @@ struct RulesetSettings
     u8 lastNamedPreset;      // last preset explicitly applied; source for "restore"
     u8 runStarted:1;         // generation settings lock once this is set (Phase 2)
     u8 runActive:1;          // rules settings lock while a strict run is live (Phase 3)
-    u8 reserved:6;
+    u8 infiniteRepelActive:1; // docs/SPEC.md "Infinite Repel": current player toggle state
+    u8 reserved:5;
     u8 values[NUM_SETTINGS]; // one byte per setting, indexed by enum SettingId
 };
 

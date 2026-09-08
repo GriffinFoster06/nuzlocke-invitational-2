@@ -79,8 +79,9 @@ static const u8 *const sLbl_BossMatch[] = { COMPOUND_STRING("Same as route"), CO
 static const u8 *const sLbl_LrnComp[] =
 {
     COMPOUND_STRING("7 / 7 / 7"),
-    COMPOUND_STRING("Weighted"),
     COMPOUND_STRING("Fully random"),
+    // LRNCOMP_WEIGHTED is deferred - see include/constants/ruleset.h. No label
+    // because the descriptor's maxValue keeps it out of the menu.
 };
 static const u8 *const sLbl_MoveOrder[] = { COMPOUND_STRING("Higher power later"), COMPOUND_STRING("Fully random") };
 static const u8 *const sLbl_MoveReminder[] =
@@ -289,8 +290,8 @@ static const struct SettingDescriptor sSettingDescriptors[NUM_SETTINGS] =
         "Learnset Size",
         "Randomized level-up moves per species."),
     [SETTING_LEARNSET_COMPOSITION] = DESC_ENUM(SETTING_CAT_LEARNSETS, GEN, LRNCOMP_777, SETTING_FLAG_NONE,
-        sLbl_LrnComp, 2, "Learnset Mix",
-        "7/7/7 STAB / coverage / status, or a weighted mix."),
+        sLbl_LrnComp, 1, "Learnset Mix",
+        "7/7/7 STAB / coverage / status, or fully random."),
     [SETTING_MOVE_POWER_PROGRESSION] = DESC_ENUM(SETTING_CAT_LEARNSETS, GEN, MVORDER_WEIGHTED_LATE, SETTING_FLAG_NONE,
         sLbl_MoveOrder, 1, "Move Order",
         "Bias stronger attacks toward later levels, or full random."),

@@ -3068,7 +3068,8 @@ u8 GetMonsStateToDoubles(void)
     {
         if (GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_SPECIES_OR_EGG) != SPECIES_EGG
          && GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_HP) != 0
-         && GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_SPECIES_OR_EGG) != SPECIES_NONE)
+         && GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_SPECIES_OR_EGG) != SPECIES_NONE
+         && !Caps_MonIsBattleIneligible(&gParties[B_TRAINER_PLAYER][i])) // docs/SPEC.md "Caught Pokemon above the cap"
             aliveCount++;
     }
 
@@ -3088,7 +3089,8 @@ u8 GetMonsStateToDoubles_2(void)
     {
         enum Species species = GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_SPECIES_OR_EGG);
         if (species != SPECIES_EGG && species != SPECIES_NONE
-         && GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_HP) != 0)
+         && GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_HP) != 0
+         && !Caps_MonIsBattleIneligible(&gParties[B_TRAINER_PLAYER][i])) // docs/SPEC.md "Caught Pokemon above the cap"
             aliveCount++;
     }
 

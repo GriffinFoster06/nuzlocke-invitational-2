@@ -48,6 +48,7 @@
 #include "random.h"
 #include "recorded_battle.h"
 #include "roamer.h"
+#include "ruleset_field.h"
 #include "safari_zone.h"
 #include "scanline_effect.h"
 #include "script.h"
@@ -2759,6 +2760,10 @@ static void ClearSetBScriptingStruct(void)
 
     gBattleScripting.windowsType = temp;
     gBattleScripting.battleStyle = gSaveBlock2Ptr->optionsBattleStyle;
+    // docs/SPEC.md "Set battle style": hardcore rule - no free switch after
+    // defeating an opposing Pokemon. This is the authoritative read (sBATTLE_STYLE).
+    if (Ruleset_ForceSetBattleStyleOn())
+        gBattleScripting.battleStyle = OPTIONS_BATTLE_STYLE_SET;
     #if TESTING
     gBattleScripting.battleStyle = OPTIONS_BATTLE_STYLE_SET;
     #endif

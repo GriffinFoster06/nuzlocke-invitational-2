@@ -14,6 +14,7 @@
 #include "text_window.h"
 #include "window.h"
 #include "gba/m4a_internal.h"
+#include "ruleset_field.h"
 #include "constants/rgb.h"
 
 #define tMenuSelection data[0]
@@ -247,6 +248,10 @@ void CB2_InitOptionMenu(void)
         gTasks[taskId].tTextSpeed = gSaveBlock2Ptr->optionsTextSpeed;
         gTasks[taskId].tBattleSceneOff = gSaveBlock2Ptr->optionsBattleSceneOff;
         gTasks[taskId].tBattleStyle = gSaveBlock2Ptr->optionsBattleStyle;
+        // docs/SPEC.md "Set battle style": the Options row is locked to SET while
+        // the ruleset forces it, so it can't silently disagree with the battle.
+        if (Ruleset_ForceSetBattleStyleOn())
+            gTasks[taskId].tBattleStyle = OPTIONS_BATTLE_STYLE_SET;
         gTasks[taskId].tSound = gSaveBlock2Ptr->optionsSound;
         gTasks[taskId].tButtonMode = gSaveBlock2Ptr->optionsButtonMode;
         gTasks[taskId].tWindowFrameType = gSaveBlock2Ptr->optionsWindowFrameType;
@@ -325,6 +330,16 @@ static void Task_OptionMenuProcessInput(u8 taskId)
                 BattleScene_DrawChoices(gTasks[taskId].tBattleSceneOff);
             break;
         case MENUITEM_BATTLESTYLE:
+            // docs/SPEC.md "Set battle style": pinned to SET while forced.
+            if (Ruleset_ForceSetBattleStyleOn())
+            {
+                if (gTasks[taskId].tBattleStyle != OPTIONS_BATTLE_STYLE_SET)
+                {
+                    gTasks[taskId].tBattleStyle = OPTIONS_BATTLE_STYLE_SET;
+                    BattleStyle_DrawChoices(gTasks[taskId].tBattleStyle);
+                }
+                break;
+            }
             previousOption = gTasks[taskId].tBattleStyle;
             gTasks[taskId].tBattleStyle = BattleStyle_ProcessInput(gTasks[taskId].tBattleStyle);
 

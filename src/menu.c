@@ -393,7 +393,13 @@ void DisplayYesNoMenuWithDefault(u8 initialCursorPos)
 u8 AddStartMenuWindow(u8 numActions)
 {
     if (sStartMenuWindowId == WINDOW_NONE)
-        sStartMenuWindowId = AddWindowParameterized(0, 22, 1, 7, (numActions * 2) + 2, 15, 0x139);
+    {
+        // docs/SPEC.md: the added "RULES" entry can push the normal menu to 9
+        // rows; at the vanilla top of 1 the 20-tile-tall window would clip off
+        // the bottom of the screen, so start it at row 0 in that case.
+        u8 top = (numActions >= 9) ? 0 : 1;
+        sStartMenuWindowId = AddWindowParameterized(0, 22, top, 7, (numActions * 2) + 2, 15, 0x139);
+    }
     return sStartMenuWindowId;
 }
 

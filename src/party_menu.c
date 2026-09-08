@@ -37,6 +37,7 @@
 #include "caps.h"
 #include "evolve_menu.h"
 #include "level_to_cap.h"
+#include "ruleset_field.h"
 #include "link.h"
 #include "link_rfu.h"
 #include "mail.h"
@@ -2363,12 +2364,20 @@ static void Task_HandleCancelParticipationYesNoInput(u8 taskId)
 
 static enum CanMoveBeLearned CanTeachMove(struct Pokemon *mon, enum Move move)
 {
+    // docs/SPEC.md "Universal TM compatibility" / "Move Tutors": when universal
+    // compatibility is on, any non-egg mon that doesn't already know the move
+    // can be taught it, regardless of its canonical teachable learnset. TM item
+    // use is PARTY_ACTION_USE_ITEM; the move tutor path is PARTY_ACTION_MOVE_TUTOR.
+    bool32 universal = (gPartyMenu.action == PARTY_ACTION_MOVE_TUTOR)
+                     ? Ruleset_UniversalTutorCompatOn()
+                     : Ruleset_UniversalTmCompatOn();
+
     if (GetMonData(mon, MON_DATA_IS_EGG))
         return CANNOT_LEARN_MOVE_IS_EGG;
-    else if (!CanLearnTeachableMove(GetMonData(mon, MON_DATA_SPECIES_OR_EGG), move))
-        return CANNOT_LEARN_MOVE;
     else if (MonKnowsMove(mon, move) == TRUE)
         return ALREADY_KNOWS_MOVE;
+    else if (!universal && !CanLearnTeachableMove(GetMonData(mon, MON_DATA_SPECIES_OR_EGG), move))
+        return CANNOT_LEARN_MOVE;
     else
         return CAN_LEARN_MOVE;
 }
@@ -7695,6 +7704,11 @@ void ChooseMonForInBattleItem(void)
 
 static u8 GetPartyMenuActionsTypeInBattle(struct Pokemon *mon)
 {
+    // docs/SPEC.md "Caught Pokemon above the cap": an over-cap mon can only be
+    // inspected, not sent out or shifted in.
+    if (Caps_MonIsBattleIneligible(mon))
+        return ACTIONS_SUMMARY_ONLY;
+
     if (GetMonData(&gParties[B_TRAINER_PLAYER][1], MON_DATA_SPECIES) != SPECIES_NONE
      && GetMonData(mon, MON_DATA_IS_EGG) == FALSE
      && gPartyMenu.layout != PARTY_LAYOUT_MULTI_FULL_PARTNER)
@@ -7745,6 +7759,13 @@ static bool8 TrySwitchInPokemon(void)
     if (GetMonData(&party[partySlot], MON_DATA_IS_EGG))
     {
         StringExpandPlaceholders(gStringVar4, gText_EggCantBattle);
+        return FALSE;
+    }
+    // docs/SPEC.md "Caught Pokemon above the cap": can't send out an over-cap mon.
+    if (Caps_MonIsBattleIneligible(&party[partySlot]))
+    {
+        GetMonNickname(&party[partySlot], gStringVar1);
+        StringExpandPlaceholders(gStringVar4, gText_PkmnOverCapCantBattle);
         return FALSE;
     }
     if (BattlersShareParty(gBattlerInMenuId, GetPartnerBattler(gBattlerInMenuId))

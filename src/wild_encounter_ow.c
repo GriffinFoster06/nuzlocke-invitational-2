@@ -15,6 +15,7 @@
 #include "overworld.h"
 #include "random.h"
 #include "roamer.h"
+#include "ruleset_field.h"
 #include "script.h"
 #include "script_movement.h"
 #include "sprite.h"
@@ -239,6 +240,7 @@ void UpdateOverworldWildEncounter(void)
         return;
 
     if (!WE_OW_ENCOUNTERS
+     || Ruleset_InfiniteRepelActive() // docs/SPEC.md "Infinite Repel"
      || FlagGet(WE_OWE_FLAG_DISABLED)
      || FlagGet(WE_FLAG_NO_ENCOUNTER)
      || FlagGet(DN_FLAG_SEARCHING)

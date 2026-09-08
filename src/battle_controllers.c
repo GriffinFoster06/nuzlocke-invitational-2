@@ -10,6 +10,7 @@
 #include "battle_message.h"
 #include "battle_setup.h"
 #include "battle_tv.h"
+#include "caps.h"
 #include "cable_club.h"
 #include "event_data.h"
 #include "event_object_movement.h"
@@ -467,6 +468,13 @@ bool32 ShouldUpdateTvData(enum BattlerId battler)
          || IsControllerLinkOpponent(battler));
 }
 
+// docs/SPEC.md "Caught Pokemon above the cap": never auto-pick an over-cap
+// player mon as a battler. Opponents and the backstop case are unaffected.
+static bool32 BattlerCapEligible(enum BattlerId battler, struct Pokemon *mon)
+{
+    return !(IsOnPlayerSide(battler) && Caps_MonIsBattleIneligible(mon));
+}
+
 static void SetBattlePartyIds(void)
 {
     if (!(gBattleTypeFlags & BATTLE_TYPE_MULTI))
@@ -477,7 +485,7 @@ static void SetBattlePartyIds(void)
             {
                 if (i < 2)
                 {
-                    if (IsValidForBattle(&GetBattlerParty(i)[j]))
+                    if (IsValidForBattle(&GetBattlerParty(i)[j]) && BattlerCapEligible(i, &GetBattlerParty(i)[j]))
                     {
                         gBattlerPartyIndexes[i] = j;
                         break;
@@ -489,7 +497,7 @@ static void SetBattlePartyIds(void)
                     {
                         // Exclude already assigned Pokémon;
                     }
-                    else if (IsValidForBattle(&GetBattlerParty(i)[j]))
+                    else if (IsValidForBattle(&GetBattlerParty(i)[j]) && BattlerCapEligible(i, &GetBattlerParty(i)[j]))
                     {
                         gBattlerPartyIndexes[i] = j;
                         break;

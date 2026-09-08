@@ -197,10 +197,19 @@ interface.
 Modes: Hard cap (default) / Soft cap / Warning only / Off.
 
 ## Caught Pokémon above the cap
-Can still be caught; marked Over Cap / Ineligible; cannot enter battle while
-above the current legal cap; cannot be used for encounter-manipulation
-abilities or other Nuzlocke gameplay advantages; automatically become legal
-once progression raises the cap sufficiently.
+The level cap advances after each Gym to meet the next Gym's expected level, and
+so on through the game. A Pokémon should never actually be above the cap:
+acquisition levels (wild, gift, static, fossil, egg) are clamped down to the
+current cap, and the hard cap prevents a Pokémon from gaining levels past it, so
+a Pokémon cannot be caught or raised above the cap.
+
+The Over Cap / Ineligible rule is retained as a safety net for the Soft cap and
+Warning-only modes, where a Pokémon can still cross the cap. Such a Pokémon:
+marked Over Cap / Ineligible; cannot enter battle while above the current legal
+cap; cannot be used for encounter-manipulation abilities or other Nuzlocke
+gameplay advantages; automatically becomes legal once progression raises the cap
+sufficiently. If it would be the player's only possible lead, the restriction is
+waived for that battle so the player is never stranded.
 
 ## Level to Cap
 Default: ON. Available from the party menu and for PC Pokémon. Immediately

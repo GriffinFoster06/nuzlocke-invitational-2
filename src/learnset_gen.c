@@ -359,7 +359,8 @@ static u32 Generate(enum Species species, struct LevelUpMove *out)
         wantStatus = 0;
         wantCoverage = n;
     }
-    else // LRNCOMP_777, and LRNCOMP_WEIGHTED (stub -> 7/7/7)
+    else // LRNCOMP_777 (LRNCOMP_WEIGHTED is deferred and not menu-selectable;
+         // if it is ever stored it falls through to 7/7/7 here)
     {
         wantStab = (n + 2) / 3;
         wantStatus = n / 3;

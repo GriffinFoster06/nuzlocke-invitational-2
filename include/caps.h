@@ -30,4 +30,11 @@ u32 GetCurrentEVCap(void);
 bool32 IsLevelOverCap(u32 level);        // TRUE if level is past the progression cap (and caps aren't off)
 u8 Caps_ClampLevel(u8 level);            // clamp a found-Pokemon level to the progression cap
 
+// docs/SPEC.md "Caught Pokemon above the cap": a player-party Pokemon above the
+// active cap cannot enter battle or provide Nuzlocke gameplay advantages until
+// progression raises the cap. Player party only. Includes a backstop so the
+// player is never left with no cap-legal lead.
+struct Pokemon;
+bool32 Caps_MonIsBattleIneligible(struct Pokemon *mon);
+
 #endif /* GUARD_CAPS_H */

@@ -1,5 +1,6 @@
 #include "global.h"
 #include "ow_abilities.h"
+#include "caps.h"
 #include "nuzlocke.h"
 #include "pokemon.h"
 #include "random.h"
@@ -90,6 +91,10 @@ bool32 DoesLeadingMonHaveAbilityEffect(const enum Ability *abilityArray)
     // Phase 3 Nuzlocke permadeath: a dead lead cannot influence encounters.
     if (Nuzlocke_MonIsDead(&gParties[B_TRAINER_PLAYER][0]))
         return FALSE;
+    // docs/SPEC.md "Caught Pokemon above the cap": an over-cap mon cannot be
+    // used for encounter-manipulation abilities.
+    if (Caps_MonIsBattleIneligible(&gParties[B_TRAINER_PLAYER][0]))
+        return FALSE;
     enum Ability leadingMonAbility = GetMonAbility(&gParties[B_TRAINER_PLAYER][0]);
     for (u32 i = 0; abilityArray[i] != ABILITY_NONE; i++)
     {
@@ -106,6 +111,9 @@ bool32 DoesPartyMemberHaveAbilityEffect(const enum Ability *abilityArray)
         if (GetMonData(&gParties[B_TRAINER_PLAYER][j], MON_DATA_SANITY_IS_EGG))
             continue;
         if (Nuzlocke_MonIsDead(&gParties[B_TRAINER_PLAYER][j]))
+            continue;
+        // docs/SPEC.md "Caught Pokemon above the cap".
+        if (Caps_MonIsBattleIneligible(&gParties[B_TRAINER_PLAYER][j]))
             continue;
         enum Ability monAbility = GetMonAbility(&gParties[B_TRAINER_PLAYER][j]);
         for (u32 i = 0; abilityArray[i] != ABILITY_NONE; i++)

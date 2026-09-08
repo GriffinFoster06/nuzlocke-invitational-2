@@ -90,6 +90,42 @@ u8 Caps_ClampLevel(u8 level)
     return level;
 }
 
+// docs/SPEC.md "Caught Pokemon above the cap". Acquisition levels are already
+// clamped (Caps_ClampLevel) and the hard cap blocks growth, so an over-cap party
+// mon should only arise under the soft / warning cap modes. This gate keeps it
+// out of battle and out of encounter-manipulation ability use until the cap
+// rises. Never applied to opponents or EXP handling.
+static bool32 PartyHasCapLegalBattler(void)
+{
+    for (u32 i = 0; i < PARTY_SIZE; i++)
+    {
+        struct Pokemon *m = &gParties[B_TRAINER_PLAYER][i];
+
+        if (GetMonData(m, MON_DATA_SPECIES_OR_EGG) == SPECIES_NONE)
+            continue;
+        if (GetMonData(m, MON_DATA_IS_EGG))
+            continue;
+        if (GetMonData(m, MON_DATA_HP) == 0)
+            continue;
+        if (IsLevelOverCap(GetMonData(m, MON_DATA_LEVEL)))
+            continue;
+        return TRUE;
+    }
+    return FALSE;
+}
+
+bool32 Caps_MonIsBattleIneligible(struct Pokemon *mon)
+{
+    if (GetRulesetSetting(SETTING_OVER_CAP_INELIGIBLE) == 0)
+        return FALSE;
+    if (GetMonData(mon, MON_DATA_SPECIES_OR_EGG) == SPECIES_NONE)
+        return FALSE;
+    if (!IsLevelOverCap(GetMonData(mon, MON_DATA_LEVEL)))
+        return FALSE;
+    // Backstop: never strand the player with no cap-legal lead.
+    return PartyHasCapLegalBattler();
+}
+
 u32 GetSoftLevelCapExpValue(u32 level, u32 expValue)
 {
     static const u32 sExpScalingDown[5] = { 4, 8, 16, 32, 64 };

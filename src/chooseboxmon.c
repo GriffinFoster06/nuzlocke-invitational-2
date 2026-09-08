@@ -14,6 +14,7 @@
 #include "pokemon.h"
 #include "pokemon_summary_screen.h"
 #include "pokemon_storage_system.h"
+#include "ruleset_field.h"
 #include "script.h"
 #include "string_util.h"
 #include "strings.h"
@@ -98,7 +99,10 @@ static u32 ChooseBoxMon_CanMonLearnMove(struct BoxPokemon *boxmon, enum Move mov
         return CANNOT_LEARN_MOVE_IS_EGG;
     if (BoxMonKnowsMove(boxmon, move))
         return ALREADY_KNOWS_MOVE;
-    if (CanLearnTeachableMove(GetBoxMonData(boxmon, MON_DATA_SPECIES), move))
+    // docs/SPEC.md "Move Tutors": this path is the PC-box move-tutor selection
+    // (SELECT_PC_MON_MOVE_TUTOR), so universal Tutor compatibility applies.
+    if (Ruleset_UniversalTutorCompatOn()
+     || CanLearnTeachableMove(GetBoxMonData(boxmon, MON_DATA_SPECIES), move))
         return VALID_MON;
     return CANNOT_LEARN_MOVE;
 }

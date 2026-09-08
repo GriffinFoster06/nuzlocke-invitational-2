@@ -3169,6 +3169,11 @@ static bool32 IsValidSwitchIn(enum BattleTrainer trainer, u32 index)
     struct Pokemon *party = GetTrainerParty(trainer);
     if (!IsValidForBattle(&party[index]))
         return FALSE;
+    // docs/SPEC.md "Caught Pokemon above the cap": an over-cap player mon is not
+    // a valid switch-in.
+    if ((trainer == B_TRAINER_PLAYER || trainer == B_TRAINER_PARTNER)
+     && Caps_MonIsBattleIneligible(&party[index]))
+        return FALSE;
 
     for (enum BattlerId i = 0; i < gBattlersCount; i++)
     {
@@ -3327,6 +3332,7 @@ bool32 CanBattlerSwitch(enum BattlerId battler)
         if (GetMonData(&party[mon], MON_DATA_HP) == 0
          || GetMonData(&party[mon], MON_DATA_SPECIES) == SPECIES_NONE
          || GetMonData(&party[mon], MON_DATA_IS_EGG)
+         || (IsOnPlayerSide(battler) && Caps_MonIsBattleIneligible(&party[mon])) // docs/SPEC.md "Caught Pokemon above the cap"
          || (mon == gBattlerPartyIndexes[battlerIn1] && BattlersShareParty(battler, battlerIn1))
          || (mon == gBattlerPartyIndexes[battlerIn2] && BattlersShareParty(battler, battlerIn2)))
             continue;

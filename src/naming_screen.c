@@ -28,6 +28,7 @@
 #include "walda_phrase.h"
 #include "main.h"
 #include "decompress.h"
+#include "nuzlocke.h"
 #include "constants/event_objects.h"
 #include "constants/rgb.h"
 
@@ -1574,11 +1575,38 @@ static bool8 KeyboardKeyHandler_Backspace(u8 input)
     return FALSE;
 }
 
+// docs/SPEC.md "Nicknames": NICK_STRICT means the forced naming prompt truly
+// cannot be escaped - confirming an empty entry (which would leave the bare
+// species name) is refused. NICK_MANDATORY is unchanged; it only forces the
+// screen open.
+static bool8 StrictNicknameBlocksEmptyEntry(void)
+{
+    u32 i;
+
+    if (!Nuzlocke_StrictNicknamesOn())
+        return FALSE;
+    if (sNamingScreen->templateNum != NAMING_SCREEN_CAUGHT_MON
+     && sNamingScreen->templateNum != NAMING_SCREEN_NICKNAME)
+        return FALSE;
+
+    for (i = 0; i < sNamingScreen->template->maxChars; i++)
+    {
+        if (sNamingScreen->textBuffer[i] != CHAR_SPACE && sNamingScreen->textBuffer[i] != EOS)
+            return FALSE;
+    }
+    return TRUE;
+}
+
 static bool8 KeyboardKeyHandler_OK(u8 input)
 {
     TryStartButtonFlash(BUTTON_OK, TRUE, FALSE);
     if (input == INPUT_A_BUTTON)
     {
+        if (StrictNicknameBlocksEmptyEntry())
+        {
+            PlaySE(SE_FAILURE);
+            return FALSE;
+        }
         PlaySE(SE_SELECT);
         sNamingScreen->state = STATE_PRESSED_OK;
         return TRUE;

@@ -20,6 +20,7 @@
 #include "randomizer.h"
 #include "caps.h"
 #include "nuzlocke.h"
+#include "ruleset_field.h"
 #include "roamer.h"
 #include "safari_zone.h"
 #include "script.h"
@@ -719,6 +720,12 @@ bool8 StandardWildEncounter(u16 curMetatileBehavior, u16 prevMetatileBehavior)
     struct Roamer *roamer;
 
     if (sWildEncountersDisabled == TRUE)
+        return FALSE;
+
+    // docs/SPEC.md "Infinite Repel": suppress ordinary random encounters while
+    // the player has it toggled on. Static/scripted encounters and Sweet Scent
+    // are unaffected (they don't route through here).
+    if (Ruleset_InfiniteRepelActive())
         return FALSE;
 
     headerId = GetCurrentMapWildMonHeaderId();

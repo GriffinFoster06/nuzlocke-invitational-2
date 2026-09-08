@@ -43,9 +43,15 @@ make -j$(sysctl -n hw.ncpu)          # build
 make clean                            # clean
 make debug                            # build with debug symbols
 ```
-Requires `pokeemerald.gba` (the vanilla baserom) in the project root, exact
-SHA1 `f3ae088181bf583e55daf962a92bb46f4f1d07b7` — verify with `shasum
-pokeemerald.gba` before ever reporting a build issue as a code problem.
+This project builds **entirely from source** — no baserom is required and none
+should be added. `pokeemerald.gba` in the project root is the **build output**,
+not an input. In a stock decomp the SHA1
+`f3ae088181bf583e55daf962a92bb46f4f1d07b7` is only a sanity check that an
+*unmodified* build reproduces vanilla Emerald byte-for-byte; because this is a
+hack with extensive changes, our output will never match that hash and it
+carries no meaning here. Do not treat a missing, extra, or "wrong-SHA1"
+`pokeemerald.gba` as the cause of a build failure — debug the actual compiler
+error instead.
 
 ## Working conventions
 - Build after every non-trivial change. A change that doesn't compile is not done.

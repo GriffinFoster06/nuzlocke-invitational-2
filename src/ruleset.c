@@ -117,6 +117,8 @@ static void RulesetSettings_EnsureInitialized(void)
     r->lastNamedPreset = RULESET_DEFAULT_PRESET;
     r->runStarted = FALSE;
     r->runActive = FALSE;
+    // docs/SPEC.md "Infinite Repel": available and toggled on by default.
+    r->infiniteRepelActive = (r->values[SETTING_INFINITE_REPEL] != 0);
     if (r->runSeed == 0)
         r->runSeed = Random32();
     r->rulesetVersion = RULESET_VERSION;

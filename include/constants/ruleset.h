@@ -102,7 +102,12 @@ enum { GIFTIV_3_PERFECT, GIFTIV_NATURAL, GIFTIV_ALL_31, GIFTIV_CUSTOM_FLOOR };
 enum { TRLEVEL_CAP_SCALED, TRLEVEL_VANILLA, TRLEVEL_FLAT_OFFSET };
 enum { BOSSMATCH_SAME_AS_ROUTE, BOSSMATCH_STRICTER };
 
-enum { LRNCOMP_777, LRNCOMP_WEIGHTED, LRNCOMP_FULLY_RANDOM };
+// LRNCOMP_WEIGHTED (docs/SPEC.md "7/7/7 learnset composition": "Alternative
+// smarter/weighted compositions available in Custom settings") is deferred and
+// intentionally NOT exposed in the settings menu - the descriptor's maxValue is
+// 1, so only 7/7/7 and Fully random are selectable. Kept last so adding the
+// menu option later is an append, not a renumber.
+enum { LRNCOMP_777, LRNCOMP_FULLY_RANDOM, LRNCOMP_WEIGHTED };
 enum { MVORDER_WEIGHTED_LATE, MVORDER_FULLY_RANDOM };
 enum { MVREMIND_DISABLED, MVREMIND_NORMAL, MVREMIND_FREE, MVREMIND_LEARNED_ONLY };
 

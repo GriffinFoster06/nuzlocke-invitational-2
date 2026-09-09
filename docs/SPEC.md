@@ -197,10 +197,12 @@ interface.
 Modes: Hard cap (default) / Soft cap / Warning only / Off.
 
 ## Caught Pokémon above the cap
-Can still be caught; marked Over Cap / Ineligible; cannot enter battle while
-above the current legal cap; cannot be used for encounter-manipulation
-abilities or other Nuzlocke gameplay advantages; automatically become legal
-once progression raises the cap sufficiently.
+Acquisition levels are clamped to the current progression cap whenever caps are
+enabled. Soft-cap and warning-only modes can still produce an over-cap Pokémon
+through later growth. When over-cap ineligibility is enabled, such a Pokémon
+cannot enter battle or provide encounter-manipulation advantages until
+progression raises the cap sufficiently. As a safety exception, the restriction
+is not applied when the party has no cap-legal battler.
 
 ## Level to Cap
 Default: ON. Available from the party menu and for PC Pokémon. Immediately
@@ -279,8 +281,8 @@ restrictive compatibility systems can exist under Custom.
 ## Move Tutors
 Default: randomized. Every standard Tutor's move is randomized; assignments
 remain fixed through the run. Universal compatibility applies by default.
-Evolution-assistance moves handled separately so randomized Tutors cannot
-softlock evolutions.
+Move-gated evolutions were converted to level evolutions, so randomized Tutors
+cannot softlock evolution progress.
 
 ## Abilities
 Default: randomized. Abilities from all supported generations can appear
@@ -464,11 +466,9 @@ non-stone Eeveelutions get stones unused by the others:
 - Umbreon → Moon Stone
 - Sylveon → Shiny Stone
 
-**Consequence for Evolution Assistance:** if no evolution in the final
-dataset still requires a specific known move, the Evolution Assistance
-system (see below) has no remaining use case and should be confirmed
-removable rather than kept as dead code — verify this during
-implementation rather than assuming it.
+**Evolution Assistance:** Phase 9.5 verified that the final evolution dataset
+contains no specific-move-known requirements. Evolution Assistance was
+therefore unnecessary and was removed. The Evolve command below remains.
 
 ## Evolve command
 Default: ON. Available from the Pokémon menu; shows whether an evolution is
@@ -484,17 +484,15 @@ progression-gated by reaching Lilycove. Scroll of Darkness/Waters can also
 be made available here if Kubfu continues to use the canonical Scroll
 method. Replaces the arbitrary Mossdeep white-rock workaround.
 
-## Move-dependent evolution anti-softlock (superseded — see global rule
-above; kept as historical context)
+## Move-dependent evolution anti-softlock (completed historical context)
 Originally: the Lilycove Tutor Mansion was removed only because a
 guaranteed replacement system existed — a Pokémon requiring a specific
 move to evolve could always obtain that move through an Evolution
 Assistance function, restricted specifically to evolution-necessary moves
 (not a general free Move Reminder). Under the new global rule, move-gated
-evolutions no longer exist as a category (they're level-based now), so
-this concern should no longer apply — confirm during implementation and
-remove Evolution Assistance if genuinely unused rather than leaving it as
-dead infrastructure.
+evolutions no longer exist as a category (they are level-based now). Phase 9.5
+verified the final dataset and removed the now-unused Evolution Assistance
+infrastructure; the separate Evolve command remains available.
 
 ## Trade evolutions
 Converted into deterministic single-player evolutions using a specific

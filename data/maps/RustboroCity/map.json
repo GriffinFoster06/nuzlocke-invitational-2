@@ -384,42 +384,6 @@
       "y": 9,
       "elevation": 3,
       "var": "VAR_RUSTBORO_CITY_STATE",
-      "var_value": "2",
-      "script": "RustboroCity_EventScript_HelpGetGoodsTrigger0"
-    },
-    {
-      "type": "trigger",
-      "x": 29,
-      "y": 10,
-      "elevation": 3,
-      "var": "VAR_RUSTBORO_CITY_STATE",
-      "var_value": "2",
-      "script": "RustboroCity_EventScript_HelpGetGoodsTrigger1"
-    },
-    {
-      "type": "trigger",
-      "x": 30,
-      "y": 11,
-      "elevation": 3,
-      "var": "VAR_RUSTBORO_CITY_STATE",
-      "var_value": "2",
-      "script": "RustboroCity_EventScript_HelpGetGoodsTrigger2"
-    },
-    {
-      "type": "trigger",
-      "x": 30,
-      "y": 12,
-      "elevation": 3,
-      "var": "VAR_RUSTBORO_CITY_STATE",
-      "var_value": "2",
-      "script": "RustboroCity_EventScript_HelpGetGoodsTrigger3"
-    },
-    {
-      "type": "trigger",
-      "x": 30,
-      "y": 9,
-      "elevation": 3,
-      "var": "VAR_RUSTBORO_CITY_STATE",
       "var_value": "4",
       "script": "RustboroCity_EventScript_ReturnGoodsTrigger0"
     },

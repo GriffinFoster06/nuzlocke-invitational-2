@@ -1,10 +1,17 @@
 # Build Phases
 
-Work through these roughly in order. Each is meant to be its own Claude Code
-session (or a few). Don't let Claude Code jump ahead into later phases on its
-own — keep sessions scoped.
+> **Historical status:** Phases 0-9.5 are complete. Their prompts are retained
+> below as implementation history, not current instructions or evidence of the
+> present code state. Phase 10 now follows the grouped-arc workflow in
+> [PHASE10_PROMPTS.md](PHASE10_PROMPTS.md).
 
-## Working setup (defaults for the whole project)
+The original phases were worked roughly in order, usually in one or a few
+focused sessions.
+
+## Historical working setup (Claude Code guidance used at the time)
+
+The following describes the tooling used for the completed historical work. It
+is not a project-wide default for current agents.
 
 - **Launch every session with:** `claude --model opusplan`
 - **Effort:** leave on default (`high`). Only bump with `/effort xhigh` for
@@ -22,8 +29,9 @@ own — keep sessions scoped.
 **Before pasting:** nothing extra — stay in normal mode.
 
 **Prompt:**
-> Build this project as-is with no modifications, using the baserom already
-> in the project root. Confirm the resulting ROM's size and that gbafix
+> Build this project as-is with no modifications. It builds entirely from
+> source; no baserom is required or should be added. Confirm the resulting
+> ROM's size and that gbafix
 > completed without errors. Don't change anything yet — this is just to
 > confirm the environment is set up correctly.
 
@@ -256,29 +264,25 @@ linearization pass later.
 
 ---
 
-## Phase 10 — Story linearization (do one area per session)
-**Before pasting:** turn on plan mode — always, every area, no exceptions.
-Replace `[AREA NAME]` with the specific area from the "Map-by-map story
-cuts" list in docs/SPEC.md (e.g. "Littleroot opening", "Petalburg Woods",
-"Mt. Chimney"). If a session feels like it's losing track of a large area's
-scripts, try `/model fable` for that one session instead of opusplan.
+## Phase 10 — Story linearization (grouped arcs)
 
-**Prompt:**
-> Read the "[AREA NAME]" entry under "Map-by-map story cuts" in
-> docs/SPEC.md, plus the "Story streamlining — overall rule" and "General
-> story QoL" sections above it for the general philosophy. This is Phase 10
-> from docs/PHASES.md, this area only — do not touch any other area's
-> scripts this session. Show me your plan for exactly which scripts, flags,
-> and warps you'll change before touching anything, and flag any place
-> where you're not fully certain a flag or warp dependency is safe to
-> remove.
+The active Phase 10 procedure, exact nine-arc membership, approval gates, and
+Arc 0 existing-state record are in
+[PHASE10_PROMPTS.md](PHASE10_PROMPTS.md). That document replaces the former
+one-area-per-session restriction.
 
-**After you approve:** exit plan mode and reply:
-> Confirmed, proceed. Build when done, and give me a precise list of what
-> to actually test when I load this in an emulator — which flags to set,
-> which path to walk, what should and shouldn't happen.
+For Arcs 1-8, first inspect every area in the arc and prepare a separate
+sub-plan for each area's scripts, state, warps, rewards, dependencies, and
+acceptance checks. After human approval, save the approved scope as
+`docs/PHASE10_ARC<N>_PLAN.md`. Then execute only that scope, build and inspect
+the diff, perform a separate read-only SPEC/plan review, and obtain continuous
+user mGBA playthrough acceptance for the complete arc. Scope changes require
+renewed approval and an updated plan. Commit and push only after all four gates
+pass.
 
-*(Then go actually test it before starting the next area's session.)*
+Arc 0 is existing work and has an existing-state record rather than a
+retroactive implementation plan. Arc 1 must not begin until Arc 0's remaining
+review and emulator acceptance requirements are resolved.
 
 ---
 

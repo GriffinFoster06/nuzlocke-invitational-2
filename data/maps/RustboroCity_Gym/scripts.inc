@@ -18,12 +18,22 @@ RustboroCity_Gym_EventScript_RoxanneDefeated::
 	setflag FLAG_DEFEATED_RUSTBORO_GYM
 	setflag FLAG_BADGE01_GET
 	setvar VAR_RUSTBORO_CITY_STATE, 1
+	@ Phase 10 (docs/SPEC.md "Petalburg/Wally tutorial"): VAR_PETALBURG_GYM_STATE is
+	@ Norman's badge counter, the Gym reserves value 1 for "Wally tutorial in
+	@ progress". PetalburgCity_EventScript_SkipWallyIntro already floors it at 2 on
+	@ the first Petalburg visit, but clamp here too so `addvar` below can never land
+	@ the counter on the reserved value even from an odd save state.
+	call_if_lt VAR_PETALBURG_GYM_STATE, 2, RustboroCity_Gym_EventScript_FloorNormanBadgeCounter
 	addvar VAR_PETALBURG_GYM_STATE, 1
 	setvar VAR_0x8008, 1
 	call Common_EventScript_SetGymTrainers
 	call_if_eq VAR_PETALBURG_GYM_STATE, 6, Common_EventScript_ReadyPetalburgGymForBattle
 	goto RustboroCity_Gym_EventScript_GiveRockTomb
 	end
+
+RustboroCity_Gym_EventScript_FloorNormanBadgeCounter::
+	setvar VAR_PETALBURG_GYM_STATE, 2
+	return
 
 RustboroCity_Gym_EventScript_GiveRockTomb::
 	giveitem ITEM_TM_ROCK_TOMB

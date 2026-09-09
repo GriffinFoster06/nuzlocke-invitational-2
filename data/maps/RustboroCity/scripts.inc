@@ -279,6 +279,15 @@ RustboroCity_EventScript_StolenGoodsTrigger4::
 	goto RustboroCity_EventScript_StolenGoodsScene
 	end
 
+@ Phase 10 (docs/SPEC.md "Rustboro/Roxanne"): post-Gym the Devon theft advances
+@ straight toward Route 116 / Rusturf Tunnel. Vanilla split this across two
+@ coord-triggered scenes: (1) grunt bolts, employee chases (state 1 -> 2), and
+@ (2) a separate "oh it's you, help me, I was robbed" bump near the tunnel gate
+@ (state 2 -> 3). The second scene only played that one dialogue and bumped the
+@ state, so it is folded in here and state 2 is skipped entirely (state 3 is a
+@ pure wait state, read nowhere; Rusturf Tunnel gates on VAR_RUSTURF_TUNNEL_STATE
+@ which is set below). The state-2 HelpGetGoods* triggers are removed from
+@ map.json.
 RustboroCity_EventScript_StolenGoodsScene::
 	msgbox RustboroCity_Text_OutOfTheWay, MSGBOX_DEFAULT
 	closemessage
@@ -292,14 +301,17 @@ RustboroCity_EventScript_StolenGoodsScene::
 	waitmovement 0
 	msgbox RustboroCity_Text_WaitDontTakeMyGoods, MSGBOX_DEFAULT
 	closemessage
-	applymovement LOCALID_RUSTBORO_DEVON_EMPLOYEE, RustboroCity_Movement_EmployeeChaseGrunt2
-	waitmovement 0
 	fadedefaultbgm
 	removeobject LOCALID_RUSTBORO_DEVON_EMPLOYEE
+	@ Return the employee to his street position (his map.json home) and show him.
 	setobjectxyperm LOCALID_RUSTBORO_DEVON_EMPLOYEE, 30, 10
+	setobjectmovementtype LOCALID_RUSTBORO_DEVON_EMPLOYEE, MOVEMENT_TYPE_FACE_RIGHT
 	clearflag FLAG_HIDE_RUSTBORO_CITY_DEVON_EMPLOYEE_1
 	setflag FLAG_DEVON_GOODS_STOLEN
-	setvar VAR_RUSTBORO_CITY_STATE, 2
+	setflag FLAG_INTERACTED_WITH_DEVON_EMPLOYEE_GOODS_STOLEN
+	msgbox RustboroCity_Text_HelpMeIWasRobbed, MSGBOX_DEFAULT
+	closemessage
+	setvar VAR_RUSTBORO_CITY_STATE, 3
 	setvar VAR_RUSTURF_TUNNEL_STATE, 2
 	setvar VAR_ROUTE116_STATE, 1
 	clearflag FLAG_HIDE_ROUTE_116_MR_BRINEY
@@ -402,16 +414,6 @@ RustboroCity_Movement_EmployeeChaseGrunt1:
 	walk_in_place_faster_up
 	step_end
 
-RustboroCity_Movement_EmployeeChaseGrunt2:
-	walk_up
-	walk_up
-	walk_up
-	walk_up
-	walk_up
-	walk_up
-	walk_up
-	step_end
-
 @ Functionally unused
 RustboroCity_Movement_EmployeeApproachUp:
 	walk_down
@@ -469,92 +471,10 @@ RustboroCity_EventScript_ReturnGoodsSpokeToEmployee::
 	goto RustboroCity_EventScript_ReturnGoods
 	end
 
-RustboroCity_EventScript_HelpGetGoodsTrigger0::
-	lockall
-	setvar VAR_TEMP_1, 0
-	goto RustboroCity_EventScript_EmployeeAskToGetGoods
-	end
-
-RustboroCity_EventScript_HelpGetGoodsTrigger1::
-	lockall
-	setvar VAR_TEMP_1, 1
-	goto RustboroCity_EventScript_EmployeeAskToGetGoods
-	end
-
-RustboroCity_EventScript_HelpGetGoodsTrigger2::
-	lockall
-	setvar VAR_TEMP_1, 2
-	goto RustboroCity_EventScript_EmployeeAskToGetGoods
-	end
-
-RustboroCity_EventScript_HelpGetGoodsTrigger3::
-	lockall
-	setvar VAR_TEMP_1, 3
-	goto RustboroCity_EventScript_EmployeeAskToGetGoods
-	end
-
-RustboroCity_EventScript_EmployeeAskToGetGoods::
-	call_if_eq VAR_TEMP_1, 0, RustboroCity_EventScript_EmployeeFacePlayerUp1
-	call_if_eq VAR_TEMP_1, 1, RustboroCity_EventScript_EmployeeFacePlayerLeft1
-	call_if_eq VAR_TEMP_1, 2, RustboroCity_EventScript_EmployeeFacePlayerDown1
-	call_if_eq VAR_TEMP_1, 3, RustboroCity_EventScript_EmployeeApproachPlayerDown1
-	setflag FLAG_INTERACTED_WITH_DEVON_EMPLOYEE_GOODS_STOLEN
-	setvar VAR_RUSTBORO_CITY_STATE, 3
-	copyobjectxytoperm LOCALID_RUSTBORO_DEVON_EMPLOYEE
-	msgbox RustboroCity_Text_HelpMeIWasRobbed, MSGBOX_DEFAULT
-	releaseall
-	end
-
-@ The below movement scripts are either partially or fully duplicated by the movement scripts when the player returns the goods
-RustboroCity_EventScript_EmployeeFacePlayerUp1::
-	applymovement LOCALID_RUSTBORO_DEVON_EMPLOYEE, Common_Movement_WalkInPlaceFasterUp
-	waitmovement 0
-	playse SE_PIN
-	applymovement LOCALID_RUSTBORO_DEVON_EMPLOYEE, Common_Movement_ExclamationMark
-	waitmovement 0
-	applymovement LOCALID_RUSTBORO_DEVON_EMPLOYEE, Common_Movement_Delay48
-	waitmovement 0
-	applymovement LOCALID_PLAYER, Common_Movement_WalkInPlaceFasterDown
-	waitmovement 0
-	return
-
-RustboroCity_EventScript_EmployeeFacePlayerLeft1::
-	applymovement LOCALID_RUSTBORO_DEVON_EMPLOYEE, Common_Movement_WalkInPlaceFasterLeft
-	waitmovement 0
-	playse SE_PIN
-	applymovement LOCALID_RUSTBORO_DEVON_EMPLOYEE, Common_Movement_ExclamationMark
-	waitmovement 0
-	applymovement LOCALID_RUSTBORO_DEVON_EMPLOYEE, Common_Movement_Delay48
-	waitmovement 0
-	applymovement LOCALID_PLAYER, Common_Movement_FaceRight
-	waitmovement 0
-	return
-
-RustboroCity_EventScript_EmployeeFacePlayerDown1::
-	applymovement LOCALID_RUSTBORO_DEVON_EMPLOYEE, Common_Movement_WalkInPlaceFasterDown
-	waitmovement 0
-	playse SE_PIN
-	applymovement LOCALID_RUSTBORO_DEVON_EMPLOYEE, Common_Movement_ExclamationMark
-	waitmovement 0
-	applymovement LOCALID_RUSTBORO_DEVON_EMPLOYEE, Common_Movement_Delay48
-	waitmovement 0
-	applymovement LOCALID_PLAYER, Common_Movement_WalkInPlaceFasterUp
-	waitmovement 0
-	return
-
-RustboroCity_EventScript_EmployeeApproachPlayerDown1::
-	applymovement LOCALID_RUSTBORO_DEVON_EMPLOYEE, Common_Movement_WalkInPlaceFasterDown
-	waitmovement 0
-	playse SE_PIN
-	applymovement LOCALID_RUSTBORO_DEVON_EMPLOYEE, Common_Movement_ExclamationMark
-	waitmovement 0
-	applymovement LOCALID_RUSTBORO_DEVON_EMPLOYEE, Common_Movement_Delay48
-	waitmovement 0
-	applymovement LOCALID_RUSTBORO_DEVON_EMPLOYEE, RustboroCity_Movement_EmployeeApproachPlayerDown
-	waitmovement 0
-	applymovement LOCALID_PLAYER, Common_Movement_WalkInPlaceFasterUp
-	waitmovement 0
-	return
+@ Phase 10 (docs/SPEC.md "Rustboro/Roxanne"): the state-2 "help me, I was robbed"
+@ coord scenes (HelpGetGoodsTrigger0..3 / EmployeeAskToGetGoods and the four
+@ EmployeeFacePlayer*1 helpers) are folded into RustboroCity_EventScript_StolenGoodsScene
+@ above. Their map.json coord_events are removed too.
 
 RustboroCity_Movement_EmployeeApproachPlayerDown:
 	walk_down
@@ -1088,25 +1008,21 @@ RustboroCity_Text_TradePokemonGrowFast:
 	.string "BADGES, it may not obey you…$"
 
 RustboroCity_Text_OutOfTheWay:
-	.string "Get out!\n"
 	.string "Out of the way!$"
 
 RustboroCity_Text_WaitDontTakeMyGoods:
-	.string "Wait! Pleeeaaase!\p"
-	.string "Don't take my GOODS!$"
+	.string "Wait! Don't take my GOODS!$"
 
 RustboroCity_Text_HelpMeIWasRobbed:
-	.string "Oh, it's you!\p"
-	.string "You're that fantastic TRAINER who\n"
-	.string "helped me in PETALBURG WOODS!\p"
-	.string "Help me! I was robbed by TEAM AQUA!\n"
-	.string "I have to get the DEVON GOODS back!\p"
-	.string "If I don't…\n"
-	.string "I'm going to be in serious trouble.$"
+	.string "You're that TRAINER from PETALBURG\n"
+	.string "WOODS! TEAM AQUA robbed me of the\l"
+	.string "DEVON GOODS!\p"
+	.string "That thug ran for the tunnel to the\n"
+	.string "east. Please get them back!$"
 
 RustboroCity_Text_ShadyCharacterTookOffTowardsTunnel:
-	.string "That shady character, I think he took\n"
-	.string "off towards the tunnel over there.$"
+	.string "That shady character ran off toward\n"
+	.string "the tunnel to the east.$"
 
 RustboroCity_Text_YouGotItThankYou:
 	.string "Oh! How did it go?\n"

@@ -73,8 +73,8 @@ PetalburgWoods_EventScript_DevonResearcherRight::
 	end
 
 PetalburgWoods_EventScript_DevonResearcherIntro::
-	applymovement LOCALID_PETALBURG_WOODS_DEVON_EMPLOYEE, PetalburgWoods_Movement_DevonResearcherLookAround
-	waitmovement 0
+	@ Phase 10 (docs/SPEC.md "Petalburg Woods"): the ~8-beat look-around idle before
+	@ this line is cut (net-zero displacement, pure filler).
 	msgbox PetalburgWoods_Text_NotAOneToBeFound, MSGBOX_DEFAULT
 	closemessage
 	return
@@ -111,25 +111,6 @@ PetalburgWoods_EventScript_RemoveDevonResearcher::
 	setvar VAR_PETALBURG_WOODS_STATE, 1
 	releaseall
 	end
-
-PetalburgWoods_Movement_DevonResearcherLookAround:
-	face_up
-	delay_16
-	delay_4
-	face_right
-	delay_16
-	delay_8
-	face_left
-	delay_16
-	delay_8
-	face_down
-	delay_16
-	face_right
-	delay_16
-	delay_8
-	face_up
-	delay_16
-	step_end
 
 PetalburgWoods_Movement_DevonResearcherExitLeft:
 	walk_fast_right
@@ -315,65 +296,49 @@ PetalburgWoods_EventScript_JamesRematch::
 	msgbox PetalburgWoods_Text_IveBeenTrainingHard, MSGBOX_AUTOCLOSE
 	end
 
+@ Phase 10 (docs/SPEC.md "Petalburg Woods"): Devon-researcher dialogue shortened.
+@ The Aqua grunt battle, the GREAT BALL gift and every object movement are kept
+@ intact; only the text boxes are trimmed.
 PetalburgWoods_Text_NotAOneToBeFound:
-	.string "Hmmm…\n"
-	.string "Not a one to be found…$"
+	.string "Hmmm… Not a SHROOMISH to be found…$"
 
 PetalburgWoods_Text_HaveYouSeenShroomish:
-	.string "Hello, have you seen any POKéMON\n"
-	.string "called SHROOMISH around here?\p"
-	.string "I really love that POKéMON.$"
+	.string "Oh! A TRAINER. Have you seen any\n"
+	.string "SHROOMISH around here?$"
 
 PetalburgWoods_Text_IWasGoingToAmbushYou:
-	.string "I was going to ambush you, but you\n"
-	.string "had to dawdle in PETALBURG WOODS\l"
-	.string "forever, didn't you?\p"
-	.string "I got sick of waiting, so here I am!$"
+	.string "There you are, DEVON RESEARCHER!\n"
+	.string "I'm done waiting.$"
 
 PetalburgWoods_Text_HandOverThosePapers:
-	.string "You! DEVON RESEARCHER!\p"
 	.string "Hand over those papers!$"
 
 PetalburgWoods_Text_YouHaveToHelpMe:
-	.string "Aiyeeeh!\p"
-	.string "You're a POKéMON TRAINER, aren't you?\n"
-	.string "You've got to help me, please!$"
+	.string "Aiyeeeh! You're a TRAINER, right?\n"
+	.string "Help me, please!$"
 
 PetalburgWoods_Text_NoOneCrossesTeamAqua:
-	.string "Hunh? What do you think you're doing?\n"
-	.string "What, you're going to protect him?\p"
-	.string "No one who crosses TEAM AQUA\n"
-	.string "gets any mercy, not even a kid!\p"
-	.string "Come on and battle me!$"
+	.string "You'd protect him? No one crosses\n"
+	.string "TEAM AQUA. Battle me!$"
 
 PetalburgWoods_Text_YoureKiddingMe:
 	.string "You're kidding me! You're tough!$"
 
 PetalburgWoods_Text_YouveGotSomeNerve:
-	.string "Grrr… You've got some nerve\n"
-	.string "meddling with TEAM AQUA!\l"
-	.string "Come on and battle me again!\p"
-	.string "I wish I could say that, but I'm out of\n"
-	.string "POKéMON…\p"
-	.string "And, hey, we of TEAM AQUA are also\n"
-	.string "after something in RUSTBORO.\p"
-	.string "I'll let you go today!$"
+	.string "Grrr… I'm out of POKéMON.\p"
+	.string "TEAM AQUA is after something in\n"
+	.string "RUSTBORO, too. I'll let you go today!$"
 
 PetalburgWoods_Text_ThatWasAwfullyClose:
-	.string "Whew…\n"
-	.string "That was awfully close!\p"
-	.string "Thanks to you, he didn't rob me of\n"
-	.string "these important papers.\p"
-	.string "I know, I'll give you a GREAT BALL as\n"
+	.string "Whew, that was close! He didn't get\n"
+	.string "the papers. Take this GREAT BALL as\l"
 	.string "my thanks!$"
 
 PetalburgWoods_Text_TeamAquaAfterSomethingInRustboro:
-	.string "Didn't that TEAM AQUA thug say\n"
-	.string "they were after something in\l"
-	.string "RUSTBORO, too?$"
+	.string "That thug said TEAM AQUA is after\n"
+	.string "something in RUSTBORO. I'd better go!$"
 
 PetalburgWoods_Text_ICantBeWastingTime:
-	.string "Uh-oh! It's a crisis!\n"
 	.string "I can't be wasting time!$"
 
 PetalburgWoods_Text_YoureLoadedWithItems:

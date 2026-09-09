@@ -1,5 +1,9 @@
 # Phase 9.5 Remediation — Every Prompt, In Order
 
+> **Completed historical remediation:** This sequence has already been
+> executed. It is retained as project history, not as current work instructions
+> or a statement of missing functionality.
+
 This picks up after the audit that found: the disabled-species crash was
 fixed, Evolution Assistance and two terrain tables were fixed and
 rebuilt into checkpoint-after-phase9.gba, but Pro Fair AI's status is

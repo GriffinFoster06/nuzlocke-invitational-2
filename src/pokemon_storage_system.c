@@ -9614,15 +9614,46 @@ u8 *GetBoxNamePtr(u8 boxId)
 static u8 GetBoxWallpaper(u8 boxId)
 {
     if (boxId < TOTAL_BOXES_COUNT)
-        return gPokemonStoragePtr->boxWallpapers[boxId];
-    else
-        return 0;
+    {
+        u8 wallpaperId = gPokemonStoragePtr->boxWallpapers[boxId];
+
+        // Never index sWallpapers[] / sBoxTitleColors[] out of bounds, even if
+        // the stored id is garbage (a pre-fix save could hold 0xFF here - see
+        // Nuzlocke_RepairStorage). WALLPAPER_FRIENDS stays valid; anything past
+        // the table falls back to the default scene.
+        if (wallpaperId >= WALLPAPER_COUNT)
+            return 0;
+        return wallpaperId;
+    }
+    return 0;
 }
 
 static void SetBoxWallpaper(u8 boxId, u8 wallpaperId)
 {
     if (boxId < TOTAL_BOXES_COUNT && wallpaperId < WALLPAPER_COUNT)
         gPokemonStoragePtr->boxWallpapers[boxId] = wallpaperId;
+}
+
+// Clamp every stored box wallpaper id into range. Call on load to repair a save
+// written before the graveyard-box name overflow was fixed (that bug wrote
+// 0xFF into boxWallpapers[0]). Matches ResetPokemonStorageSystem's default
+// assignment; a no-op on a clean save.
+void SanitizeBoxWallpapers(void)
+{
+    u32 i;
+
+    for (i = 0; i < TOTAL_BOXES_COUNT; i++)
+    {
+        if (gPokemonStoragePtr->boxWallpapers[i] >= WALLPAPER_COUNT)
+            gPokemonStoragePtr->boxWallpapers[i] = i % (MAX_DEFAULT_WALLPAPER + 1);
+    }
+}
+
+// Bounds-checked public setter for the "sky" scene (Phase 3 Nuzlocke graveyard
+// box). Keeps the WALLPAPER_* enum private to this file.
+void SetBoxWallpaperSky(u8 boxId)
+{
+    SetBoxWallpaper(boxId, WALLPAPER_SKY);
 }
 
 // For moving to the next Pokémon while viewing the summary screen

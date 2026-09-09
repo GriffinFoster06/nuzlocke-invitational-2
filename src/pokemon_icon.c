@@ -142,7 +142,12 @@ u8 CreateMonIcon(enum Species species, void (*callback)(struct Sprite *), s16 x,
 u8 CreateMonIconIsEgg(enum Species species, void (*callback)(struct Sprite *), s16 x, s16 y, u8 subpriority, u32 personality, bool32 isEgg)
 {
     u8 spriteId;
-    struct MonIconSpriteTemplate iconTemplate =
+    struct MonIconSpriteTemplate iconTemplate;
+
+    // Sanitize before any gSpeciesInfo[] read - a raw out-of-range / disabled id
+    // in the .paletteTag initializer below would index the species table OOB.
+    species = SanitizeSpeciesId(species);
+    iconTemplate = (struct MonIconSpriteTemplate)
     {
         .oam = &sMonIconOamData,
         .image = GetMonIconPtrIsEgg(species, personality, isEgg),
@@ -151,7 +156,6 @@ u8 CreateMonIconIsEgg(enum Species species, void (*callback)(struct Sprite *), s
         .callback = callback,
         .paletteTag = POKE_ICON_BASE_PAL_TAG + gSpeciesInfo[species].iconPalIndex,
     };
-    species = SanitizeSpeciesId(species);
 
     if (isEgg)
     {
@@ -186,7 +190,11 @@ u8 CreateMonIconNoPersonality(enum Species species, void (*callback)(struct Spri
 u8 CreateMonIconNoPersonalityIsEgg(enum Species species, void (*callback)(struct Sprite *), s16 x, s16 y, u8 subpriority, bool32 isEgg)
 {
     u8 spriteId;
-    struct MonIconSpriteTemplate iconTemplate =
+    struct MonIconSpriteTemplate iconTemplate;
+
+    // Sanitize before the gSpeciesInfo[] read in the .paletteTag initializer.
+    species = SanitizeSpeciesId(species);
+    iconTemplate = (struct MonIconSpriteTemplate)
     {
         .oam = &sMonIconOamData,
         .image = NULL,
@@ -366,11 +374,33 @@ const u8 *GetMonIconTilesIsEgg(enum Species species, u32 personality, bool32 isE
 
 const u8 *GetMonIconTilesByIconType(enum Species species, enum SpeciesIconType iconType)
 {
+    const u8 *icon;
+
+    // Filter (do not SanitizeSpeciesId - that asserts on a dataless in-range id
+    // such as SPECIES_LUGIA_SHADOW) so no gSpeciesInfo[] read below is OOB and
+    // no branch returns a NULL tile pointer.
+    if (species > NUM_SPECIES || !IsSpeciesEnabled(species))
+        species = SPECIES_NONE;
+
     if (iconType == EGG_ICON)
-        return gEggDatas[gSpeciesInfo[species].eggId].eggIcon;
-    if (iconType == FEMALE_ICON)
-        return gSpeciesInfo[species].iconSpriteFemale;
-    return gSpeciesInfo[species].iconSprite;
+    {
+        if (gSpeciesInfo[species].eggId != EGG_ID_NONE)
+            icon = gEggDatas[gSpeciesInfo[species].eggId].eggIcon;
+        else
+            icon = gSpeciesInfo[SPECIES_EGG].iconSprite;
+    }
+    else if (iconType == FEMALE_ICON)
+    {
+        icon = gSpeciesInfo[species].iconSpriteFemale;
+    }
+    else
+    {
+        icon = gSpeciesInfo[species].iconSprite;
+    }
+
+    if (icon == NULL)
+        icon = gSpeciesInfo[SPECIES_NONE].iconSprite;
+    return icon;
 }
 
 void TryLoadAllMonIconPalettesAtOffset(u16 offset)

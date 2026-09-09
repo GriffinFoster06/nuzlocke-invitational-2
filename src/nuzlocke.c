@@ -15,6 +15,7 @@
 
 #include "global.h"
 #include "battle.h"
+#include "item.h"
 #include "main.h"
 #include "overworld.h"
 #include "pokemon.h"
@@ -30,6 +31,13 @@
 
 #define NUZLOCKE_GRAVEYARD_BOX      (TOTAL_BOXES_COUNT - 1)
 #define NUZLOCKE_DUPES_MAX_REROLLS  24
+
+// The graveyard PC box name. MUST fit boxNames[] (BOX_NAME_LENGTH + 1 bytes,
+// terminator included) - a longer string here overruns into boxWallpapers[0]
+// and corrupts the PC (see the box-open crash this replaced). The static
+// assert makes that a build error, not a runtime one.
+static const u8 sGraveyardBoxName[] = _("HEAVEN");
+STATIC_ASSERT(sizeof(sGraveyardBoxName) <= BOX_NAME_LENGTH + 1, GraveyardBoxNameFitsBoxNameSlot);
 
 #define BITARR_GET(arr, i)    (((arr)[(i) >> 3] >> ((i) & 7)) & 1)
 #define BITARR_SET(arr, i)    ((arr)[(i) >> 3] |=  (1 << ((i) & 7)))
@@ -97,18 +105,60 @@ bool32 Nuzlocke_RunIsOver(void)
     return gSaveBlock3Ptr->nuzlocke.runOver;
 }
 
+// Run once per load (CB2_ContinueSavedGame). Repairs PC state that a save
+// written before the graveyard-box name overflow could carry:
+//  - out-of-range box wallpaper ids (the overflow wrote EOS/0xFF into
+//    boxWallpapers[0]; opening the PC then indexes sWallpapers[] out of
+//    bounds and jumps through a garbage pointer),
+//  - a graveyard box name with no terminator inside its own slot (it only
+//    "worked" because the stray 0xFF in the next field terminated it).
+// Harmless on a clean save: nothing is out of range, so nothing changes.
+void Nuzlocke_RepairStorage(void)
+{
+    SanitizeBoxWallpapers();
+
+    if (gPokemonStoragePtr->currentBox >= TOTAL_BOXES_COUNT)
+        gPokemonStoragePtr->currentBox = 0;
+
+    if (gSaveBlock3Ptr->nuzlocke.graveyardBoxNamed)
+    {
+        StringCopy(GetBoxNamePtr(NUZLOCKE_GRAVEYARD_BOX), sGraveyardBoxName);
+        SetBoxWallpaperSky(NUZLOCKE_GRAVEYARD_BOX);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Setting predicates
 // ---------------------------------------------------------------------------
 
+// docs/SPEC.md "Nuzlocke rules start gate": permadeath and one-encounter-per-
+// location do not begin until the player has received their first Poke Balls -
+// before that there is nothing to catch and nothing worth protecting. The gate
+// latches the first time the player holds any Poke Ball (Birch's gift, a shop,
+// the 999-ball NPC, Pickup, ...) and never closes again for the attempt.
+// Nuzlocke_ResetState() clears the bit on a new game / retry.
+bool32 Nuzlocke_RulesGateOpen(void)
+{
+    if (gSaveBlock3Ptr->nuzlocke.rulesGateOpen)
+        return TRUE;
+
+    if (HasAtLeastOnePokeBall())
+    {
+        gSaveBlock3Ptr->nuzlocke.rulesGateOpen = TRUE;
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
 bool32 Nuzlocke_PermadeathOn(void)
 {
-    return GetRulesetSetting(SETTING_PERMADEATH) != 0;
+    return GetRulesetSetting(SETTING_PERMADEATH) != 0 && Nuzlocke_RulesGateOpen();
 }
 
 bool32 Nuzlocke_OneEncounterPerLocationOn(void)
 {
-    return GetRulesetSetting(SETTING_ONE_ENCOUNTER_PER_LOCATION) != 0;
+    return GetRulesetSetting(SETTING_ONE_ENCOUNTER_PER_LOCATION) != 0 && Nuzlocke_RulesGateOpen();
 }
 
 bool32 Nuzlocke_DupesClauseOn(void)
@@ -461,8 +511,8 @@ static void MoveDeadMonToGraveyard(struct Pokemon *mon)
 
     if (!gSaveBlock3Ptr->nuzlocke.graveyardBoxNamed)
     {
-        static const u8 sGraveyardBoxName[] = _("GRAVEYARD");
         StringCopy(GetBoxNamePtr(NUZLOCKE_GRAVEYARD_BOX), sGraveyardBoxName);
+        SetBoxWallpaperSky(NUZLOCKE_GRAVEYARD_BOX);
         gSaveBlock3Ptr->nuzlocke.graveyardBoxNamed = TRUE;
     }
 

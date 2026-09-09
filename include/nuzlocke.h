@@ -20,10 +20,17 @@ struct Pokemon;
 void Nuzlocke_ResetState(void);        // New Game: wipe run state (+ apply a pending retry)
 void Nuzlocke_BeginRun(void);          // starter given: the run becomes active
 void Nuzlocke_BeginRetry(void);        // run-over screen: stash ruleset, next New Game is a retry
+void Nuzlocke_RepairStorage(void);     // CB2_ContinueSavedGame: repair pre-fix PC corruption
 bool32 Nuzlocke_RunIsActive(void);
 bool32 Nuzlocke_RunIsOver(void);
 
+// docs/SPEC.md "Nuzlocke rules start gate": TRUE once the player has held a
+// Poke Ball for the first time this attempt (latched). Gates the two predicates
+// below; Dupes/Shiny clause and family tracking are unaffected.
+bool32 Nuzlocke_RulesGateOpen(void);
+
 // ---- setting predicates (thin wrappers, safe before a run starts) ----
+// Permadeath / one-per-location also require Nuzlocke_RulesGateOpen().
 bool32 Nuzlocke_PermadeathOn(void);
 bool32 Nuzlocke_OneEncounterPerLocationOn(void);
 bool32 Nuzlocke_DupesClauseOn(void);

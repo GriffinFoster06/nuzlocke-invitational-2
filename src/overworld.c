@@ -2154,6 +2154,9 @@ void CB2_ContinueSavedGame(void)
     UnlockPlayerFieldControls();
     gExitStairsMovementDisabled = TRUE;
     InitMatchCallCounters();
+    // Phase 3 Nuzlocke: repair PC state from saves written before the
+    // graveyard-box name overflow fix (a no-op on a clean save).
+    Nuzlocke_RepairStorage();
     if (Nuzlocke_RunIsOver())
     {
         // The run ended; a reset must not escape the run-over screen.

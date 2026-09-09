@@ -197,19 +197,10 @@ interface.
 Modes: Hard cap (default) / Soft cap / Warning only / Off.
 
 ## Caught Pokémon above the cap
-The level cap advances after each Gym to meet the next Gym's expected level, and
-so on through the game. A Pokémon should never actually be above the cap:
-acquisition levels (wild, gift, static, fossil, egg) are clamped down to the
-current cap, and the hard cap prevents a Pokémon from gaining levels past it, so
-a Pokémon cannot be caught or raised above the cap.
-
-The Over Cap / Ineligible rule is retained as a safety net for the Soft cap and
-Warning-only modes, where a Pokémon can still cross the cap. Such a Pokémon:
-marked Over Cap / Ineligible; cannot enter battle while above the current legal
-cap; cannot be used for encounter-manipulation abilities or other Nuzlocke
-gameplay advantages; automatically becomes legal once progression raises the cap
-sufficiently. If it would be the player's only possible lead, the restriction is
-waived for that battle so the player is never stranded.
+Can still be caught; marked Over Cap / Ineligible; cannot enter battle while
+above the current legal cap; cannot be used for encounter-manipulation
+abilities or other Nuzlocke gameplay advantages; automatically become legal
+once progression raises the cap sufficiently.
 
 ## Level to Cap
 Default: ON. Available from the party menu and for PC Pokémon. Immediately
@@ -321,19 +312,6 @@ Required key items do not become Potions. Ordinary consumable pickups cannot
 replace progression flags. Evolution availability guaranteed independently
 of random field-item luck.
 
-Concrete rule as implemented (Phase 2, `src/randomizer.c`):
-- **Never replaced**: anything with non-zero `GetItemImportance()` (which covers
-  every key item, every HM, and reusable TMs), anything in `POCKET_KEY_ITEMS`,
-  and anything in `POCKET_TM_HM`. TMs are excluded because their *move* is
-  already randomized — turning a field TM into a Potion would delete a TM from
-  the run rather than randomize it.
-- **Never produced**: the replacement pool is `POCKET_ITEMS` + `POCKET_BERRIES`
-  + `POCKET_POKE_BALLS` only, with importance zero and a defined name, so a
-  pickup can never become a key item or a machine.
-- **Evolution items** need no special handling: the Lilycove evolution clerk is
-  a `pokemart` and shops are not randomized by default, so every stone stays
-  purchasable regardless of field-item luck.
-
 ## Modern held items
 Held items through Gen 9 supported with Gen 9 effect behavior. Randomized
 item pools can include useful modern held items.
@@ -365,19 +343,31 @@ Default: ON. Pressing R in a wild battle provides a fast Ball-throwing
 shortcut using an appropriate Ball already in inventory (never creates a
 Ball the player doesn't possess).
 
+## Nuzlocke rules start gate
+**Nuzlocke rules (permadeath and one-encounter-per-location) do not begin
+until the player has received their first Poké Balls.** Before that
+point, wild encounters do not consume the route/location under the
+one-encounter-per-location rule, and fainting does not trigger permadeath
+— there's no way to catch or meaningfully lose anything yet, so there's
+nothing to protect. Once Poké Balls are obtained for the first time, all
+Nuzlocke rules activate normally and apply going forward, including for
+the current location if it's still unresolved at that moment.
+
 ## Nuzlocke permadeath
-Default: ON. If a Pokémon faints, it is permanently dead. Dead Pokémon
-cannot battle, be revived into legal use, use field abilities, activate
-encounter-manipulation abilities, or be used for any other gameplay
-advantage. Dead Pokémon can be automatically moved to a designated Graveyard
-PC box after battle; the player may still inspect them.
+Default: ON (once the start gate above has passed). If a Pokémon faints,
+it is permanently dead. Dead Pokémon cannot battle, be revived into legal
+use, use field abilities, activate encounter-manipulation abilities, or be
+used for any other gameplay advantage. Dead Pokémon can be automatically
+moved to a designated Graveyard PC box after battle; the player may still
+inspect them.
 
 ## One encounter per location
-Default: ON. Only the first valid encounter for each location can be
-caught. Location identity uses the actual location tag — a different
-location tag means a new encounter. Once resolved, that location is marked
-used. Strict default: killing, running from, or failing to catch the valid
-encounter all consume the location.
+Default: ON (once the start gate above has passed). Only the first valid
+encounter for each location can be caught. Location identity uses the
+actual location tag — a different location tag means a new encounter.
+Once resolved, that location is marked used. Strict default: killing,
+running from, or failing to catch the valid encounter all consume the
+location.
 
 ## Dupes Clause
 Default: ON. A Pokémon from an evolutionary family the player has already
@@ -480,69 +470,6 @@ system (see below) has no remaining use case and should be confirmed
 removable rather than kept as dead code — verify this during
 implementation rather than assuming it.
 
-**Verified and removed (Phase 9.5).** After the sweep, a comment-stripped
-parse of the whole species dataset leaves only plain `EVO_LEVEL` /
-`EVO_ITEM` / `EVO_NONE` rows plus one deliberate `IF_BAG_ITEM_COUNT`
-(Nincada → Shedinja). `FindAssistMove()` could only ever fire on
-`IF_KNOWS_MOVE`, `IF_KNOWS_MOVE_TYPE`, `IF_USED_MOVE_X_TIMES` or
-`IF_RECOIL_DAMAGE_GE`, all now zero. Escape hatches were checked too: the
-`sEvoFixTable` override is down to one plain-level Zweilous row; the
-`#if`-disabled dataset branches carry no move conditions; Nincada's
-`IF_BAG_ITEM_COUNT` hits `FindAssistMove`'s `default → MOVE_NONE` and its
-`EVO_SPLIT_FROM_EVO` row is skipped by the method filter first. So
-`EVOLVE_CHECK_NEEDS_MOVE` was unreachable and the assistance half was
-deleted — `FindAssistMove` and helpers from `src/evolve_menu.c`, the
-teach-then-evolve tasks from `src/party_menu.c`, and
-`SETTING_EVOLUTION_ASSISTANCE` from the settings enum (which required a
-`RULESET_VERSION` 1 → 2 bump, since removing a mid-enum setting shifts the
-saved byte of every later one). The **Evolve command** itself is
-untouched.
-
-### As implemented (Phase 9.5 sweep)
-
-The sweep edits the species dataset directly
-(`src/data/pokemon/species_info/gen_*_families.h`, every change tagged
-`// NUZLOCKE:`) rather than growing `sEvoFixTable`, which is linear-scanned on
-every `GetSpeciesEvolutions()` call and must restate a species' whole evolution
-array. Only Zweilous is left in that table, and only because its level-64
-threshold clashes with the level cap.
-
-Two mechanics drive the result:
-
-- **First match wins.** `GetEvolutionTargetSpecies()` stops at the first
-  matching row (upstream changed this from vanilla). So where a condition used
-  to *select between targets* at one level, it is replaced by a **ladder**: each
-  branch gets its own level, listed highest-first, and the player declines the
-  earlier evolution with B to reach a later one. Used for Slowpoke, Clamperl,
-  Tyrogue, Wurmple, Toxel, Dunsparce, Tandemaus, Burmy x3, Espurr, Lechonk,
-  Basculin, Rockruff, Cosmoem, and every regional-form split.
-- **`GetCurrentRegion()` only returns `REGION_HOENN` or `REGION_KANTO`.** Every
-  `IF_REGION, REGION_ALOLA/GALAR/HISUI/PALDEA` branch was therefore already
-  *impossible*, not merely non-level.
-
-Level defaults, applied uniformly: `preEvolutionLevel + 12` where the species
-has one, otherwise **20** for a friendship gate or a baby-to-basic transition
-and **32** for anything else; clamped to [20, 50] except where an existing level
-row forces it higher. Ladder branches are spaced 8 levels apart.
-
-Three regional splits used the **same stone** on both branches, so the regional
-form was given a distinct stone (the pattern this document sets for Eevee), all
-of them sold by the Lilycove clerk:
-
-- Alolan Raichu -> **Dawn Stone** (Kanto Raichu keeps Thunder Stone)
-- Alolan Exeggutor -> **Sun Stone** (Kanto Exeggutor keeps Leaf Stone)
-- Hisuian Lilligant -> **Dusk Stone** (Unovan Lilligant keeps Sun Stone)
-
-Two deliberate exceptions to "everything becomes level-based":
-
-- **Nincada -> Shedinja** keeps its `IF_BAG_ITEM_COUNT` Poke Ball requirement.
-  That is an item requirement that is trivially satisfiable and *is* the
-  Shedinja mechanic; the rule exists for reachability, and this is reachable.
-- **Milcery** had 63 `EVO_SPIN` rows, one per Sweet x Cream x time-of-day
-  combination. A ladder is impossible at that width, so Milcery evolves on level
-  alone into the default Strawberry/Vanilla Alcremie and the other 62 cosmetic
-  forms are unreachable in this hack.
-
 ## Evolve command
 Default: ON. Available from the Pokémon menu; shows whether an evolution is
 currently available. Evolution remains player-controlled rather than
@@ -564,11 +491,10 @@ guaranteed replacement system existed — a Pokémon requiring a specific
 move to evolve could always obtain that move through an Evolution
 Assistance function, restricted specifically to evolution-necessary moves
 (not a general free Move Reminder). Under the new global rule, move-gated
-evolutions no longer exist as a category (they're level-based now).
-
-**Resolved (Phase 9.5):** confirmed genuinely unused (see "Consequence for
-Evolution Assistance" above for the check) and removed. Only the assistance
-half went — the player-controlled Evolve command remains.
+evolutions no longer exist as a category (they're level-based now), so
+this concern should no longer apply — confirm during implementation and
+remove Evolution Assistance if genuinely unused rather than leaving it as
+dead infrastructure.
 
 ## Trade evolutions
 Converted into deterministic single-player evolutions using a specific

@@ -33,6 +33,39 @@ OldaleTown_EventScript_Girl::
 	msgbox OldaleTown_Text_SavingMyProgress, MSGBOX_NPC
 	end
 
+@ docs/SPEC.md "999 Poke Ball NPC": replaces Randolocke's 999 Ultra Ball NPC.
+@ Hands over 999 ordinary Poke Balls once, gated on SETTING_BALL_NPC_999. No
+@ story-flag guard - reachable on the first pass through Oldale, at or before
+@ the point Poke Balls are normally first given (docs/SPEC.md start gate).
+OldaleTown_EventScript_BallNpc999::
+	lock
+	faceplayer
+	special TryGiveBallNpc999
+	switch VAR_RESULT
+	case 1, OldaleTown_EventScript_BallNpc999Gave
+	case 2, OldaleTown_EventScript_BallNpc999AlreadyGot
+	case 3, OldaleTown_EventScript_BallNpc999BagFull
+	msgbox OldaleTown_Text_BallNpc999Idle, MSGBOX_DEFAULT
+	release
+	end
+
+OldaleTown_EventScript_BallNpc999Gave::
+	playfanfare MUS_OBTAIN_ITEM
+	waitfanfare
+	msgbox OldaleTown_Text_Take999PokeBalls, MSGBOX_DEFAULT
+	release
+	end
+
+OldaleTown_EventScript_BallNpc999AlreadyGot::
+	msgbox OldaleTown_Text_HopeThePokeBallsHelped, MSGBOX_DEFAULT
+	release
+	end
+
+OldaleTown_EventScript_BallNpc999BagFull::
+	msgbox OldaleTown_Text_MakeRoomForPokeBalls, MSGBOX_DEFAULT
+	release
+	end
+
 OldaleTown_EventScript_MartEmployee::
 	lock
 	faceplayer
@@ -342,6 +375,26 @@ OldaleTown_Movement_ReturnToOriginalPosition:
 OldaleTown_Text_SavingMyProgress:
 	.string "I want to take a rest, so I'm saving my\n"
 	.string "progress.$"
+
+OldaleTown_Text_BallNpc999Idle:
+	.string "I'm going to buy a bunch of POKé BALLS\n"
+	.string "and catch a bunch of POKéMON!$"
+
+OldaleTown_Text_Take999PokeBalls:
+	.string "You're taking on a NUZLOCKE?\p"
+	.string "Then running out of POKé BALLS is the\n"
+	.string "last thing you should be worrying about.\p"
+	.string "Here, take 999 of them. Go catch your\n"
+	.string "team and give it everything you've got!$"
+
+OldaleTown_Text_HopeThePokeBallsHelped:
+	.string "Those 999 POKé BALLS should see you\n"
+	.string "through. Good luck out there!$"
+
+OldaleTown_Text_MakeRoomForPokeBalls:
+	.string "Your BAG's too full for me to hand over\n"
+	.string "that many POKé BALLS. Make some room\l"
+	.string "and come back!$"
 
 OldaleTown_Text_IWorkAtPokemonMart:
 	.string "Hi!\n"

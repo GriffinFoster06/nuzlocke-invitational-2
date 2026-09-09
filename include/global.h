@@ -291,7 +291,10 @@ struct NuzlockeState
     u16 deathCount;
     u8 graveyardBoxNamed:1; // the graveyard PC box has been renamed once
     u8 runOver:1;           // whiteout ended the attempt; load re-enters run-over
-    u8 unused:6;
+    u8 rulesGateOpen:1;     // docs/SPEC.md "Nuzlocke rules start gate": latched once
+                            // the player first holds a Poke Ball; before that,
+                            // permadeath and one-per-location are inactive
+    u8 unused:5;
 };
 
 struct SaveBlock3

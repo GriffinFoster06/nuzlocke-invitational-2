@@ -1799,6 +1799,11 @@ u8 GetBoxMonGender(struct BoxPokemon *boxMon)
     enum Species species = GetBoxMonData(boxMon, MON_DATA_SPECIES);
     u32 personality = GetBoxMonData(boxMon, MON_DATA_PERSONALITY);
 
+    // A corrupt box mon can hold an out-of-range species id - keep the
+    // gSpeciesInfo[] reads below in bounds.
+    if (species > NUM_SPECIES || !IsSpeciesEnabled(species))
+        species = SPECIES_NONE;
+
     switch (gSpeciesInfo[species].genderRatio)
     {
     case MON_MALE:
@@ -1815,6 +1820,12 @@ u8 GetBoxMonGender(struct BoxPokemon *boxMon)
 
 u8 GetGenderFromSpeciesAndPersonality(enum Species species, u32 personality)
 {
+    // Reached from the PC with a raw (possibly corrupt) box species - keep the
+    // gSpeciesInfo[] reads below in bounds. A filtered-out id reads as MON_MALE,
+    // matching gSpeciesInfo[SPECIES_NONE].
+    if (species > NUM_SPECIES || !IsSpeciesEnabled(species))
+        species = SPECIES_NONE;
+
     switch (gSpeciesInfo[species].genderRatio)
     {
     case MON_MALE:
@@ -6421,6 +6432,8 @@ enum Species SanitizeSpeciesId(enum Species species)
 bool32 IsSpeciesEnabled(enum Species species)
 {
     // This function should not use the GetSpeciesBaseHP function, as the included sanitation will result in an infinite loop
+    if (species > NUM_SPECIES)
+        return FALSE; // out of range: the gSpeciesInfo[] read below would be OOB
     return gSpeciesInfo[species].baseHP > 0 || species == SPECIES_EGG;
 }
 

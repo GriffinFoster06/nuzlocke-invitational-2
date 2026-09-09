@@ -25,4 +25,9 @@ bool32 Ruleset_UnlimitedMoneyOn(void);
 // tops the wallet up so the counter reads as "not a resource".
 void Ruleset_ApplyUnlimitedMoneyGrant(void);
 
+// docs/SPEC.md "999 Poke Ball NPC". Script special backing
+// OldaleTown_EventScript_BallNpc999. Sets gSpecialVar_Result:
+//   0 = feature off, 1 = just handed over, 2 = already claimed, 3 = no bag room.
+void TryGiveBallNpc999(void);
+
 #endif // GUARD_RULESET_QOL_H

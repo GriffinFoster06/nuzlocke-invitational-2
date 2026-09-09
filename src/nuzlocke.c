@@ -131,6 +131,15 @@ bool32 Nuzlocke_StrictNicknamesOn(void)
     return GetRulesetSetting(SETTING_NICKNAME_MODE) == NICK_STRICT;
 }
 
+// Script-facing wrapper: the starter hand-off in Birch's lab is a plain
+// scripted gift, so it doesn't go through the caught-mon / hatched-egg paths
+// that already honour Nuzlocke_ForcedNicknamesOn(). See
+// LittlerootTown_ProfessorBirchsLab_EventScript_GiveStarterEvent.
+bool16 AreNicknamesForced(void)
+{
+    return Nuzlocke_ForcedNicknamesOn();
+}
+
 // ---------------------------------------------------------------------------
 // Location tags
 // ---------------------------------------------------------------------------

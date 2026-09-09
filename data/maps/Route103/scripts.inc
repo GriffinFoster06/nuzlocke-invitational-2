@@ -134,102 +134,38 @@ Route103_EventScript_StartBrendanBattleMudkip::
 
 Route103_EventScript_AfterMayBattle::
 	msgbox Route103_Text_MayTimeToHeadBack, MSGBOX_DEFAULT
-	goto Route103_EventScript_RivalExit
+	goto Route103_EventScript_RivalEnd
 	end
 
 Route103_EventScript_AfterBrendanBattle::
 	msgbox Route103_Text_BrendanTimeToHeadBack, MSGBOX_DEFAULT
-	goto Route103_EventScript_RivalExit
-	end
-
-Route103_EventScript_RivalExit::
-	closemessage
-	switch VAR_FACING
-	case DIR_SOUTH, Route103_EventScript_RivalExitFacingSouth
-	case DIR_NORTH, Route103_EventScript_RivalExitFacingNorth
-	case DIR_WEST, Route103_EventScript_RivalExitFacingEastOrWest
-	case DIR_EAST, Route103_EventScript_RivalExitFacingEastOrWest
-	end
-
-Route103_EventScript_RivalExitFacingNorth::
-	applymovement LOCALID_PLAYER, Route103_Movement_WatchRivalExitFacingNorth
-	applymovement LOCALID_ROUTE103_RIVAL, Route103_Movement_RivalExitFacingNorth1
-	waitmovement 0
-	playse SE_LEDGE
-	applymovement LOCALID_ROUTE103_RIVAL, Route103_Movement_RivalExitFacingNorth2
-	waitmovement 0
 	goto Route103_EventScript_RivalEnd
 	end
 
-Route103_EventScript_RivalExitFacingEastOrWest::
-	applymovement LOCALID_PLAYER, Route103_Movement_WatchRivalExitFacingEastOrWest
-	applymovement LOCALID_ROUTE103_RIVAL, Route103_Movement_RivalExit1
-	waitmovement 0
-	playse SE_LEDGE
-	applymovement LOCALID_ROUTE103_RIVAL, Route103_Movement_RivalExit2
-	waitmovement 0
-	goto Route103_EventScript_RivalEnd
-	end
-
-Route103_EventScript_RivalExitFacingSouth::
-	applymovement LOCALID_ROUTE103_RIVAL, Route103_Movement_RivalExit1
-	waitmovement 0
-	playse SE_LEDGE
-	applymovement LOCALID_ROUTE103_RIVAL, Route103_Movement_RivalExit2
-	waitmovement 0
-	goto Route103_EventScript_RivalEnd
-	end
-
+@ Phase 10 (docs/SPEC.md "First rival battle"): no forced walk back to Birch's
+@ lab. The rival's ledge-hop exit animation (and its four VAR_FACING variants)
+@ is cut; instead we fade to black and warp straight into the lab, letting its
+@ OnFrame table run the (compressed) Pokedex scene - the same pattern
+@ Route101_EventScript_BirchsBag uses for the starter hand-off.
 Route103_EventScript_RivalEnd::
+	closemessage
 	removeobject LOCALID_ROUTE103_RIVAL
+	setflag FLAG_DEFEATED_RIVAL_ROUTE103
+	@ Nothing else in the codebase sets FLAG_HIDE_ROUTE_103_RIVAL, so without this
+	@ the rival (and the warp below) would re-trigger on every re-entry.
+	setflag FLAG_HIDE_ROUTE_103_RIVAL
 	setvar VAR_BIRCH_LAB_STATE, 4
 	clearflag FLAG_HIDE_LITTLEROOT_TOWN_BIRCHS_LAB_RIVAL
-	setflag FLAG_DEFEATED_RIVAL_ROUTE103
-	setvar VAR_OLDALE_RIVAL_STATE, 1
-	clearflag FLAG_HIDE_OLDALE_TOWN_RIVAL
+	@ The Oldale "let's head back" cutscene only existed to point the player at
+	@ the lab we now warp into - skip it (state 2 = done, rival stays hidden).
+	setvar VAR_OLDALE_RIVAL_STATE, 2
 	savebgm MUS_DUMMY
 	fadedefaultbgm
+	fadescreen FADE_TO_BLACK
+	warp MAP_LITTLEROOT_TOWN_PROFESSOR_BIRCHS_LAB, 6, 5
+	waitstate
 	releaseall
 	end
-
-Route103_Movement_RivalExitFacingNorth1:
-	walk_left
-	walk_down
-	step_end
-
-Route103_Movement_RivalExitFacingNorth2:
-	jump_2_down
-	delay_16
-	walk_down
-	walk_down
-	walk_down
-	walk_down
-	step_end
-
-Route103_Movement_WatchRivalExitFacingNorth:
-	delay_16
-	delay_4
-	walk_in_place_faster_left
-	delay_16
-	walk_in_place_faster_down
-	step_end
-
-Route103_Movement_RivalExit1:
-	walk_down
-	step_end
-
-Route103_Movement_RivalExit2:
-	jump_2_down
-	delay_16
-	walk_down
-	walk_down
-	walk_down
-	step_end
-
-Route103_Movement_WatchRivalExitFacingEastOrWest:
-	delay_16
-	walk_in_place_faster_down
-	step_end
 
 Route103_EventScript_Boy::
 	msgbox Route103_Text_ShouldHaveBroughtPotion, MSGBOX_NPC
@@ -348,14 +284,10 @@ Route103_Text_MayDefeated:
 	.string "{PLAYER}{KUN}, you're pretty good!$"
 
 Route103_Text_MayTimeToHeadBack:
-	.string "MAY: I think I know why my dad has\n"
-	.string "an eye out for you now.\p"
-	.string "I mean, you just got that POKéMON,\n"
-	.string "but it already likes you.\p"
-	.string "You might be able to befriend any\n"
-	.string "kind of POKéMON easily.\p"
-	.string "Well, it's time to head back to\n"
-	.string "the LAB.$"
+	.string "MAY: You just got that POKéMON, but\n"
+	.string "it already likes you.\p"
+	.string "My dad's going to want to hear about\n"
+	.string "this. Come on, let's go!$"
 
 Route103_Text_BrendanRoute103Pokemon:
 	.string "BRENDAN: Okay, so it's this one and\n"
@@ -373,14 +305,10 @@ Route103_Text_BrendanDefeated:
 	.string "Huh, {PLAYER}, you're not too shabby.$"
 
 Route103_Text_BrendanTimeToHeadBack:
-	.string "BRENDAN: I think I get it.\n"
-	.string "I think I know why my dad has his eye\l"
-	.string "out for you now.\p"
-	.string "Look, your POKéMON already likes you,\n"
-	.string "even though you just got it.\p"
-	.string "{PLAYER}, I get the feeling that you\n"
-	.string "could befriend any POKéMON with ease.\p"
-	.string "We should head back to the LAB.$"
+	.string "BRENDAN: Your POKéMON already likes\n"
+	.string "you, even though you just got it.\p"
+	.string "My dad's going to want to hear about\n"
+	.string "this. Come on!$"
 
 Route103_Text_ShouldHaveBroughtPotion:
 	.string "My POKéMON is staggeringly tired…\n"

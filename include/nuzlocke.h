@@ -30,6 +30,7 @@ bool32 Nuzlocke_DupesClauseOn(void);
 bool32 Nuzlocke_ShinyClauseOn(void);
 bool32 Nuzlocke_ForcedNicknamesOn(void);   // NICK_MANDATORY or NICK_STRICT
 bool32 Nuzlocke_StrictNicknamesOn(void);   // NICK_STRICT: the prompt cannot be escaped
+bool16 AreNicknamesForced(void);           // script special wrapper for Nuzlocke_ForcedNicknamesOn
 
 // ---- location tags (docs/SPEC.md "One encounter per location") ----
 u32 Nuzlocke_CurrentLocationTag(void);

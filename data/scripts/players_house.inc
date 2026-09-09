@@ -54,6 +54,12 @@ LittlerootTown_MaysHouse_2F_EventScript_WallClock::
 
 PlayersHouse_2F_EventScript_WallClock::
 	goto_if_set FLAG_SET_WALL_CLOCK, PlayersHouse_2F_EventScript_CheckWallClock
+	@ Phase 10 (docs/SPEC.md "Littleroot opening"): the moving-truck intro is cut,
+	@ so VAR_LITTLEROOT_INTRO_STATE is already past 6 on a new game. If the player
+	@ has SETTING_SKIP_CLOCK_SET off they can still set the clock themselves here,
+	@ but without the Mom cutscene and without rewinding the intro state (which
+	@ would replay the Petalburg-gym TV scene on 1F).
+	goto_if_ge VAR_LITTLEROOT_INTRO_STATE, 6, PlayersHouse_2F_EventScript_SetWallClockPlain
 	msgbox PlayersHouse_2F_Text_ClockIsStopped, MSGBOX_DEFAULT
 	call PlayersHouse_2F_EventScript_SetWallClock
 	delay 30
@@ -66,6 +72,14 @@ PlayersHouse_2F_EventScript_WallClock::
 	call_if_eq VAR_RESULT, FEMALE, PlayersHouse_2F_EventScript_MomComesUpstairsFemale
 	playse SE_EXIT
 	removeobject VAR_0x8008
+	releaseall
+	end
+
+PlayersHouse_2F_EventScript_SetWallClockPlain::
+	msgbox PlayersHouse_2F_Text_ClockIsStopped, MSGBOX_DEFAULT
+	call PlayersHouse_2F_EventScript_SetWallClock
+	delay 30
+	setflag FLAG_SET_WALL_CLOCK
 	releaseall
 	end
 

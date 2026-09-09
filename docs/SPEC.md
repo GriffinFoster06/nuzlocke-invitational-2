@@ -480,6 +480,24 @@ system (see below) has no remaining use case and should be confirmed
 removable rather than kept as dead code — verify this during
 implementation rather than assuming it.
 
+**Verified and removed (Phase 9.5).** After the sweep, a comment-stripped
+parse of the whole species dataset leaves only plain `EVO_LEVEL` /
+`EVO_ITEM` / `EVO_NONE` rows plus one deliberate `IF_BAG_ITEM_COUNT`
+(Nincada → Shedinja). `FindAssistMove()` could only ever fire on
+`IF_KNOWS_MOVE`, `IF_KNOWS_MOVE_TYPE`, `IF_USED_MOVE_X_TIMES` or
+`IF_RECOIL_DAMAGE_GE`, all now zero. Escape hatches were checked too: the
+`sEvoFixTable` override is down to one plain-level Zweilous row; the
+`#if`-disabled dataset branches carry no move conditions; Nincada's
+`IF_BAG_ITEM_COUNT` hits `FindAssistMove`'s `default → MOVE_NONE` and its
+`EVO_SPLIT_FROM_EVO` row is skipped by the method filter first. So
+`EVOLVE_CHECK_NEEDS_MOVE` was unreachable and the assistance half was
+deleted — `FindAssistMove` and helpers from `src/evolve_menu.c`, the
+teach-then-evolve tasks from `src/party_menu.c`, and
+`SETTING_EVOLUTION_ASSISTANCE` from the settings enum (which required a
+`RULESET_VERSION` 1 → 2 bump, since removing a mid-enum setting shifts the
+saved byte of every later one). The **Evolve command** itself is
+untouched.
+
 ### As implemented (Phase 9.5 sweep)
 
 The sweep edits the species dataset directly
@@ -546,10 +564,11 @@ guaranteed replacement system existed — a Pokémon requiring a specific
 move to evolve could always obtain that move through an Evolution
 Assistance function, restricted specifically to evolution-necessary moves
 (not a general free Move Reminder). Under the new global rule, move-gated
-evolutions no longer exist as a category (they're level-based now), so
-this concern should no longer apply — confirm during implementation and
-remove Evolution Assistance if genuinely unused rather than leaving it as
-dead infrastructure.
+evolutions no longer exist as a category (they're level-based now).
+
+**Resolved (Phase 9.5):** confirmed genuinely unused (see "Consequence for
+Evolution Assistance" above for the check) and removed. Only the assistance
+half went — the player-controlled Evolve command remains.
 
 ## Trade evolutions
 Converted into deterministic single-player evolutions using a specific

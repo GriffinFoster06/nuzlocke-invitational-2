@@ -13,7 +13,9 @@
 // across future ROM updates (docs/SPEC.md "Run seed"). Bump ONLY when the
 // meaning of an existing stored value changes. Value 0 is reserved to mean
 // "settings never initialized" - see RulesetSettings_EnsureInitialized().
-#define RULESET_VERSION 1
+//   v2: SETTING_EVOLUTION_ASSISTANCE removed mid-enum (Phase 9.5), shifting the
+//       saved byte index of every later setting - old saves must re-init.
+#define RULESET_VERSION 2
 
 // ----------------------------------------------------------------------------
 // Presets
@@ -248,7 +250,6 @@ enum SettingId
     SETTING_PORTABLE_HEAL,
     SETTING_INFINITE_REPEL,
     SETTING_EVOLVE_COMMAND,
-    SETTING_EVOLUTION_ASSISTANCE,
     SETTING_SKIP_CLOCK_SET,
     SETTING_OLDALE_MONEY_NPC,
 

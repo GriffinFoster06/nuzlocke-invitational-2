@@ -7046,15 +7046,7 @@ static void CursorCb_LevelToCap(u8 taskId)
     gTasks[taskId].func = Task_DisplayLevelUpStatsPg1;
 }
 
-// ---- docs/SPEC.md "Evolve command" / "Move-dependent evolution anti-softlock"
-// The evolution move Evolution Assistance is about to offer (0 = none pending).
-static EWRAM_DATA u16 sEvolveAssistMove = MOVE_NONE;
-
-static const u8 sText_EvolveAssistPrompt[] = _("{STR_VAR_1} may be able to evolve\nif it learns {STR_VAR_2}. Teach it?");
-
-static void Task_EvolveAssistYesNo(u8 taskId);
-static void Task_HandleEvolveAssistYesNoInput(u8 taskId);
-
+// ---- docs/SPEC.md "Evolve command"
 // Kick off the current mon's evolution when GetEvolutionTargetSpecies already
 // says it is due. Mirrors the success tail of PartyMenuTryEvolution, minus the
 // Rare Candy bookkeeping (this path is never reached from an item).
@@ -7083,78 +7075,15 @@ static void CursorCb_Evolve(u8 taskId)
     PlaySE(SE_SELECT);
     gPartyMenuUseExitCallback = FALSE;
 
-    switch (EvolveMenu_Check(mon, &sEvolveAssistMove))
+    if (EvolveMenu_Check(mon) == EVOLVE_CHECK_READY)
     {
-    case EVOLVE_CHECK_READY:
         EvolveMenu_BeginNow(taskId);
-        break;
-    case EVOLVE_CHECK_NEEDS_MOVE:
-        GetMonNickname(mon, gStringVar1);
-        StringCopy(gStringVar2, GetMoveName(sEvolveAssistMove));
-        StringExpandPlaceholders(gStringVar4, sText_EvolveAssistPrompt);
-        DisplayPartyMenuMessage(gStringVar4, TRUE);
-        gTasks[taskId].func = Task_EvolveAssistYesNo;
-        break;
-    case EVOLVE_CHECK_NONE:
-    default:
+    }
+    else
+    {
         DisplayPartyMenuMessage(gText_WontHaveEffect, TRUE);
         ScheduleBgCopyTilemapToVram(2);
         gTasks[taskId].func = Task_ReturnToChooseMonAfterText;
-        break;
-    }
-}
-
-static void Task_EvolveAssistYesNo(u8 taskId)
-{
-    if (IsPartyMenuTextPrinterActive() != TRUE)
-    {
-        PartyMenuDisplayYesNoMenu();
-        gTasks[taskId].func = Task_HandleEvolveAssistYesNoInput;
-    }
-}
-
-static void Task_HandleEvolveAssistYesNoInput(u8 taskId)
-{
-    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][gPartyMenu.slotId];
-
-    switch (Menu_ProcessInputNoWrapClearOnChoose())
-    {
-    case 0: // Yes - teach the evolution move (tutor-style: no bag item consumed,
-            // no friendship change; evolution itself stays player-initiated).
-        GetMonNickname(mon, gStringVar1);
-        gPartyMenu.data1 = sEvolveAssistMove;
-        gPartyMenu.learnMoveState = 2;
-        StringCopy(gStringVar2, GetMoveName(gPartyMenu.data1));
-        // docs/SPEC.md "Move-dependent evolution anti-softlock": deliberately
-        // does NOT go through CanTeachMove(), which requires the move to sit in
-        // the species' canonical teachable learnset. Almost none of the
-        // evolution-necessary moves do - Double Hit is not in Aipom's list, nor
-        // Ancient Power in Tangela's / Piloswine's / Yanma's, Rage Fist in
-        // Primeape's, Psyshield Bash in Stantler's, Stomp in Steenee's, or
-        // Disarming Voice in Eevee's. Routing through it made every one of
-        // those evolutions impossible under generated learnsets, which is
-        // exactly what this function exists to prevent. The move is already
-        // restricted to evolution-necessary moves by EvolveMenu_Check(), so
-        // there is nothing further to gate on here.
-        if (MonKnowsMove(mon, gPartyMenu.data1) == TRUE)
-        {
-            DisplayLearnMoveMessageAndClose(taskId, gText_PkmnAlreadyKnows);
-            return;
-        }
-        if (GiveMoveToMon(mon, gPartyMenu.data1) != MON_HAS_MAX_MOVES)
-        {
-            Task_LearnedMove(taskId);
-            return;
-        }
-        DisplayLearnMoveMessage(gText_PkmnNeedsToReplaceMove);
-        gTasks[taskId].func = Task_ReplaceMoveYesNo;
-        return;
-    case MENU_B_PRESSED:
-        PlaySE(SE_SELECT);
-        // fallthrough
-    case 1: // No
-        gTasks[taskId].func = Task_ReturnToChooseMonAfterText;
-        break;
     }
 }
 

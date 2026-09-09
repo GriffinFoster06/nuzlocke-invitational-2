@@ -6410,10 +6410,8 @@ enum Species SanitizeSpeciesId(enum Species species)
         return SPECIES_NONE;
     }
 
-    assertf(species == SPECIES_NONE || IsSpeciesEnabled(species), "disabled species: %d", species)
-    {
+    if (species != SPECIES_NONE && !IsSpeciesEnabled(species))
         return SPECIES_NONE;
-    }
 
     return species;
 }

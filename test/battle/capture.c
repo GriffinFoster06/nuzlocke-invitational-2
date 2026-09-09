@@ -1,7 +1,9 @@
 #include "global.h"
 #include "event_data.h"
 #include "pokedex.h"
+#include "ruleset.h"
 #include "test/battle.h"
+#include "constants/ruleset.h"
 
 ASSUMPTIONS
 {
@@ -22,6 +24,7 @@ WILD_BATTLE_TEST("Capture: Incapacitated catch bonus apply correcly with all gen
     PARAMETRIZE(expectedOdds = 125, status = STATUS1_FREEZE, gen = GEN_5);
 
     GIVEN {
+        SetRulesetSetting(SETTING_CATCH_RATE, CATCHRATE_VANILLA);
         WITH_CONFIG(B_INCAPACITATED_CATCH_BONUS, gen);
         WITH_CONFIG(B_MISSING_BADGE_CATCH_MALUS, GEN_7);
         PLAYER(SPECIES_WOBBUFFET);
@@ -53,6 +56,7 @@ WILD_BATTLE_TEST("Capture: Low level catch bonus apply correcly with all gen con
     PARAMETRIZE(expectedOdds = 50, level = 30, gen = GEN_9);
 
     GIVEN {
+        SetRulesetSetting(SETTING_CATCH_RATE, CATCHRATE_VANILLA);
         WITH_CONFIG(B_LOW_LEVEL_CATCH_BONUS, gen);
         WITH_CONFIG(B_MISSING_BADGE_CATCH_MALUS, GEN_7);
         PLAYER(SPECIES_WOBBUFFET);
@@ -83,6 +87,7 @@ WILD_BATTLE_TEST("Capture: Missing badge malus apply correcly in gen 8")
     PARAMETRIZE(expectedOdds = 50, playerLevel = 21, numBadges = 8);
 
     GIVEN {
+        SetRulesetSetting(SETTING_CATCH_RATE, CATCHRATE_VANILLA);
         for (u32 j = 0; j < 8; j++)
         {
             if (j < numBadges)
@@ -120,6 +125,7 @@ WILD_BATTLE_TEST("Capture: Missing badge malus apply correcly in gen 9")
     PARAMETRIZE(expectedOdds = 128, level = 40, numBadges = 0);
 
     GIVEN {
+        SetRulesetSetting(SETTING_CATCH_RATE, CATCHRATE_VANILLA);
         for (u32 j = 0; j < 8; j++)
         {
             if (j < numBadges)
@@ -160,6 +166,7 @@ WILD_BATTLE_TEST("Capture: Tranformed Pokemon get the catch rate of the copied s
     }
 
     GIVEN {
+        SetRulesetSetting(SETTING_CATCH_RATE, CATCHRATE_VANILLA);
         WITH_CONFIG(B_TRANSFORM_CATCH_RATE, gen);
         WITH_CONFIG(B_MISSING_BADGE_CATCH_MALUS, GEN_7);
         PLAYER(SPECIES_CLEFFA);
@@ -187,6 +194,7 @@ WILD_BATTLE_TEST("Capture: when CRITICAL_CAPTURE_IF_OWNED is enabled, capture of
     PARAMETRIZE(item = ITEM_MASTER_BALL, alreadyOwned = TRUE);
 
     GIVEN {
+        SetRulesetSetting(SETTING_CATCH_RATE, CATCHRATE_VANILLA);
         ASSUME(gSpeciesInfo[SPECIES_CATERPIE].catchRate > 155);
         if (alreadyOwned)
             GetSetPokedexFlag(NATIONAL_DEX_CATERPIE, FLAG_SET_CAUGHT);
@@ -223,6 +231,7 @@ WILD_BATTLE_TEST("Capture: when CRITICAL_CAPTURE_IF_OWNED is enabled, failed cap
     PARAMETRIZE(success = FALSE);
 
     GIVEN {
+        SetRulesetSetting(SETTING_CATCH_RATE, CATCHRATE_VANILLA);
         GetSetPokedexFlag(NATIONAL_DEX_CATERPIE, FLAG_SET_CAUGHT);
         WITH_CONFIG(B_MISSING_BADGE_CATCH_MALUS, GEN_7);
         WITH_CONFIG(B_CRITICAL_CAPTURE_IF_OWNED, GEN_9);
@@ -253,6 +262,7 @@ WILD_BATTLE_TEST("Capture: ball data is properly set in captured pokemon")
     }
 
     GIVEN {
+        SetRulesetSetting(SETTING_CATCH_RATE, CATCHRATE_VANILLA);
         PLAYER(SPECIES_WOBBUFFET);
         OPPONENT(SPECIES_WOBBUFFET);
     } WHEN {

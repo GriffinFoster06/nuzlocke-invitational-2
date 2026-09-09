@@ -17,6 +17,7 @@
 #include "global.h"
 #include "bg.h"
 #include "gpu_regs.h"
+#include "line_break.h"
 #include "list_menu.h"
 #include "main.h"
 #include "malloc.h"
@@ -37,8 +38,8 @@
 
 #define RSMENU_MAX_ROWS 24          // largest category is well under this
 #define RSMENU_ROW_TEXT_LEN 56
-#define RSMENU_NAME_PAD 20          // column the value starts at, in chars
-#define RSMENU_VISIBLE_ROWS 5
+#define RSMENU_NAME_PAD 16          // min column the value starts at, in chars
+#define RSMENU_VISIBLE_ROWS 4       // rows the shorter list window can show
 
 enum
 {
@@ -71,11 +72,10 @@ static void Task_RulesetMenuFadeOut(u8 taskId);
 // format version (so a seed stays reproducible across ROM updates), and the run
 // seed itself. This screen is that panel - the header carries all three and the
 // Preset/Seed category lists the seed row for manual entry / reroll.
-static const u8 sText_HeaderFmt[]     = _("RULESET  {STR_VAR_1}  v{STR_VAR_2}");
-static const u8 sText_SeedHeaderFmt[] = _("SEED 0x{STR_VAR_1}");
+static const u8 sText_HeaderFmt[]     = _("{STR_VAR_1}  v{STR_VAR_2}  0x{STR_VAR_3}");
 static const u8 sText_CategoryFmt[]   = _("{STR_VAR_1}/{STR_VAR_2}  {STR_VAR_3}");
-static const u8 sText_Locked[]        = _("  (locked)");
-static const u8 sText_Controls[]      = _("{DPAD_LEFTRIGHT}value  L R page  START preset  SELECT reset");
+static const u8 sText_Locked[]        = _(" (L)");
+static const u8 sText_Controls[]      = _("{DPAD_LEFTRIGHT} change   L/R page   START preset");
 static const u8 sText_SeedPrefix[]    = _("0x");
 
 static const struct BgTemplate sRulesetMenuBgTemplates[] =
@@ -93,17 +93,20 @@ static const struct BgTemplate sRulesetMenuBgTemplates[] =
 
 static const struct WindowTemplate sRulesetMenuWindowTemplates[] =
 {
+    // Full 20-row screen budget: header rows 0-4, list 4-14, description 13-19
+    // (1-tile std frames overlap on the shared rows). Two small header lines and
+    // a 3-line description window mean neither overlaps the other any more.
     [RSWIN_HEADER] = {
-        .bg = 0, .tilemapLeft = 1, .tilemapTop = 1, .width = 28, .height = 2,
+        .bg = 0, .tilemapLeft = 1, .tilemapTop = 1, .width = 28, .height = 3,
         .paletteNum = 15, .baseBlock = 1,
     },
     [RSWIN_LIST] = {
-        .bg = 0, .tilemapLeft = 1, .tilemapTop = 4, .width = 28, .height = 11,
-        .paletteNum = 15, .baseBlock = 1 + 28 * 2,
+        .bg = 0, .tilemapLeft = 1, .tilemapTop = 5, .width = 28, .height = 9,
+        .paletteNum = 15, .baseBlock = 1 + 28 * 3,
     },
     [RSWIN_DESC] = {
-        .bg = 0, .tilemapLeft = 1, .tilemapTop = 16, .width = 28, .height = 3,
-        .paletteNum = 15, .baseBlock = 1 + 28 * 2 + 28 * 11,
+        .bg = 0, .tilemapLeft = 1, .tilemapTop = 14, .width = 28, .height = 5,
+        .paletteNum = 15, .baseBlock = 1 + 28 * 3 + 28 * 9,
     },
     DUMMY_WIN_TEMPLATE,
 };
@@ -166,20 +169,19 @@ static void RulesetMenu_DrawHeader(void)
 {
     FillWindowPixelBuffer(sState->windowIds[RSWIN_HEADER], PIXEL_FILL(1));
 
+    // Line 1: active preset, stored format version, run seed.
     StringCopy(gStringVar1, GetRulesetPresetName(GetDisplayedRulesetPreset()));
     ConvertIntToDecimalStringN(gStringVar2, RULESET_VERSION, STR_CONV_MODE_LEFT_ALIGN, 3);
+    ConvertIntToHexStringN(gStringVar3, GetRunSeed(), STR_CONV_MODE_LEADING_ZEROS, 8);
     StringExpandPlaceholders(gStringVar4, sText_HeaderFmt);
-    AddTextPrinterParameterized(sState->windowIds[RSWIN_HEADER], FONT_NORMAL, gStringVar4, 0, 0, TEXT_SKIP_DRAW, NULL);
+    AddTextPrinterParameterized(sState->windowIds[RSWIN_HEADER], FONT_SMALL, gStringVar4, 0, 1, TEXT_SKIP_DRAW, NULL);
 
-    ConvertIntToHexStringN(gStringVar1, GetRunSeed(), STR_CONV_MODE_LEADING_ZEROS, 8);
-    StringExpandPlaceholders(gStringVar4, sText_SeedHeaderFmt);
-    AddTextPrinterParameterized(sState->windowIds[RSWIN_HEADER], FONT_SMALL, gStringVar4, 0, 4, TEXT_SKIP_DRAW, NULL);
-
+    // Line 2: current category page, on its own line so nothing overlaps.
     ConvertIntToDecimalStringN(gStringVar1, sState->category + 1, STR_CONV_MODE_LEFT_ALIGN, 2);
     ConvertIntToDecimalStringN(gStringVar2, SETTING_CAT_COUNT, STR_CONV_MODE_LEFT_ALIGN, 2);
     StringCopy(gStringVar3, GetSettingCategoryName(sState->category));
     StringExpandPlaceholders(gStringVar4, sText_CategoryFmt);
-    AddTextPrinterParameterized(sState->windowIds[RSWIN_HEADER], FONT_SMALL, gStringVar4, 104, 4, TEXT_SKIP_DRAW, NULL);
+    AddTextPrinterParameterized(sState->windowIds[RSWIN_HEADER], FONT_SMALL, gStringVar4, 0, 13, TEXT_SKIP_DRAW, NULL);
 
     CopyWindowToVram(sState->windowIds[RSWIN_HEADER], COPYWIN_FULL);
 }
@@ -188,6 +190,7 @@ static void RulesetMenu_DrawDescription(s32 row)
 {
     u16 settingId;
     const struct SettingDescriptor *d;
+    u8 descBuf[128];
 
     if (row < 0 || row >= sState->rowCount)
         return;
@@ -196,8 +199,13 @@ static void RulesetMenu_DrawDescription(s32 row)
     d = GetSettingDescriptor(settingId);
 
     FillWindowPixelBuffer(sState->windowIds[RSWIN_DESC], PIXEL_FILL(1));
-    AddTextPrinterParameterized(sState->windowIds[RSWIN_DESC], FONT_SMALL, d->description, 0, 0, TEXT_SKIP_DRAW, NULL);
-    AddTextPrinterParameterized(sState->windowIds[RSWIN_DESC], FONT_SMALL, sText_Controls, 0, 12, TEXT_SKIP_DRAW, NULL);
+
+    // Descriptions are single sentences that overrun one line; wrap them into
+    // the top two rows and keep the controls hint on the last row.
+    StringCopy(descBuf, d->description);
+    BreakStringAutomatic(descBuf, WindowWidthPx(sState->windowIds[RSWIN_DESC]), 2, FONT_SMALL, HIDE_SCROLL_PROMPT);
+    AddTextPrinterParameterized(sState->windowIds[RSWIN_DESC], FONT_SMALL, descBuf, 0, 0, TEXT_SKIP_DRAW, NULL);
+    AddTextPrinterParameterized(sState->windowIds[RSWIN_DESC], FONT_SMALL, sText_Controls, 0, 26, TEXT_SKIP_DRAW, NULL);
     CopyWindowToVram(sState->windowIds[RSWIN_DESC], COPYWIN_FULL);
 }
 
@@ -256,7 +264,7 @@ static void RulesetMenu_BuildCategory(bool8 firstBuild)
     template.lettersSpacing = 0;
     template.itemVerticalPadding = 0;
     template.scrollMultiple = LIST_NO_MULTIPLE_SCROLL;
-    template.fontId = FONT_NORMAL;
+    template.fontId = FONT_NARROW;   // narrower glyphs so name + value + lock fit
     template.cursorKind = CURSOR_BLACK_ARROW;
     template.textNarrowWidth = 0;
     template.isDynamic = FALSE;

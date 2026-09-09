@@ -10,6 +10,7 @@
 
 #include "global.h"
 #include "event_object_movement.h"
+#include "item.h"
 #include "list_menu.h"
 #include "main.h"
 #include "malloc.h"
@@ -84,6 +85,31 @@ void Ruleset_ApplyForcedBattleStyle(void)
 {
     if (Ruleset_ForceSetBattleStyleOn())
         gSaveBlock2Ptr->optionsBattleStyle = OPTIONS_BATTLE_STYLE_SET;
+}
+
+// Give / take one ruleset key item so the player's bag matches `wanted`.
+static void ReconcileRulesetKeyItem(u16 itemId, bool32 wanted)
+{
+    bool32 have = CheckBagHasItem(itemId, 1);
+
+    if (wanted && !have)
+    {
+        AddBagItem(itemId, 1);
+    }
+    else if (!wanted && have)
+    {
+        RemoveBagItem(itemId, 1);
+        if (gSaveBlock1Ptr->registeredItem == itemId)
+            gSaveBlock1Ptr->registeredItem = ITEM_NONE;
+    }
+}
+
+// See ruleset_field.h. Cheap to call repeatedly - it only touches the bag when
+// something is actually out of sync.
+void Ruleset_GrantFieldKeyItems(void)
+{
+    ReconcileRulesetKeyItem(ITEM_RULES_HEAL, Ruleset_PortableHealOn());
+    ReconcileRulesetKeyItem(ITEM_RULES_REPEL, Ruleset_InfiniteRepelOn());
 }
 
 // ---------------------------------------------------------------------------
@@ -199,6 +225,10 @@ static void RfMenu_InitList(u16 selectedRow)
 
 void RulesetField_ShowMenu(void)
 {
+    // Reconcile the key items here too, so a save made before this feature
+    // existed picks them up the first time the player opens RULES.
+    Ruleset_GrantFieldKeyItems();
+
     sRfMenu = AllocZeroed(sizeof(*sRfMenu));
 
     LoadMessageBoxAndBorderGfx();

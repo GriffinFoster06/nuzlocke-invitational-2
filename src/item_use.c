@@ -37,7 +37,9 @@
 #include "party_menu.h"
 #include "pokeblock.h"
 #include "pokemon.h"
+#include "ruleset_field.h"
 #include "script.h"
+#include "script_pokemon_util.h"
 #include "sound.h"
 #include "strings.h"
 #include "string_util.h"
@@ -271,6 +273,38 @@ void ItemUseOutOfBattle_ExpShare(u8 taskId)
 #else
     DisplayDadsAdviceCannotUseItemMessage(taskId, gTasks[taskId].tUsingRegisteredKeyItem);
 #endif
+}
+
+// docs/SPEC.md "Portable healing" / "Infinite Repel": the RULES submenu actions,
+// also exposed as key items so they can be bound to SELECT. Both work from the
+// bag (DisplayItemMessage / CloseItemMessage) and from a SELECT press on the
+// field (DisplayItemMessageOnField / Task_CloseCantUseKeyItemMessage).
+static const u8 sText_RulesPartyHealed[] = _("Your party was restored\nto full health.");
+static const u8 sText_RulesRepelOn[] = _("The endless repellent is\nnow ON.");
+static const u8 sText_RulesRepelOff[] = _("The endless repellent is\nnow OFF.");
+
+void ItemUseOutOfBattle_RulesHeal(u8 taskId)
+{
+    HealPlayerParty();
+    PlayFanfare(MUS_HEAL);
+    if (!gTasks[taskId].tUsingRegisteredKeyItem)
+        DisplayItemMessage(taskId, FONT_NORMAL, sText_RulesPartyHealed, CloseItemMessage);
+    else
+        DisplayItemMessageOnField(taskId, sText_RulesPartyHealed, Task_CloseCantUseKeyItemMessage);
+}
+
+void ItemUseOutOfBattle_RulesRepel(u8 taskId)
+{
+    bool32 turnOn = !Ruleset_InfiniteRepelActive();
+    const u8 *msg;
+
+    Ruleset_SetInfiniteRepelActive(turnOn);
+    PlaySE(turnOn ? SE_REPEL : SE_PC_OFF);
+    msg = turnOn ? sText_RulesRepelOn : sText_RulesRepelOff;
+    if (!gTasks[taskId].tUsingRegisteredKeyItem)
+        DisplayItemMessage(taskId, FONT_NORMAL, msg, CloseItemMessage);
+    else
+        DisplayItemMessageOnField(taskId, msg, Task_CloseCantUseKeyItemMessage);
 }
 
 void ItemUseOutOfBattle_Bike(u8 taskId)

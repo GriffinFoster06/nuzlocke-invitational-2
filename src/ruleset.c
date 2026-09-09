@@ -16,6 +16,7 @@
 #include "randomizer.h"
 #include "random.h"
 #include "ruleset.h"
+#include "ruleset_field.h"
 #include "ruleset_qol.h"
 
 #include "data/ruleset.h"
@@ -246,6 +247,11 @@ void SetRulesetSetting(u32 settingId, u8 value)
     // docs/SPEC.md "Unlimited money": switching it on mid-run tops the wallet up.
     if (settingId == SETTING_UNLIMITED_MONEY && value != 0)
         Ruleset_ApplyUnlimitedMoneyGrant();
+
+    // SPEC "Portable healing" / "Infinite Repel": hand over or reclaim the
+    // SELECT-registerable key item to match the new setting value.
+    if (settingId == SETTING_PORTABLE_HEAL || settingId == SETTING_INFINITE_REPEL)
+        Ruleset_GrantFieldKeyItems();
 }
 
 // Menu helper: step one option in the direction of `delta` (sign only), wrapping

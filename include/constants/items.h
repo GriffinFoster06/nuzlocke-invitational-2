@@ -1052,6 +1052,11 @@ enum __attribute__((packed)) Item
     ITEM_TATSUGIRINITE = 872,
     ITEM_GLIMMORANITE = 873,
 
+    // Nuzlocke-Randomizer ruleset key items (docs/SPEC.md "Portable healing",
+    // "Infinite Repel"). Registerable to SELECT like any other key item.
+    ITEM_RULES_HEAL = 874,
+    ITEM_RULES_REPEL = 875,
+
     ITEMS_COUNT,
     ITEM_FIELD_ARROW = ITEMS_COUNT,
 };

@@ -16099,6 +16099,43 @@ const struct ItemInfo gItemsInfo[] =
         .iconPic = gItemIcon_PokeshiDoll,
         .iconPalette = gItemIconPalette_PokeshiDoll,
     },
+
+// Nuzlocke-Randomizer ruleset key items (docs/SPEC.md "Portable healing",
+// "Infinite Repel"). Both can be registered to SELECT from the Key Items pocket.
+
+    [ITEM_RULES_HEAL] =
+    {
+        .name = ITEM_NAME("Portable Heal"),
+        .price = 0,
+        .description = COMPOUND_STRING(
+            "Fully restores the\n"
+            "party, as at a POKé\n"
+            "CENTER. The fallen\n"
+            "stay fallen."),
+        .importance = 1,
+        .pocket = POCKET_KEY_ITEMS,
+        .type = ITEM_USE_FIELD,
+        .fieldUseFunc = ItemUseOutOfBattle_RulesHeal,
+        .iconPic = gItemIcon_LargePotion,
+        .iconPalette = gItemIconPalette_MaxPotion,
+    },
+
+    [ITEM_RULES_REPEL] =
+    {
+        .name = ITEM_NAME("Infinite Repel"),
+        .price = 0,
+        .description = COMPOUND_STRING(
+            "Toggles the endless\n"
+            "repellent that keeps\n"
+            "weak wild POKéMON\n"
+            "away."),
+        .importance = 1,
+        .pocket = POCKET_KEY_ITEMS,
+        .type = ITEM_USE_FIELD,
+        .fieldUseFunc = ItemUseOutOfBattle_RulesRepel,
+        .iconPic = gItemIcon_Repel,
+        .iconPalette = gItemIconPalette_MaxRepel,
+    },
 };
 
 #undef ITEM_NAME

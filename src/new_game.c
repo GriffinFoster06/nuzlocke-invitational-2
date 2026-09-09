@@ -242,6 +242,7 @@ void NewGameInitData(void)
     Nuzlocke_ResetState();
     Ruleset_ApplyUnlimitedMoneyGrant(); // docs/SPEC.md "Unlimited money"
     Ruleset_ApplyForcedBattleStyle();   // docs/SPEC.md "Set battle style"
+    Ruleset_GrantFieldKeyItems();       // SPEC "Portable healing" / "Infinite Repel" key items
 }
 
 static void ResetMiniGamesRecords(void)

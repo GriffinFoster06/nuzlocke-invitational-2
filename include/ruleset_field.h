@@ -37,6 +37,13 @@ void Ruleset_SetInfiniteRepelActive(bool32 active);
 bool32 Ruleset_ForceSetBattleStyleOn(void);
 void Ruleset_ApplyForcedBattleStyle(void);   // New Game: sync optionsBattleStyle
 
+// Reconcile the SELECT-registerable ruleset key items (ITEM_RULES_HEAL /
+// ITEM_RULES_REPEL) with the current settings: hand the player each item while
+// its feature is enabled, take it back (and unregister it) when it is not.
+// Called on New Game, when the relevant setting is toggled, and when the RULES
+// submenu is opened (so existing saves pick the items up).
+void Ruleset_GrantFieldKeyItems(void);
+
 // The "RULES" start-menu submenu, drawn over the field. Caller has already
 // hidden the start menu and frozen object events (see StartMenuRulesCallback).
 void RulesetField_ShowMenu(void);

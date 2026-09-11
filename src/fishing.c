@@ -36,12 +36,14 @@ static bool32 Fishing_PutRodAway(struct Task *);
 static bool32 Fishing_EndNoMon(struct Task *);
 static void AlignFishingAnimationFrames(void);
 static bool32 DoesFishingMinigameAllowCancel(void);
+#if !I_FISHING_ALWAYS_BITE
 static bool32 Fishing_DoesFirstMonInPartyHaveSuctionCupsOrStickyHold(void);
 static bool32 Fishing_RollForBite(u32, bool32);
 static u32 CalculateFishingBiteOdds(u32, bool32);
 static u32 CalculateFishingFollowerBoost(void);
 static u32 CalculateFishingProximityBoost(void);
 static u32 CalculateFishingTimeOfDayBoost(void);
+#endif
 
 #define FISHING_PROXIMITY_BOOST 20     //Active if config I_FISHING_PROXIMITY is TRUE
 #define FISHING_TIME_OF_DAY_BOOST 20   //Active if config I_FISHING_TIME_OF_DAY_BOOST is TRUE
@@ -66,6 +68,7 @@ static const u8 sText_PokemonOnHook[] = _("A POKéMON's on the hook!{PAUSE_UNTIL
 static const u8 sText_NotEvenANibble[] = _("Not even a nibble…{PAUSE_UNTIL_PRESS}");
 static const u8 sText_ItGotAway[] = _("It got away…{PAUSE_UNTIL_PRESS}");
 
+#if !I_FISHING_ALWAYS_BITE
 struct FriendshipHookChanceBoost
 {
     u8 threshold;
@@ -82,6 +85,7 @@ static const struct FriendshipHookChanceBoost sFriendshipHookChanceBoostArray[] 
     {.threshold = 100, .bonus = 20},
     {.threshold =   0, .bonus =  0},
 };
+#endif
 
 #define FISHING_CHAIN_SHINY_STREAK_MAX 20
 
@@ -254,7 +258,10 @@ static bool32 Fishing_ShowDots(struct Task *task)
 
 static bool32 Fishing_CheckForBite(struct Task *task)
 {
-    bool32 bite, firstMonHasSuctionOrSticky;
+    bool32 bite;
+#if !I_FISHING_ALWAYS_BITE
+    bool32 firstMonHasSuctionOrSticky;
+#endif
 
     AlignFishingAnimationFrames();
     task->tStep = FISHING_GOT_BITE;
@@ -266,6 +273,9 @@ static bool32 Fishing_CheckForBite(struct Task *task)
         return TRUE;
     }
 
+#if I_FISHING_ALWAYS_BITE
+    bite = TRUE;
+#else
     firstMonHasSuctionOrSticky = Fishing_DoesFirstMonInPartyHaveSuctionCupsOrStickyHold();
 
     if (firstMonHasSuctionOrSticky && I_FISHING_STICKY_BOOST < GEN_4)
@@ -273,6 +283,7 @@ static bool32 Fishing_CheckForBite(struct Task *task)
 
     if (!bite)
         bite = Fishing_RollForBite(task->tFishingRod, firstMonHasSuctionOrSticky);
+#endif
 
     if (!bite)
         task->tStep = FISHING_NOT_EVEN_NIBBLE;
@@ -482,6 +493,7 @@ static bool32 DoesFishingMinigameAllowCancel(void)
     }
 }
 
+#if !I_FISHING_ALWAYS_BITE
 static bool32 Fishing_DoesFirstMonInPartyHaveSuctionCupsOrStickyHold(void)
 {
     enum Ability ability;
@@ -584,6 +596,7 @@ static u32 CalculateFishingTimeOfDayBoost()
         return FISHING_TIME_OF_DAY_BOOST;
     return 0;
 }
+#endif
 
 #undef tStep
 #undef tFrameCounter

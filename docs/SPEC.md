@@ -340,6 +340,14 @@ Default: moderately increased catch rates.
 Settings: Vanilla / Moderate boost (default) / Large boost / Guaranteed
 capture.
 
+## Fishing
+On a fishable tile with a non-null fishing table for the current map and time
+of day, Old, Good, and Super Rod casts always bite and start an encounter after
+an untimed A-button prompt. Invalid tiles and missing tables remain invalid.
+Rod-specific tables, relative slot weights, level generation, randomizer and
+Nuzlocke behavior, catch probability, and presentation are preserved except
+for random no-bite and input-timing failures.
+
 ## R-button Ball shortcut
 Default: ON. Pressing R in a wild battle provides a fast Ball-throwing
 shortcut using an appropriate Ball already in inventory (never creates a

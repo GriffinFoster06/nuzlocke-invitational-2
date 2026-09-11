@@ -29,9 +29,11 @@ do not replace them or recreate the old fork's bespoke randomizer.
   with player access through the start-menu Run Info flow in
   `src/ruleset_field.c` / `src/start_menu.c`.
 - `src/randomizer.c` and `include/randomizer.h` implement the seeded,
-  deterministic project randomizer for wild, trainer, starter, gift, static,
-  ability, TM, Tutor, and item results. They consume the upstream helpers in
-  `src/random_mon_generation.c`.
+  deterministic project mappings for wild, trainer, starter, gift, static,
+  TM, Tutor, and item results. `src/ability_gen.c` owns generated abilities,
+  consumed through `GetSpeciesAbility` in `src/pokemon.c`; `src/learnset_gen.c`
+  owns generated learnsets. These systems use upstream generation helpers
+  rather than recreating the unpublished stale Randolocke randomizer.
 - `src/nuzlocke.c` and `include/nuzlocke.h` implement the Nuzlocke subsystem,
   including the first-Ball activation gate, encounter/location tracking,
   Dupes and Shiny clauses, permadeath, nickname enforcement, battle-item
@@ -70,37 +72,23 @@ or compiler diagnostic.
   done.
 - `docs/PHASES.md` retains the completed Phase 0-9.5 prompts as project history.
   Do not rerun them or infer current implementation status from their wording.
-- Phase 10 uses the grouped-arc workflow and exact membership in
-  `docs/PHASE10_PROMPTS.md`. Work only within the current approved arc. Do not
-  begin a later arc without completing the required plan, execution, review,
-  build, and user mGBA acceptance for the current one.
+- `docs/PHASE10_PROMPTS.md` is authoritative for the Phase 10 grouped-arc
+  workflow and exact membership. For Arcs 1-8, a planning/review Codex session
+  inspects the actual code and writes an approved `docs/PHASE10_ARC<N>_PLAN.md`;
+  a fresh execution Codex session implements only that plan; then a fresh
+  planning/review Codex session performs the read-only SPEC-and-plan review.
+  Work only within the current approved arc. Do not begin a later arc without
+  the required plan, execution, review, build, and user mGBA acceptance.
 - Map scripts and events cannot be accepted by code inspection alone. State
   exactly what still needs emulator playtesting and which path or flags to use.
 - When the spec lists factors without an exact formula, propose the formula
   explicitly and obtain user approval before implementing it.
 - Preserve unrelated user changes in a dirty worktree.
 
-## Cross-agent handoff
+## Codex session handoff
 
-`AGENTS.md` is the canonical shared project-instruction file.
-
-`AI_HANDOFF.md` is the local, ignored shared-state file for the current
-unfinished task. During substantial unfinished work, update it whenever the
-objective, implementation decision, test result, unresolved error, or exact
-next step materially changes.
-
-Before ending unfinished work, record:
-
-- current objective and state;
-- files changed;
-- tests or commands run and their results;
-- important findings and decisions;
-- approaches already attempted or ruled out;
-- exact next step.
-
-When taking over unfinished work:
-
-1. Read `AGENTS.md` and `AI_HANDOFF.md`.
-2. Inspect `git status` and both staged and unstaged diffs.
-3. Continue from the documented next step and existing investigation results.
-4. Preserve all existing uncommitted work.
+`AGENTS.md`, `docs/SPEC.md`, and the current approved Phase 10 plan are the
+shared source of truth. A fresh Codex session must inspect `git status`, both
+staged and unstaged diffs, and relevant recent commits before editing. Preserve
+all unrelated uncommitted work and leave implementation, static verification,
+build verification, and emulator acceptance as separately recorded states.

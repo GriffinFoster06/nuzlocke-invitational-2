@@ -73,13 +73,16 @@ below are the corresponding entries under SPEC's "Map-by-map story cuts".
 
 ## Required workflow for Arcs 1-8
 
-1. **Planning:** Inspect the actual code first. Produce a separate sub-plan for
-   every area in the arc covering scripts, flags and state variables, warps,
-   rewards, dependencies, and acceptance checks. Obtain human approval, then
-   write the approved plan to `docs/PHASE10_ARC<N>_PLAN.md`.
-2. **Execution:** Read that approved plan file and implement only its approved
-   scope. Build and inspect the resulting diff.
-3. **Review:** Perform a separate, read-only review against both SPEC and the
+1. **Planning:** Start Codex with the **Phase 10 planning/review profile**.
+   Inspect the actual code first, then produce a separate sub-plan for every
+   area in the arc covering scripts, flags and state variables, warps, rewards,
+   dependencies, and acceptance checks. Obtain human approval and save the
+   exact approved plan as `docs/PHASE10_ARC<N>_PLAN.md`.
+2. **Execution:** Start a fresh Codex session with the **Phase 10 execution
+   profile**. It reads the approved plan, implements only its approved scope,
+   builds, and inspects the resulting diff.
+3. **Review:** Start a fresh Codex session with the **Phase 10 planning/review
+   profile** and perform a read-only review against both `docs/SPEC.md` and the
    approved plan.
 4. **Playtest:** The user continuously plays through the entire arc in mGBA.
    Isolated flag-driven checks supplement that traversal; they do not replace
@@ -101,10 +104,10 @@ retroactive plan and not authorization to rebuild or alter its gameplay.
 
 - `de53064ca8`: completed Phase 9.5 checkpoint.
 - `af88cb09ad`: committed Littleroot opening and first-rival Phase 10 work.
-- `3c9de94ab9`: subsequent committed fixes, preserved as the accepted baseline
-  and current `HEAD` when this record was created.
-- Uncommitted Arc 0 work: Petalburg city/Gym scripts and city triggers;
-  Petalburg Woods script; Rustboro city/Gym scripts and city triggers.
+- `3c9de94ab9`: subsequent committed fixes, preserved as the accepted baseline.
+- `a86f2fa95c`: committed Petalburg city/Gym scripts and city triggers,
+  Petalburg Woods, Rustboro city/Gym scripts and city triggers, and baseline
+  workflow documentation; current `HEAD` when this record was updated.
 
 ### Source-level inventory and review
 
@@ -120,17 +123,17 @@ retroactive plan and not authorization to rebuild or alter its gameplay.
   nickname enforcement and the Nuzlocke first-actual-Ball gate are wired into
   this opening. The accepted follow-up commit moves the optional 999-Ball NPC
   into accessible Oldale and makes any actual Ball acquisition latch the gate.
-- **Petalburg/Wally tutorial:** The uncommitted work removes the city gym-guide
+- **Petalburg/Wally tutorial:** The committed work removes the city gym-guide
   escort and Wally tutorial, fast-forwards the tutorial's required state and
   visibility effects on first entry, and preserves Norman's early badge-count
   gate. Roxanne's badge script defensively floors Norman's counter before
   incrementing it.
-- **Petalburg Woods:** The uncommitted work removes only the Devon employee's
+- **Petalburg Woods:** The committed work removes only the Devon employee's
   look-around filler and shortens the associated dialogue. The encounter area,
   Aqua grunt battle, Great Ball reward, battle-loss handling, and path-specific
   object movements remain.
 - **Rustboro/Roxanne:** Roxanne's Gym battle and normal badge/TM rewards remain.
-  The uncommitted city work folds the second stop into the post-Gym theft scene,
+  The committed city work folds the second stop into the post-Gym theft scene,
   restores the Devon employee to the street, and sets the Route 116/Rusturf
   Tunnel state and visibility flags immediately.
 
@@ -143,7 +146,7 @@ continuous mGBA traversal below.
 
 | Gate | Status |
 |---|---|
-| Implementation | Present in committed and preserved uncommitted work described above. |
+| Implementation | Present in commits `af88cb09ad`, `3c9de94ab9`, and `a86f2fa95c`. |
 | Build | Passed on 2026-09-09: direct scans of the Rustboro Gym script and aggregate `data/event_scripts.s` exited 0, and `make -j$(sysctl -n hw.ncpu)` exited 0 with the Rustboro diagnostic absent. The linker still emits its unrelated RWX-segment warning. |
 | Read-only review | Performed against the five Arc 0 SPEC entries; no additional gameplay edit was authorized or made. |
 | Emulator acceptance | Pending the full mGBA checks below. Arc 0 is not complete. |

@@ -304,7 +304,17 @@ RusturfTunnel_EventScript_Grunt::
 	trainerbattle_no_intro TRAINER_GRUNT_RUSTURF_TUNNEL, RusturfTunnel_Text_GruntDefeat
 	msgbox RusturfTunnel_Text_GruntTakePackage, MSGBOX_DEFAULT
 	giveitem ITEM_DEVON_PARTS
+	goto_if_eq VAR_RESULT, FALSE, RusturfTunnel_EventScript_GruntBagFull
 	closemessage
+	goto RusturfTunnel_EventScript_ResolveRescue
+	end
+
+RusturfTunnel_EventScript_GruntBagFull::
+	msgbox RusturfTunnel_Text_GruntBagFull, MSGBOX_DEFAULT
+	release
+	end
+
+RusturfTunnel_EventScript_ResolveRescue::
 	applymovement LOCALID_PLAYER, RusturfTunnel_Movement_PushPlayerAsideForGrunt
 	applymovement LOCALID_RUSTURF_TUNNEL_GRUNT, RusturfTunnel_Movement_GruntEscape
 	waitmovement 0
@@ -332,11 +342,39 @@ RusturfTunnel_EventScript_Grunt::
 	waitmovement 0
 	removeobject LOCALID_RUSTURF_TUNNEL_BRINEY
 	removeobject LOCALID_RUSTURF_TUNNEL_PEEKO
+	setflag FLAG_HIDE_RUSTURF_TUNNEL_AQUA_GRUNT
+	setflag FLAG_HIDE_RUSTURF_TUNNEL_BRINEY
+	setflag FLAG_HIDE_RUSTURF_TUNNEL_PEEKO
 	clearflag FLAG_DEVON_GOODS_STOLEN
 	setflag FLAG_RECOVERED_DEVON_GOODS
-	setvar VAR_RUSTBORO_CITY_STATE, 4
+	setflag FLAG_RETURNED_DEVON_GOODS
+	setflag FLAG_SYS_POKENAV_GET
+	setflag FLAG_RECEIVED_POKENAV
+	setflag FLAG_HAS_MATCH_CALL
+	setflag FLAG_ADDED_MATCH_CALL_TO_POKENAV
+	setflag FLAG_HIDE_RUSTBORO_CITY_SCIENTIST
+	setflag FLAG_HIDE_RUSTBORO_CITY_POKEMON_SCHOOL_SCOTT
+	setflag FLAG_HIDE_ROUTE_116_WANDAS_BOYFRIEND
+	clearflag FLAG_HIDE_RUSTURF_TUNNEL_WANDAS_BOYFRIEND
+	clearflag FLAG_HIDE_RUSTURF_TUNNEL_WANDA
+	clearflag FLAG_HIDE_RUSTBORO_CITY_RIVAL
+	setvar VAR_RUSTBORO_CITY_STATE, 7
+	setvar VAR_DEVON_CORP_3F_STATE, 1
 	setvar VAR_BRINEY_HOUSE_STATE, 1
+	setvar VAR_BRINEY_LOCATION, 1
 	setflag FLAG_HIDE_ROUTE_116_MR_BRINEY
+	clearflag FLAG_HIDE_BRINEYS_HOUSE_MR_BRINEY
+	clearflag FLAG_HIDE_BRINEYS_HOUSE_PEEKO
+	setvar VAR_RUSTURF_TUNNEL_STATE, 3
+	msgbox RusturfTunnel_Text_DevonThanks, MSGBOX_DEFAULT
+	giveitem ITEM_GREAT_BALL
+	goto_if_eq VAR_RESULT, FALSE, RusturfTunnel_EventScript_GreatBallBagFull
+	setflag FLAG_HIDE_RUSTBORO_CITY_DEVON_EMPLOYEE_1
+	release
+	end
+
+RusturfTunnel_EventScript_GreatBallBagFull::
+	msgbox RusturfTunnel_Text_GreatBallBagFull, MSGBOX_DEFAULT
 	release
 	end
 
@@ -452,20 +490,8 @@ RusturfTunnel_Text_PeekoGladToSeeYouSafe:
 	.string "Am I glad to see you're safe!$"
 
 RusturfTunnel_Text_ThankYouLetsGoHomePeeko:
-	.string "PEEKO owes her life to you!\p"
-	.string "They call me MR. BRINEY.\n"
-	.string "And, you are?\p"
-	.string "… … … … … … … …\n"
-	.string "… … … … … … … …\p"
-	.string "Ah, so you are {PLAYER}{KUN}!\n"
-	.string "I sincerely thank you!\p"
-	.string "Now, if there's anything that troubles\n"
-	.string "you, don't hesitate to tell me!\p"
-	.string "You can usually find me in my cottage\n"
-	.string "by the sea near PETALBURG WOODS.\p"
-	.string "Come, PEEKO, we should make our way\n"
-	.string "home.\p"
-	.string "PEEKO: Pihyoh!$"
+	.string "MR. BRINEY: PEEKO is safe thanks to\n"
+	.string "you. Let's head home, PEEKO!$"
 
 RusturfTunnel_Text_WhyCantTheyKeepDigging:
 	.string "… …\p"
@@ -525,3 +551,14 @@ RusturfTunnel_Text_MikePostBattle:
 	.string "protect POKéMON, right?\l"
 	.string "There's a feel-good story!$"
 
+RusturfTunnel_Text_DevonThanks:
+	.string "MR. BRINEY: DEVON will be relieved\l"
+	.string "their GOODS are safe. Take this, too.$"
+
+RusturfTunnel_Text_GruntBagFull:
+	.string "Your BAG is full. Make room, then\n"
+	.string "come back for the DEVON GOODS.$"
+
+RusturfTunnel_Text_GreatBallBagFull:
+	.string "Your BAG is full. The DEVON worker in\n"
+	.string "RUSTBORO will hold your GREAT BALL.$"

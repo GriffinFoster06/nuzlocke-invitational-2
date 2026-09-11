@@ -10,6 +10,7 @@
 
 #include "global.h"
 #include "event_object_movement.h"
+#include "event_data.h"
 #include "item.h"
 #include "list_menu.h"
 #include "main.h"
@@ -60,6 +61,12 @@ void Ruleset_DoPortableHeal(void)
 bool32 Ruleset_InfiniteRepelOn(void)
 {
     return GetRulesetSetting(SETTING_INFINITE_REPEL) != 0;
+}
+
+bool32 Ruleset_QuickTravelAvailable(void)
+{
+    return GetRulesetSetting(SETTING_QUICK_TRAVEL) != 0
+        && FlagGet(FLAG_RECOVERED_DEVON_GOODS);
 }
 
 bool32 Ruleset_InfiniteRepelActive(void)

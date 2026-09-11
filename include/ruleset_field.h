@@ -32,6 +32,10 @@ bool32 Ruleset_InfiniteRepelOn(void);
 bool32 Ruleset_InfiniteRepelActive(void);
 void Ruleset_SetInfiniteRepelActive(bool32 active);
 
+// docs/SPEC.md "Quick Travel". This becomes available after Peeko's rescue;
+// callers still enforce the existing outdoor-map and visited-town checks.
+bool32 Ruleset_QuickTravelAvailable(void);
+
 // docs/SPEC.md "Set battle style". When on, no free switch is offered after
 // defeating an opposing Pokemon, and the Options battle-style row is locked.
 bool32 Ruleset_ForceSetBattleStyleOn(void);

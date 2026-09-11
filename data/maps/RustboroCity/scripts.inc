@@ -512,21 +512,33 @@ RustboroCity_EventScript_ReturnGoods::
 	call_if_eq VAR_TEMP_1, 4, RustboroCity_EventScript_EmployeeFacePlayerRight
 	msgbox RustboroCity_Text_YouGotItThankYou, MSGBOX_DEFAULT
 	giveitem ITEM_GREAT_BALL
-	call_if_eq VAR_RESULT, FALSE, RustboroCity_EventScript_BagFull
-	msgbox RustboroCity_Text_PleaseComeWithMe, MSGBOX_DEFAULT
-	closemessage
+	goto_if_eq VAR_RESULT, FALSE, RustboroCity_EventScript_BagFull
 	setflag FLAG_RETURNED_DEVON_GOODS
 	setflag FLAG_HIDE_RUSTBORO_CITY_DEVON_EMPLOYEE_1
-	setvar VAR_RUSTBORO_CITY_STATE, 5
-	delay 30
-	warp MAP_RUSTBORO_CITY_DEVON_CORP_3F, 2, 2
-	waitstate
+	setflag FLAG_SYS_POKENAV_GET
+	setflag FLAG_RECEIVED_POKENAV
+	setflag FLAG_HAS_MATCH_CALL
+	setflag FLAG_ADDED_MATCH_CALL_TO_POKENAV
+	setflag FLAG_HIDE_RUSTBORO_CITY_SCIENTIST
+	setflag FLAG_HIDE_RUSTBORO_CITY_POKEMON_SCHOOL_SCOTT
+	setflag FLAG_HIDE_ROUTE_116_WANDAS_BOYFRIEND
+	clearflag FLAG_HIDE_RUSTURF_TUNNEL_WANDAS_BOYFRIEND
+	clearflag FLAG_HIDE_RUSTURF_TUNNEL_WANDA
+	clearflag FLAG_HIDE_RUSTBORO_CITY_RIVAL
+	setvar VAR_RUSTBORO_CITY_STATE, 7
+	setvar VAR_DEVON_CORP_3F_STATE, 1
+	setvar VAR_BRINEY_HOUSE_STATE, 1
+	setvar VAR_BRINEY_LOCATION, 1
+	setflag FLAG_HIDE_ROUTE_116_MR_BRINEY
+	clearflag FLAG_HIDE_BRINEYS_HOUSE_MR_BRINEY
+	clearflag FLAG_HIDE_BRINEYS_HOUSE_PEEKO
 	releaseall
 	end
 
 RustboroCity_EventScript_BagFull::
 	msgbox RustboroCity_Text_YoureLoadedWithItems, MSGBOX_DEFAULT
-	return
+	releaseall
+	end
 
 RustboroCity_EventScript_EmployeeFacePlayerUp2::
 	applymovement LOCALID_RUSTBORO_DEVON_EMPLOYEE, Common_Movement_WalkInPlaceFasterUp

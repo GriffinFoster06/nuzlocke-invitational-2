@@ -7,6 +7,7 @@
 #include "party_menu.h"
 #include "pokemon.h"
 #include "ruleset.h"
+#include "ruleset_field.h"
 #include "strings.h"
 #include "constants/field_move.h"
 #include "constants/moves.h"
@@ -265,6 +266,8 @@ u32 FieldMove_GetUserSlot(enum FieldMove fieldMove)
 
 bool32 FieldMove_PokeRiderEnabled(void)
 {
+    if (Ruleset_QuickTravelAvailable())
+        return TRUE;
     if (OW_FLAG_POKE_RIDER != 0 && FlagGet(OW_FLAG_POKE_RIDER))
         return TRUE;
     return FieldMove_IsHmFree(FIELD_MOVE_FLY);

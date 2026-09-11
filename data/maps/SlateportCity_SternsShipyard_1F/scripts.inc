@@ -7,17 +7,7 @@ SlateportCity_SternsShipyard_1F_EventScript_Dock::
 	goto_if_set FLAG_BADGE07_GET, SlateportCity_SternsShipyard_1F_EventScript_BrineyJoined
 	goto_if_set FLAG_DELIVERED_DEVON_GOODS, SlateportCity_SternsShipyard_1F_EventScript_NeedVeteran
 	goto_if_set FLAG_DOCK_REJECTED_DEVON_GOODS, SlateportCity_SternsShipyard_1F_EventScript_GoFindStern
-	msgbox SlateportCity_SternsShipyard_1F_Text_CantMakeHeadsOrTails, MSGBOX_DEFAULT
-	applymovement LOCALID_DOCK, Common_Movement_FacePlayer
-	waitmovement 0
-	msgbox SlateportCity_SternsShipyard_1F_Text_MeetDockDeliverToStern, MSGBOX_DEFAULT
-	closemessage
-	applymovement LOCALID_DOCK, Common_Movement_FaceOriginalDirection
-	waitmovement 0
-	setflag FLAG_DOCK_REJECTED_DEVON_GOODS
-	setflag FLAG_HIDE_SLATEPORT_CITY_TEAM_AQUA
-	releaseall
-	end
+	goto SlateportCity_SternsShipyard_1F_EventScript_GoFindStern
 
 SlateportCity_SternsShipyard_1F_EventScript_FerryReady::
 	applymovement LOCALID_DOCK, Common_Movement_FacePlayer
@@ -85,10 +75,9 @@ SlateportCity_SternsShipyard_1F_Text_MeetDockDeliverToStern:
 	.string "STERN and deliver that to him?$"
 
 SlateportCity_SternsShipyard_1F_Text_CouldYouFindStern:
-	.string "DOCK: Where could CAPT. STERN have\n"
-	.string "gone off to?\p"
-	.string "Could you go find CAPT. STERN and\n"
-	.string "deliver that parcel to him?$"
+	.string "DOCK: CAPT. STERN is at the OCEANIC\n"
+	.string "MUSEUM. Please deliver those parts\l"
+	.string "to him there.$"
 
 SlateportCity_SternsShipyard_1F_Text_CouldUseAdviceFromVeteran:
 	.string "DOCK: Shipbuilding is an art.\p"
@@ -138,4 +127,3 @@ SlateportCity_SternsShipyard_1F_Text_SeaIsLikeLivingThing:
 SlateportCity_SternsShipyard_1F_Text_GetSeasickEasily:
 	.string "I get seasick real easily.\n"
 	.string "So I get to help out here instead.$"
-

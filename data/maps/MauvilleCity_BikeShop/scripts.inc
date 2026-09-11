@@ -4,7 +4,18 @@ MauvilleCity_BikeShop_MapScripts::
 MauvilleCity_BikeShop_EventScript_Rydel::
 	lock
 	faceplayer
-	goto_if_set FLAG_RECEIVED_BIKE, MauvilleCity_BikeShop_EventScript_AskSwitchBikes
+	checkitem ITEM_MACH_BIKE
+	goto_if_eq VAR_RESULT, FALSE, MauvilleCity_BikeShop_EventScript_CheckAcroBikeWithoutMach
+	checkitem ITEM_ACRO_BIKE
+	goto_if_eq VAR_RESULT, FALSE, MauvilleCity_BikeShop_EventScript_GiveMissingBikes
+	setflag FLAG_RECEIVED_BIKE
+	goto MauvilleCity_BikeShop_EventScript_BikesReady
+
+MauvilleCity_BikeShop_EventScript_CheckAcroBikeWithoutMach::
+	checkitem ITEM_ACRO_BIKE
+	goto_if_eq VAR_RESULT, TRUE, MauvilleCity_BikeShop_EventScript_GiveMissingBikes
+
+MauvilleCity_BikeShop_EventScript_OfferBikes::
 	goto_if_set FLAG_DECLINED_BIKE, MauvilleCity_BikeShop_EventScript_SkipGreeting
 	msgbox MauvilleCity_BikeShop_Text_RydelGreeting, MSGBOX_DEFAULT
 	msgbox MauvilleCity_BikeShop_Text_DidYouComeFromFarAway, MSGBOX_YESNO
@@ -34,8 +45,35 @@ MauvilleCity_BikeShop_EventScript_NotFar::
 	end
 
 MauvilleCity_BikeShop_EventScript_YesFar::
+	msgbox MauvilleCity_BikeShop_Text_TakeBothBikes, MSGBOX_DEFAULT
+	goto MauvilleCity_BikeShop_EventScript_GiveMissingBikes
+
+MauvilleCity_BikeShop_EventScript_GiveMissingBikes::
+	checkitem ITEM_MACH_BIKE
+	goto_if_eq VAR_RESULT, TRUE, MauvilleCity_BikeShop_EventScript_GiveMissingAcroBike
+	giveitem ITEM_MACH_BIKE
+	goto_if_eq VAR_RESULT, FALSE, MauvilleCity_BikeShop_EventScript_BikeBagFull
+
+MauvilleCity_BikeShop_EventScript_GiveMissingAcroBike::
+	checkitem ITEM_ACRO_BIKE
+	goto_if_eq VAR_RESULT, TRUE, MauvilleCity_BikeShop_EventScript_BikesGranted
+	giveitem ITEM_ACRO_BIKE
+	goto_if_eq VAR_RESULT, FALSE, MauvilleCity_BikeShop_EventScript_BikeBagFull
+
+MauvilleCity_BikeShop_EventScript_BikesGranted::
 	setflag FLAG_RECEIVED_BIKE
-	goto MauvilleCity_BikeShop_EventScript_ChooseBike
+	msgbox MauvilleCity_BikeShop_Text_BikesReady, MSGBOX_DEFAULT
+	release
+	end
+
+MauvilleCity_BikeShop_EventScript_BikeBagFull::
+	call Common_EventScript_BagIsFull
+	release
+	end
+
+MauvilleCity_BikeShop_EventScript_BikesReady::
+	msgbox MauvilleCity_BikeShop_Text_BikesReady, MSGBOX_DEFAULT
+	release
 	end
 
 MauvilleCity_BikeShop_EventScript_GetMachBike::
@@ -216,6 +254,14 @@ MauvilleCity_BikeShop_Text_ExplainBikesChooseWhichOne:
 	.string "have whichever one you like!\p"
 	.string "Which one will you choose?$"
 
+MauvilleCity_BikeShop_Text_TakeBothBikes:
+	.string "RYDEL: You came a long way! Take both\n"
+	.string "the MACH BIKE and the ACRO BIKE.$"
+
+MauvilleCity_BikeShop_Text_BikesReady:
+	.string "RYDEL: Both BIKES are yours. Select or\n"
+	.string "register the one you want to ride.$"
+
 MauvilleCity_BikeShop_Text_ChoseMachBike:
 	.string "{PLAYER} chose the MACH BIKE.$"
 
@@ -319,4 +365,3 @@ MauvilleCity_BikeShop_Text_Jumps:
 	.string "Press it backwards to make the BIKE\n"
 	.string "change directions while jumping.\p"
 	.string "Want to read a different page?$"
-

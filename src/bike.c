@@ -1279,16 +1279,30 @@ bool8 IsPlayerNotUsingAcroBikeOnBumpySlope(void)
 
 void GetOnOffBike(u8 transitionFlags)
 {
-    if (gPlayerAvatar.flags & (PLAYER_AVATAR_FLAG_MACH_BIKE | PLAYER_AVATAR_FLAG_ACRO_BIKE))
+    u8 activeBike = gPlayerAvatar.flags & PLAYER_AVATAR_FLAG_BIKE;
+    u8 requestedBike = transitionFlags & PLAYER_AVATAR_FLAG_BIKE;
+
+    if (activeBike != 0)
     {
-        SetPlayerAvatarTransitionFlags(PLAYER_AVATAR_FLAG_ON_FOOT);
-        Overworld_ClearSavedMusic();
-        Overworld_PlaySpecialMapMusic();
+        // The Standard Bike item requests both types, so retain its legacy
+        // toggle behavior. A different individual bike switches in place.
+        if (requestedBike == 0 || requestedBike == activeBike || requestedBike == PLAYER_AVATAR_FLAG_BIKE)
+        {
+            SetPlayerAvatarTransitionFlags(PLAYER_AVATAR_FLAG_ON_FOOT);
+            Overworld_ClearSavedMusic();
+            Overworld_PlaySpecialMapMusic();
+        }
+        else
+        {
+            // The avatar transition calls BikeClearState, resetting Mach
+            // momentum and Acro trick history while cycling music continues.
+            SetPlayerAvatarTransitionFlags(requestedBike);
+        }
     }
-    else
+    else if (requestedBike != 0)
     {
         EndORASDowsing();
-        SetPlayerAvatarTransitionFlags(transitionFlags);
+        SetPlayerAvatarTransitionFlags(requestedBike);
         Overworld_SetSavedMusic(IS_FRLG ? MUS_RG_CYCLING : MUS_CYCLING);
         Overworld_ChangeMusicTo(IS_FRLG ? MUS_RG_CYCLING : MUS_CYCLING);
     }

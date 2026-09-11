@@ -78,6 +78,7 @@ MauvilleCity_Gym_EventScript_Wattson::
 	specialvar VAR_RESULT, ShouldTryRematchBattle
 	goto_if_eq VAR_RESULT, TRUE, MauvilleCity_Gym_EventScript_WattsonRematch
 	goto_if_unset FLAG_RECEIVED_TM_SHOCK_WAVE, MauvilleCity_Gym_EventScript_GiveShockWave2
+	goto_if_unset FLAG_RECEIVED_HM_ROCK_SMASH, MauvilleCity_Gym_EventScript_GiveRockSmash2
 	goto_if_eq VAR_NEW_MAUVILLE_STATE, 2, MauvilleCity_Gym_EventScript_CompletedNewMauville
 	msgbox MauvilleCity_Gym_Text_WattsonPostBattle, MSGBOX_DEFAULT
 	release
@@ -100,6 +101,7 @@ MauvilleCity_Gym_EventScript_WattsonDefeated::
 	special DrawWholeMapView
 	playse SE_UNLOCK
 	call MauvilleCity_Gym_EventScript_GiveShockWave
+	call MauvilleCity_Gym_EventScript_GiveRockSmash
 	closemessage
 	delay 30
 	playfanfare MUS_REGISTER_MATCH_CALL
@@ -116,14 +118,32 @@ MauvilleCity_Gym_EventScript_GiveShockWave2::
 	goto_if_eq VAR_RESULT, FALSE, Common_EventScript_ShowBagIsFull
 	msgbox MauvilleCity_Gym_Text_ExplainShockWave, MSGBOX_DEFAULT
 	setflag FLAG_RECEIVED_TM_SHOCK_WAVE
-	release
-	end
+	goto MauvilleCity_Gym_EventScript_GiveRockSmash2
 
 MauvilleCity_Gym_EventScript_GiveShockWave::
 	giveitem ITEM_TM_SHOCK_WAVE
 	goto_if_eq VAR_RESULT, FALSE, Common_EventScript_BagIsFull
 	msgbox MauvilleCity_Gym_Text_ExplainShockWave, MSGBOX_DEFAULT
 	setflag FLAG_RECEIVED_TM_SHOCK_WAVE
+	return
+
+MauvilleCity_Gym_EventScript_GiveRockSmash2::
+	call MauvilleCity_Gym_EventScript_GiveRockSmash
+	release
+	end
+
+MauvilleCity_Gym_EventScript_GiveRockSmash::
+	goto_if_set FLAG_RECEIVED_HM_ROCK_SMASH, MauvilleCity_Gym_EventScript_GiveRockSmash_End
+	giveitem ITEM_HM_ROCK_SMASH
+	goto_if_eq VAR_RESULT, FALSE, MauvilleCity_Gym_EventScript_GiveRockSmash_BagFull
+	setflag FLAG_RECEIVED_HM_ROCK_SMASH
+	setflag FLAG_HIDE_ROUTE_111_ROCK_SMASH_TIP_GUY
+	msgbox MauvilleCity_Gym_Text_ExplainRockSmash, MSGBOX_DEFAULT
+MauvilleCity_Gym_EventScript_GiveRockSmash_End:
+	return
+
+MauvilleCity_Gym_EventScript_GiveRockSmash_BagFull:
+	call Common_EventScript_BagIsFull
 	return
 
 MauvilleCity_Gym_EventScript_CompletedNewMauville::
@@ -369,6 +389,10 @@ MauvilleCity_Gym_Text_ExplainShockWave:
 	.string "misses! You can count on it!\p"
 	.string "… … … … … …$"
 
+MauvilleCity_Gym_Text_ExplainRockSmash:
+	.string "Take HM06, ROCK SMASH, too.\n"
+	.string "The DYNAMO BADGE lets you use it.$"
+
 MauvilleCity_Gym_Text_RegisteredWattson:
 	.string "Registered GYM LEADER WATTSON\n"
 	.string "in the POKéNAV.$"
@@ -418,4 +442,3 @@ MauvilleCity_Gym_Text_WattsonRematchNeedTwoMons:
 	.string "You've only one POKéMON with you!\p"
 	.string "Come see me with two or more\n"
 	.string "POKéMON, all right?$"
-

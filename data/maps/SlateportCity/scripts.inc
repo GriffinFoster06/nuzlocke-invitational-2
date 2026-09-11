@@ -6,6 +6,7 @@ SlateportCity_MapScripts::
 SlateportCity_OnTransition:
 	setvar VAR_SLATEPORT_MUSEUM_1F_STATE, 0
 	call SlateportCity_EventScript_EnterSlateport
+	call SlateportCity_EventScript_PrepareMuseumForDevonGoods
 	call_if_eq VAR_SLATEPORT_CITY_STATE, 1, SlateportCity_EventScript_MovePeopleForSternInterview
 	call_if_eq VAR_SLATEPORT_OUTSIDE_MUSEUM_STATE, 1, SlateportCity_EventScript_SetReadyForScottScene
 	end
@@ -14,6 +15,17 @@ SlateportCity_EventScript_EnterSlateport::
 	setflag FLAG_VISITED_SLATEPORT_CITY
 	setvar VAR_CONTEST_HALL_STATE, 0
 	setflag FLAG_HIDE_SLATEPORT_CITY_CONTEST_REPORTER
+	return
+
+@ The Arc 1 handoff already has the recovered Devon Goods.  Keep Dock's
+@ dialogue compatibility flag, but open the Museum without making Shipyard
+@ dialogue a progression gate.
+SlateportCity_EventScript_PrepareMuseumForDevonGoods::
+	goto_if_unset FLAG_RECOVERED_DEVON_GOODS, SlateportCity_EventScript_PrepareMuseumForDevonGoods_End
+	goto_if_set FLAG_DELIVERED_DEVON_GOODS, SlateportCity_EventScript_PrepareMuseumForDevonGoods_End
+	setflag FLAG_DOCK_REJECTED_DEVON_GOODS
+	setflag FLAG_HIDE_SLATEPORT_CITY_TEAM_AQUA
+SlateportCity_EventScript_PrepareMuseumForDevonGoods_End:
 	return
 
 SlateportCity_EventScript_MovePeopleForSternInterview::

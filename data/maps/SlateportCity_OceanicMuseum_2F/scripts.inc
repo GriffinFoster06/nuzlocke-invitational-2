@@ -20,8 +20,6 @@ SlateportCity_OceanicMuseum_2F_EventScript_CaptStern::
 	call_if_eq VAR_FACING, DIR_EAST, SlateportCity_OceanicMuseum_2F_EventScript_PlayerFaceGrunts
 	msgbox SlateportCity_OceanicMuseum_2F_Text_WellTakeThoseParts, MSGBOX_DEFAULT
 	call_if_ne VAR_FACING, DIR_EAST, SlateportCity_OceanicMuseum_2F_EventScript_SternFaceGrunts
-	msgbox SlateportCity_OceanicMuseum_2F_Text_SternWhoAreYou, MSGBOX_DEFAULT
-	msgbox SlateportCity_OceanicMuseum_2F_Text_WereTeamAqua, MSGBOX_DEFAULT
 	closemessage
 	applymovement LOCALID_OCEANIC_MUSEUM_2F_GRUNT_2, SlateportCity_OceanicMuseum_2F_Movement_GruntApproachToBattle
 	waitmovement 0
@@ -43,7 +41,6 @@ SlateportCity_OceanicMuseum_2F_EventScript_CaptStern::
 	waitmovement 0
 	msgbox SlateportCity_OceanicMuseum_2F_Text_MeddlingKid, MSGBOX_DEFAULT
 	closemessage
-	delay 35
 	addobject LOCALID_OCEANIC_MUSEUM_2F_ARCHIE
 	applymovement LOCALID_OCEANIC_MUSEUM_2F_ARCHIE, SlateportCity_OceanicMuseum_2F_Movement_ArchieEnter
 	applymovement LOCALID_OCEANIC_MUSEUM_2F_GRUNT_2, SlateportCity_OceanicMuseum_2F_Movement_GruntMoveForArchie
@@ -61,7 +58,6 @@ SlateportCity_OceanicMuseum_2F_EventScript_CaptStern::
 	removeobject LOCALID_OCEANIC_MUSEUM_2F_GRUNT_1
 	removeobject LOCALID_OCEANIC_MUSEUM_2F_GRUNT_2
 	fadescreen FADE_FROM_BLACK
-	delay 30
 	setflag FLAG_HIDE_SLATEPORT_CITY_OCEANIC_MUSEUM_AQUA_GRUNTS
 	applymovement LOCALID_PLAYER, Common_Movement_WalkInPlaceFasterRight
 	waitmovement 0
@@ -77,17 +73,20 @@ SlateportCity_OceanicMuseum_2F_EventScript_CaptStern::
 	callnative UpdateFollowingPokemon
 	removeobject LOCALID_OCEANIC_MUSEUM_2F_CAPT_STERN
 	setflag FLAG_HIDE_ROUTE_110_TEAM_AQUA
-	call_if_eq VAR_REGISTER_BIRCH_STATE, 0, SlateportCity_OceanicMuseum_2F_EventScript_ReadyRegisterBirch
 	setflag FLAG_DELIVERED_DEVON_GOODS
 	clearflag FLAG_HIDE_ROUTE_116_DEVON_EMPLOYEE
 	setflag FLAG_HIDE_RUSTBORO_CITY_DEVON_CORP_3F_EMPLOYEE
-	setvar VAR_SLATEPORT_OUTSIDE_MUSEUM_STATE, 1
+	setflag FLAG_ENABLE_PROF_BIRCH_MATCH_CALL
+	setvar VAR_REGISTER_BIRCH_STATE, 2
+	setflag FLAG_ENABLE_SCOTT_MATCH_CALL
+	call_if_lt VAR_SLATEPORT_OUTSIDE_MUSEUM_STATE, 2, SlateportCity_OceanicMuseum_2F_EventScript_AdvanceScottState
+	setvar VAR_SLATEPORT_OUTSIDE_MUSEUM_STATE, 2
 	fadescreen FADE_FROM_BLACK
 	release
 	end
 
-SlateportCity_OceanicMuseum_2F_EventScript_ReadyRegisterBirch::
-	setvar VAR_REGISTER_BIRCH_STATE, 1
+SlateportCity_OceanicMuseum_2F_EventScript_AdvanceScottState::
+	addvar VAR_SCOTT_STATE, 1
 	return
 
 SlateportCity_OceanicMuseum_2F_EventScript_PlayerFaceGrunts::
@@ -269,97 +268,46 @@ SlateportCity_OceanicMuseum_2F_EventScript_MuseumPatron3::
 	end
 
 SlateportCity_OceanicMuseum_2F_Text_ThankYouForTheParts:
-	.string "Yes? If you're looking for STERN,\n"
-	.string "that would be me.\p"
-	.string "Ah! Those must be the parts I ordered\n"
-	.string "from MR. STONE of DEVON.\p"
-	.string "Thank you! That's great!\n"
-	.string "We can prepare for our expedition now.$"
+	.string "CAPT. STERN: Those are DEVON'S parts.\n"
+	.string "Thank you, {PLAYER}{KUN}!$"
 
 SlateportCity_OceanicMuseum_2F_Text_WellTakeThoseParts:
-	.string "Hehehe, hold it!\n"
-	.string "We'll take those parts!$"
-
-SlateportCity_OceanicMuseum_2F_Text_SternWhoAreYou:
-	.string "CAPT. STERN: Wh-what?\n"
-	.string "Who are you people?$"
-
-SlateportCity_OceanicMuseum_2F_Text_WereTeamAqua:
-	.string "We're TEAM AQUA!\p"
-	.string "Our BOSS wants those parts!\n"
-	.string "Shut your yap and fork them over!$"
+	.string "TEAM AQUA: Hold it! Those parts are\n"
+	.string "ours. Hand them over!$"
 
 SlateportCity_OceanicMuseum_2F_Text_Grunt1Defeat:
 	.string "Awaaaah!\n"
 	.string "A kid beat me!$"
 
 SlateportCity_OceanicMuseum_2F_Text_BossGoingToBeFurious:
-	.string "Oh, man, what a disaster…\n"
-	.string "The BOSS is going to be furious…$"
+	.string "TEAM AQUA: BOSS won't like this…$"
 
 SlateportCity_OceanicMuseum_2F_Text_LetMeTakeCareOfThis:
-	.string "Humph, sniveling wimp!\n"
-	.string "Let me take care of this!$"
+	.string "TEAM AQUA: I'll take the parts myself!$"
 
 SlateportCity_OceanicMuseum_2F_Text_Grunt2Defeat:
 	.string "What?!\n"
 	.string "I lost, too!$"
 
 SlateportCity_OceanicMuseum_2F_Text_MeddlingKid:
-	.string "Now what? If we don't get the parts,\n"
-	.string "we're in for it!\p"
-	.string "Arrgh, I didn't count on being meddled\n"
-	.string "with by some meddling kid!$"
+	.string "TEAM AQUA: We failed again… BOSS!$"
 
 SlateportCity_OceanicMuseum_2F_Text_CameToSeeWhatsTakingSoLong:
-	.string "I came to see what was taking so\n"
-	.string "long to snatch some parts, and you\l"
-	.string "simps are held up by a mere child?$"
+	.string "ARCHIE: Two Grunts stopped by one\n"
+	.string "TRAINER? Pathetic.$"
 
 SlateportCity_OceanicMuseum_2F_Text_ArchieWarning:
-	.string "We are TEAM AQUA,\n"
-	.string "and we love the sea!\p"
-	.string "And I am TEAM AQUA's leader,\n"
-	.string "ARCHIE!\p"
-	.string "What makes you interfere with us?\p"
-	.string "…No! You can't be!\n"
-	.string "You're not one of TEAM MAGMA?\p"
-	.string "Wait, that can't be right.\n"
-	.string "You're not dressed for the part.\p"
-	.string "… … … … … …\n"
-	.string "… … … … … …\p"
-	.string "POKéMON, people… All life depends on\n"
-	.string "the sea.\p"
-	.string "So, TEAM AQUA is dedicated to\n"
-	.string "the expansion of the sea.\p"
-	.string "Don't you agree? What we are doing\n"
-	.string "is a magnificent undertaking.\p"
-	.string "Ah, fine…\n"
-	.string "You're still too young to understand\l"
-	.string "our noble objective.\p"
-	.string "But, I warn you, don't even consider\n"
-	.string "interfering with our plans again.\p"
-	.string "The consequences will cost you\n"
-	.string "dearly!\p"
-	.string "And don't you forget it!$"
+	.string "ARCHIE: I'm ARCHIE, leader of TEAM\n"
+	.string "AQUA. We will expand the sea.\p"
+	.string "Don't interfere with us again.$"
 
 SlateportCity_OceanicMuseum_2F_Text_SternThankYouForSavingUs:
-	.string "CAPT. STERN: You're…\n"
-	.string "Ah, okay, you're {PLAYER}{KUN}…\p"
-	.string "Anyway, that was a tense situation!\n"
-	.string "Thank you for saving us!\p"
-	.string "Oh, yes, I almost forgot that you\n"
-	.string "even brought the parts from DEVON!$"
+	.string "CAPT. STERN: Thank you for protecting\n"
+	.string "us. I'll take DEVON'S parts now.$"
 
 SlateportCity_OceanicMuseum_2F_Text_SternIveGotToGo:
-	.string "CAPT. STERN: Whoops!\n"
-	.string "There's no time to lose!\p"
-	.string "We have to set out on our ocean-floor\n"
-	.string "expedition really soon.\p"
-	.string "Thanks again, but now I've got\n"
-	.string "to go!\p"
-	.string "Feel free to wander around and check\n"
-	.string "out our facilities, though.$"
+	.string "CAPT. STERN: Thanks, {PLAYER}{KUN}.\n"
+	.string "Our expedition must leave at once.$"
 
 SlateportCity_OceanicMuseum_2F_Text_RemindsMeOfAbandonedShip:
 	.string "I saw a model of a ship here.\p"

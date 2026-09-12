@@ -104,9 +104,11 @@ PetalburgCity_Gym_EventScript_NormanThreeBadges::
 	end
 
 PetalburgCity_Gym_EventScript_NormanPostBattle::
+	call PetalburgCity_Gym_EventScript_FinalizePostNormanState
 	call PetalburgCity_Gym_EventScript_ShouldGiveEnigmaBerry
 	goto_if_eq VAR_RESULT, TRUE, PetalburgCity_Gym_EventScript_GiveEnigmaBerry
 	goto_if_unset FLAG_RECEIVED_TM_FACADE, PetalburgCity_Gym_EventScript_GiveFacade2
+	goto_if_unset FLAG_RECEIVED_HM_SURF, PetalburgCity_Gym_EventScript_GiveSurf2
 	goto_if_set FLAG_SYS_GAME_CLEAR, PetalburgCity_Gym_EventScript_NoAmountOfTrainingIsEnough
 	msgbox PetalburgCity_Gym_Text_DadGoingToKeepTraining, MSGBOX_DEFAULT
 	release
@@ -114,6 +116,12 @@ PetalburgCity_Gym_EventScript_NormanPostBattle::
 
 PetalburgCity_Gym_EventScript_GiveFacade2::
 	call PetalburgCity_Gym_EventScript_GiveFacade
+	call PetalburgCity_Gym_EventScript_GiveSurf
+	release
+	end
+
+PetalburgCity_Gym_EventScript_GiveSurf2::
+	call PetalburgCity_Gym_EventScript_GiveSurf
 	release
 	end
 
@@ -164,19 +172,42 @@ PetalburgCity_Gym_EventScript_NormanBattle::
 	clearflag FLAG_HIDE_DEWFORD_HALL_SLUDGE_BOMB_MAN
 	call PetalburgCity_Gym_EventScript_UnlockAllDoors
 	special DrawWholeMapView
+	call PetalburgCity_Gym_EventScript_FinalizePostNormanState
 	call PetalburgCity_Gym_EventScript_GiveFacade
-	delay 30
+	call PetalburgCity_Gym_EventScript_GiveSurf
 	msgbox PetalburgCity_Gym_Text_DadHappyAndSad, MSGBOX_DEFAULT
-	closemessage
-	delay 40
-	playse SE_DOOR
-	delay 10
-	addobject LOCALID_PETALBURG_GYM_WALLYS_DAD
-	switch VAR_FACING
-	case DIR_NORTH, PetalburgCity_Gym_EventScript_WallysDadArrivesNorth
-	case DIR_WEST, PetalburgCity_Gym_EventScript_WallysDadArrivesWest
-	case DIR_EAST, PetalburgCity_Gym_EventScript_WallysDadArrivesEast
+	release
 	end
+
+PetalburgCity_Gym_EventScript_FinalizePostNormanState::
+	@ Fresh Phase 10 progression bypasses the old Wally-family escort (city
+	@ state 4) entirely. Keep its scripts compiled for legacy saves, but ensure
+	@ every completed-Norman save lands in the terminal idle state instead.
+	setvar VAR_PETALBURG_CITY_STATE, 5
+	setflag FLAG_HIDE_PETALBURG_GYM_WALLYS_DAD
+	setflag FLAG_HIDE_PETALBURG_CITY_WALLYS_DAD
+	return
+
+PetalburgCity_Gym_EventScript_GiveSurf::
+	@ HM-free field permission is unlocked by FLAG_BADGE05_GET. This award keeps
+	@ the physical HM available too, without requiring a visit to Wally's house.
+	checkitem ITEM_HM_SURF
+	goto_if_eq VAR_RESULT, TRUE, PetalburgCity_Gym_EventScript_MarkSurfReceived
+	checkpcitem ITEM_HM_SURF
+	goto_if_eq VAR_RESULT, TRUE, PetalburgCity_Gym_EventScript_MarkSurfReceived
+	giveitem ITEM_HM_SURF
+	goto_if_eq VAR_RESULT, FALSE, PetalburgCity_Gym_EventScript_SurfBagFull
+	setflag FLAG_RECEIVED_HM_SURF
+	msgbox PetalburgCity_Gym_Text_ExplainSurf, MSGBOX_DEFAULT
+	return
+
+PetalburgCity_Gym_EventScript_MarkSurfReceived::
+	setflag FLAG_RECEIVED_HM_SURF
+	return
+
+PetalburgCity_Gym_EventScript_SurfBagFull::
+	call Common_EventScript_BagIsFull
+	return
 
 PetalburgCity_Gym_EventScript_GiveFacade::
 	giveitem ITEM_TM_FACADE
@@ -874,24 +905,25 @@ PetalburgCity_Gym_Text_ReceivedBalanceBadge:
 PetalburgCity_Gym_Text_ExplainBalanceBadgeTakeThis:
 	.string "DAD: With that BADGE, the DEFENSE\n"
 	.string "of all your POKéMON will increase.\p"
-	.string "POKéMON that know the HM move SURF\n"
-	.string "will be able to travel over water.\p"
-	.string "This is my gift to you. {PLAYER}, I'm\n"
-	.string "sure you can use it correctly.$"
+	.string "It also gives you permission to\n"
+	.string "travel over water with SURF.$"
 
 PetalburgCity_Gym_Text_ExplainFacade:
-	.string "DAD: TM42 contains FACADE.\p"
-	.string "It doubles the power of moves if\n"
-	.string "the POKéMON is poisoned, paralyzed,\l"
-	.string "or burned.\p"
-	.string "It might be able to turn a bad\n"
-	.string "situation into an advantage.$"
+	.string "DAD: Here's a TM as a gift.\p"
+	.string "Use it well, {PLAYER}.$"
+
+PetalburgCity_Gym_Text_ExplainSurf:
+	.string "DAD: And take HM03, SURF.\p"
+	.string "With the BALANCE BADGE, you can\n"
+	.string "cross water whenever you need to.$"
 
 PetalburgCity_Gym_Text_DadHappyAndSad:
 	.string "DAD: As the GYM LEADER, I can't\n"
 	.string "express how upset I am…\p"
 	.string "But as a father, it makes me both\n"
-	.string "happy and a little sad. It's odd…$"
+	.string "happy and a little sad. It's odd…\p"
+	.string "Your next path is east from\n"
+	.string "MAUVILLE CITY, across ROUTE 118.$"
 
 PetalburgCity_Gym_Text_PleaseComeWithMe:
 	.string "Ah, there you are, {PLAYER}{KUN}!\p"
@@ -1181,4 +1213,3 @@ PetalburgCity_Gym_Text_NormanRematchNeedTwoMons:
 	.string "capable of battle?\p"
 	.string "Sorry, but you'll have to come back\n"
 	.string "with at least two POKéMON.$"
-

@@ -70,6 +70,8 @@ MtChimney_EventScript_Maxie::
 	clearflag FLAG_HIDE_FALLARBOR_HOUSE_PROF_COZMO
 	setflag FLAG_HIDE_METEOR_FALLS_1F_1R_COZMO
 	clearflag FLAG_HIDE_MT_CHIMNEY_LAVA_COOKIE_LADY
+	call MtChimney_EventScript_ReconcileMeteorite
+	call MtChimney_EventScript_OfferJaggedPassTravel
 	releaseall
 	end
 
@@ -92,6 +94,37 @@ MtChimney_EventScript_ArchieExitNorth::
 	applymovement LOCALID_MT_CHIMNEY_ARCHIE, MtChimney_Movement_ArchieExitNorth
 	waitmovement 0
 	return
+
+MtChimney_EventScript_ReconcileMeteorite::
+	checkitem ITEM_METEORITE
+	goto_if_eq VAR_RESULT, TRUE, MtChimney_EventScript_MarkMeteoriteReceived
+	giveitem ITEM_METEORITE
+	goto_if_eq VAR_RESULT, FALSE, MtChimney_EventScript_MeteoriteBagFull
+	checkitem ITEM_METEORITE
+	goto_if_eq VAR_RESULT, TRUE, MtChimney_EventScript_MarkMeteoriteReceived
+	return
+
+MtChimney_EventScript_MarkMeteoriteReceived::
+	setflag FLAG_RECEIVED_METEORITE
+	return
+
+MtChimney_EventScript_MeteoriteBagFull::
+	call Common_EventScript_BagIsFull
+	return
+
+MtChimney_EventScript_OfferJaggedPassTravel::
+	msgbox MtChimney_Text_GoToJaggedPass, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, YES, MtChimney_EventScript_WarpToJaggedPass
+	return
+
+MtChimney_EventScript_WarpToJaggedPass::
+	closemessage
+	setvar VAR_JAGGED_PASS_ASH_WEATHER, 1
+	fadescreen FADE_TO_BLACK
+	warp MAP_JAGGED_PASS, 13, 6
+	waitstate
+	releaseall
+	end
 
 MtChimney_EventScript_LavaCookieLady::
 	lock
@@ -451,12 +484,25 @@ MtChimney_EventScript_MeteoriteMachine::
 	lockall
 	goto_if_unset FLAG_DEFEATED_EVIL_TEAM_MT_CHIMNEY, MtChimney_EventScript_MachineOn
 	goto_if_set FLAG_RECEIVED_METEORITE, MtChimney_EventScript_MachineOff
+	checkitem ITEM_METEORITE
+	goto_if_eq VAR_RESULT, TRUE, MtChimney_EventScript_MachineMarkMeteoriteReceived
 	msgbox MtChimney_Text_RemoveTheMeteorite, MSGBOX_YESNO
 	goto_if_eq VAR_RESULT, NO, MtChimney_EventScript_LeaveMeteoriteAlone
 	msgbox MtChimney_Text_PlayerRemovedMeteorite, MSGBOX_DEFAULT
 	giveitem ITEM_METEORITE
-	goto_if_eq VAR_RESULT, FALSE, Common_EventScript_ShowBagIsFull
+	goto_if_eq VAR_RESULT, FALSE, MtChimney_EventScript_MachineMeteoriteBagFull
+	checkitem ITEM_METEORITE
+	goto_if_eq VAR_RESULT, FALSE, MtChimney_EventScript_MachineMeteoriteBagFull
 	setflag FLAG_RECEIVED_METEORITE
+	releaseall
+	end
+
+MtChimney_EventScript_MachineMarkMeteoriteReceived::
+	setflag FLAG_RECEIVED_METEORITE
+	goto MtChimney_EventScript_MachineOff
+
+MtChimney_EventScript_MachineMeteoriteBagFull::
+	call Common_EventScript_BagIsFull
 	releaseall
 	end
 
@@ -542,54 +588,20 @@ MtChimney_EventScript_SawyerRematch::
 	end
 
 MtChimney_Text_MeteoriteWillActivateVolcano:
-	.string "The power contained in the METEORITE…\p"
-	.string "By amplifying its power with this\n"
-	.string "machine, MT. CHIMNEY's volcanic\l"
-	.string "activity will instantly intensify…\p"
-	.string "Its energy will grow deep inside\n"
-	.string "the crater and…\l"
-	.string "Fufufu…$"
+	.string "The METEORITE will force MT. CHIMNEY\n"
+	.string "into eruption!$"
 
 MtChimney_Text_MaxieIntro:
-	.string "MAXIE: Hm?\n"
-	.string "Who are you?\p"
-	.string "… … … … … …\n"
-	.string "… … … … … …\p"
-	.string "I'd heard ARCHIE bemoaning a child\n"
-	.string "who's been meddling in TEAM AQUA's\l"
-	.string "affairs.\p"
-	.string "It must be you he meant.\p"
-	.string "Humph! So you're thinking of\n"
-	.string "interfering with us, TEAM MAGMA?\p"
-	.string "Now you listen.\n"
-	.string "Long ago, living things used the\l"
-	.string "land to live and grow.\p"
-	.string "That is why land is all important!\n"
-	.string "It is the cradle of all!\p"
-	.string "That is why TEAM MAGMA is dedicated\n"
-	.string "to the expansion of the land mass.\p"
-	.string "It is for further advancement of\n"
-	.string "humankind and POKéMON!\p"
-	.string "And for that, we need the power of\n"
-	.string "what sleeps within this mountain…\p"
-	.string "Oh! There was no need for you to\n"
-	.string "learn that much.\p"
-	.string "But, no matter!\n"
-	.string "I'll teach you the consequences of\l"
-	.string "meddling in our grand design!$"
+	.string "MAXIE: You oppose TEAM MAGMA's plan\n"
+	.string "to expand the land? Then face me!$"
 
 MtChimney_Text_MaxieDefeat:
 	.string "What?!\p"
 	.string "I, MAXIE, was caught off guard?!$"
 
 MtChimney_Text_MaxieYouHaventSeenLastOfMagma:
-	.string "MAXIE: But, enough.\n"
-	.string "I will back off this time.\p"
-	.string "But don't think that this is the last\n"
-	.string "you've seen of TEAM MAGMA.\p"
-	.string "Fufufu…\p"
-	.string "Even without the METEORITE, if we\n"
-	.string "obtain that ORB… Fufufu…$"
+	.string "MAXIE: Retreat! TEAM MAGMA will not\n"
+	.string "abandon its cause.$"
 
 MtChimney_Text_TabithaIntro:
 	.string "Hehehe!\p"
@@ -666,33 +678,16 @@ MtChimney_Text_Bufoh:
 	.string "Bufoh!$"
 
 MtChimney_Text_ArchieGoStopTeamMagma:
-	.string "ARCHIE: Grr, {PLAYER}!\n"
-	.string "I should've guessed you'd show up!\p"
-	.string "See for yourself what the fanatics\n"
-	.string "of TEAM MAGMA are up to!\p"
-	.string "They're trying to inject the stolen\n"
-	.string "METEORITE's power into the volcano!\p"
-	.string "Doing something like that will cause\n"
-	.string "the volcano's eruption!$"
+	.string "ARCHIE: TEAM MAGMA is using the stolen\n"
+	.string "METEORITE to erupt the volcano!$"
 
 MtChimney_Text_ArchieIHaveMyHandsFull:
-	.string "ARCHIE: Grrr…\p"
-	.string "I want to stop that MAXIE,\n"
-	.string "but I can't!\p"
-	.string "Not when I have my hands full battling\n"
-	.string "three opponents at once!$"
+	.string "ARCHIE: I have to hold these grunts.\n"
+	.string "Stop MAXIE!$"
 
 MtChimney_Text_ArchieThankYou:
-	.string "ARCHIE: {PLAYER}!\n"
-	.string "Thank you!\p"
-	.string "With your help, we thwarted TEAM\n"
-	.string "MAGMA's destructive plan!\p"
-	.string "But… You…\n"
-	.string "Whose side are you on?\p"
-	.string "Ah, it doesn't matter.\p"
-	.string "We will remain vigilant and keep up\n"
-	.string "our pursuit of TEAM MAGMA.\p"
-	.string "{PLAYER}, we shall meet again!$"
+	.string "ARCHIE: Thanks, {PLAYER}. We stopped\n"
+	.string "TEAM MAGMA - for now.$"
 
 MtChimney_Text_MagmaOutnumbersUs:
 	.string "Darn… TEAM MAGMA outnumbers us!\n"
@@ -748,6 +743,10 @@ MtChimney_Text_PlayerLeftMeteorite:
 MtChimney_Text_MachineMakesNoResponse:
 	.string "This mysterious machine…\n"
 	.string "It makes no response whatsoever.$"
+
+MtChimney_Text_GoToJaggedPass:
+	.string "Continue directly to the top of\n"
+	.string "JAGGED PASS?$"
 
 MtChimney_Text_RouteSign:
 	.string "{DOWN_ARROW} JAGGED PATH\n"

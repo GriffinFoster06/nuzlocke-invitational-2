@@ -23,18 +23,6 @@ MeteorFalls_1F_1R_EventScript_MagmaStealsMeteoriteScene::
 	waitmovement 0
 	msgbox MeteorFalls_1F_1R_Text_WithThisMeteorite, MSGBOX_DEFAULT
 	closemessage
-	applymovement LOCALID_METEOR_FALLS_MAGMA_GRUNT_1, Common_Movement_WalkInPlaceFasterUp
-	applymovement LOCALID_METEOR_FALLS_MAGMA_GRUNT_2, Common_Movement_WalkInPlaceFasterUp
-	waitmovement 0
-	playse SE_PIN
-	applymovement LOCALID_METEOR_FALLS_MAGMA_GRUNT_1, Common_Movement_ExclamationMark
-	waitmovement 0
-	applymovement LOCALID_METEOR_FALLS_MAGMA_GRUNT_1, Common_Movement_Delay48
-	waitmovement 0
-	msgbox MeteorFalls_1F_1R_Text_DontExpectMercyFromMagma, MSGBOX_DEFAULT
-	closemessage
-	applymovement LOCALID_METEOR_FALLS_MAGMA_GRUNT_1, MeteorFalls_1F_1R_Movement_MagmaGruntApproachPlayer
-	waitmovement 0
 	msgbox MeteorFalls_1F_1R_Text_HoldItRightThereMagma, MSGBOX_DEFAULT
 	closemessage
 	applymovement LOCALID_PLAYER, Common_Movement_WalkInPlaceFasterLeft
@@ -83,10 +71,13 @@ MeteorFalls_1F_1R_EventScript_MagmaStealsMeteoriteScene::
 	removeobject LOCALID_METEOR_FALLS_ARCHIE
 	removeobject LOCALID_METEOR_FALLS_AQUA_GRUNT_1
 	removeobject LOCALID_METEOR_FALLS_AQUA_GRUNT_2
-	setflag FLAG_HIDE_ROUTE_112_TEAM_MAGMA
-	setflag FLAG_MET_ARCHIE_METEOR_FALLS
-	setflag FLAG_HIDE_FALLARBOR_TOWN_BATTLE_TENT_SCOTT
 	setvar VAR_METEOR_FALLS_STATE, 1
+	setflag FLAG_MET_ARCHIE_METEOR_FALLS
+	setflag FLAG_HIDE_ROUTE_112_TEAM_MAGMA
+	setflag FLAG_HIDE_METEOR_FALLS_TEAM_MAGMA
+	setflag FLAG_HIDE_METEOR_FALLS_TEAM_AQUA
+	setflag FLAG_HIDE_FALLARBOR_TOWN_BATTLE_TENT_SCOTT
+	call MeteorFalls_1F_1R_EventScript_OfferMtChimneyTravel
 	releaseall
 	end
 
@@ -220,6 +211,7 @@ MeteorFalls_1F_1R_Movement_PushPlayerOutOfWay:
 MeteorFalls_1F_1R_EventScript_ProfCozmo::
 	lock
 	faceplayer
+	goto_if_eq VAR_METEOR_FALLS_STATE, 1, MeteorFalls_1F_1R_EventScript_CozmoAfterScene
 	goto_if_set FLAG_MET_PROF_COZMO, MeteorFalls_1F_1R_EventScript_MetCozmo
 	setflag FLAG_MET_PROF_COZMO
 	msgbox MeteorFalls_1F_1R_Text_MeetProfCozmo, MSGBOX_DEFAULT
@@ -231,10 +223,29 @@ MeteorFalls_1F_1R_EventScript_MetCozmo::
 	release
 	end
 
+MeteorFalls_1F_1R_EventScript_CozmoAfterScene::
+	goto_if_set FLAG_DEFEATED_EVIL_TEAM_MT_CHIMNEY, MeteorFalls_1F_1R_EventScript_MetCozmo
+	call MeteorFalls_1F_1R_EventScript_OfferMtChimneyTravel
+	release
+	end
+
+MeteorFalls_1F_1R_EventScript_OfferMtChimneyTravel::
+	msgbox MeteorFalls_1F_1R_Text_GoToMtChimney, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, YES, MeteorFalls_1F_1R_EventScript_WarpToLowerCableStation
+	return
+
+MeteorFalls_1F_1R_EventScript_WarpToLowerCableStation::
+	closemessage
+	setvar VAR_CABLE_CAR_STATION_STATE, 0
+	fadescreen FADE_TO_BLACK
+	warp MAP_ROUTE112_CABLE_CAR_STATION, 6, 9
+	waitstate
+	releaseall
+	end
+
 MeteorFalls_1F_1R_Text_WithThisMeteorite:
-	.string "Hehehe!\p"
-	.string "With this METEORITE, that thing in\n"
-	.string "MT. CHIMNEY will…$"
+	.string "With this METEORITE, TEAM MAGMA will\n"
+	.string "ignite MT. CHIMNEY!$"
 
 MeteorFalls_1F_1R_Text_DontExpectMercyFromMagma:
 	.string "Heh?\p"
@@ -243,50 +254,28 @@ MeteorFalls_1F_1R_Text_DontExpectMercyFromMagma:
 	.string "expect any mercy!$"
 
 MeteorFalls_1F_1R_Text_HoldItRightThereMagma:
-	.string "Hold it right there, TEAM MAGMA!\p"
-	.string "You're badly mistaken if you think you\n"
-	.string "can have your way with the world!$"
+	.string "ARCHIE: Hold it, TEAM MAGMA!$"
 
 MeteorFalls_1F_1R_Text_BeSeeingYouTeamAqua:
-	.string "Hehehe!\n"
-	.string "Even TEAM AQUA joins us!\p"
-	.string "But it's too much trouble to deal with\n"
-	.string "you all…\p"
-	.string "Heh, it doesn't matter!\p"
-	.string "We've got the METEORITE, so off to\n"
-	.string "MT. CHIMNEY we go!\p"
-	.string "Hehehe! Be seeing you, you TEAM\n"
-	.string "AQUA dingbats!$"
+	.string "Keep the METEORITE. We're heading\n"
+	.string "for MT. CHIMNEY!$"
 
 MeteorFalls_1F_1R_Text_ArchieSeenYouBefore:
-	.string "ARCHIE: Didn't I see you before?\n"
-	.string "At SLATEPORT's MUSEUM?\p"
-	.string "Ah, so your name is {PLAYER}.\p"
-	.string "At the time, I thought you were one\n"
-	.string "of TEAM MAGMA's goons.\p"
-	.string "Humph…\n"
-	.string "You're one odd kid.\p"
-	.string "TEAM MAGMA is a dangerous group of\n"
-	.string "total fanatics.\p"
-	.string "They engage in destruction, claiming\n"
-	.string "to expand the land mass.\p"
-	.string "They are the rivals to us,\n"
-	.string "the sea-loving TEAM AQUA!$"
+	.string "ARCHIE: {PLAYER}, TEAM MAGMA is taking\n"
+	.string "the METEORITE to MT. CHIMNEY.$"
 
 MeteorFalls_1F_1R_Text_BossWeShouldChaseMagma:
-	.string "BOSS, we should give chase to\n"
-	.string "TEAM MAGMA…$"
+	.string "BOSS, let's move!$"
 
 MeteorFalls_1F_1R_Text_ArchieYesNoTellingWhatMagmaWillDo:
-	.string "ARCHIE: Yes, yes, we must!\n"
-	.string "We've got to hurry.\p"
-	.string "There's no telling what TEAM MAGMA\n"
-	.string "will do at MT. CHIMNEY!$"
+	.string "ARCHIE: We're going after them.$"
 
 MeteorFalls_1F_1R_Text_ArchieFarewell:
-	.string "ARCHIE: {PLAYER}, you should keep\n"
-	.string "an eye out for TEAM MAGMA, too.\p"
-	.string "Farewell!$"
+	.string "ARCHIE: Meet us at MT. CHIMNEY.$"
+
+MeteorFalls_1F_1R_Text_GoToMtChimney:
+	.string "Go directly to the MT. CHIMNEY\n"
+	.string "CABLE CAR station?$"
 
 MeteorFalls_1F_1R_Text_MeetProfCozmo:
 	.string "I… I'm COZMO…\n"

@@ -47,6 +47,7 @@ LavaridgeTown_Gym_1F_EventScript_Flannery::
 	trainerbattle_single TRAINER_FLANNERY_1, LavaridgeTown_Gym_1F_Text_FlanneryIntro, LavaridgeTown_Gym_1F_Text_FlanneryDefeat, LavaridgeTown_Gym_1F_EventScript_FlanneryDefeated, NO_MUSIC
 	specialvar VAR_RESULT, ShouldTryRematchBattle
 	goto_if_eq VAR_RESULT, TRUE, LavaridgeTown_Gym_1F_EventScript_FlanneryRematch
+	call LavaridgeTown_Gym_1F_EventScript_ReconcileGoGoggles
 	goto_if_unset FLAG_RECEIVED_TM_OVERHEAT, LavaridgeTown_Gym_1F_EventScript_GiveOverheat2
 	msgbox LavaridgeTown_Gym_1F_Text_FlanneryPostBattle, MSGBOX_DEFAULT
 	release
@@ -65,15 +66,11 @@ LavaridgeTown_Gym_1F_EventScript_FlanneryDefeated::
 	setvar VAR_0x8008, 4
 	call Common_EventScript_SetGymTrainers
 	setflag FLAG_HIDE_VERDANTURF_TOWN_WANDAS_HOUSE_WALLY
-	setvar VAR_LAVARIDGE_TOWN_STATE, 1
+	setflag FLAG_HIDE_LAVARIDGE_TOWN_RIVAL
+	setflag FLAG_HIDE_LAVARIDGE_TOWN_RIVAL_ON_BIKE
+	call LavaridgeTown_Gym_1F_EventScript_ReconcileGoGoggles
 	call LavaridgeTown_Gym_1F_EventScript_GiveOverheat
 	closemessage
-	delay 30
-	playfanfare MUS_REGISTER_MATCH_CALL
-	msgbox LavaridgeTown_Gym_1F_Text_RegisteredFlannery, MSGBOX_DEFAULT
-	waitfanfare
-	closemessage
-	delay 30
 	setflag FLAG_ENABLE_FLANNERY_MATCH_CALL
 	release
 	end
@@ -91,6 +88,26 @@ LavaridgeTown_Gym_1F_EventScript_GiveOverheat::
 	goto_if_eq VAR_RESULT, FALSE, Common_EventScript_BagIsFull
 	msgbox LavaridgeTown_Gym_1F_Text_ExplainOverheat, MSGBOX_DEFAULT
 	setflag FLAG_RECEIVED_TM_OVERHEAT
+	return
+
+LavaridgeTown_Gym_1F_EventScript_ReconcileGoGoggles::
+	checkitem ITEM_GO_GOGGLES
+	goto_if_eq VAR_RESULT, TRUE, LavaridgeTown_Gym_1F_EventScript_MarkGoGogglesReceived
+	giveitem ITEM_GO_GOGGLES
+	goto_if_eq VAR_RESULT, FALSE, LavaridgeTown_Gym_1F_EventScript_GoGogglesBagFull
+	checkitem ITEM_GO_GOGGLES
+	goto_if_eq VAR_RESULT, TRUE, LavaridgeTown_Gym_1F_EventScript_MarkGoGogglesReceived
+	return
+
+LavaridgeTown_Gym_1F_EventScript_MarkGoGogglesReceived::
+	setflag FLAG_RECEIVED_GO_GOGGLES
+	setvar VAR_LAVARIDGE_TOWN_STATE, 2
+	setflag FLAG_HIDE_LAVARIDGE_TOWN_RIVAL
+	setflag FLAG_HIDE_LAVARIDGE_TOWN_RIVAL_ON_BIKE
+	return
+
+LavaridgeTown_Gym_1F_EventScript_GoGogglesBagFull::
+	call Common_EventScript_BagIsFull
 	return
 
 LavaridgeTown_Gym_1F_EventScript_FlanneryRematch::
@@ -329,22 +346,12 @@ LavaridgeTown_Gym_1F_Text_ReceivedHeatBadge:
 	.string "from FLANNERY.$"
 
 LavaridgeTown_Gym_1F_Text_ExplainHeatBadgeTakeThis:
-	.string "If you have a HEAT BADGE, all POKéMON\n"
-	.string "up to Level 50, even those you get in\l"
-	.string "trades from other people, will obey\l"
-	.string "you completely.\p"
-	.string "And, it lets POKéMON use the HM move\n"
-	.string "STRENGTH outside of battle.\p"
-	.string "This is a token of my appreciation.\n"
-	.string "Don't be shy about taking it!$"
+	.string "The HEAT BADGE raises your cap and\n"
+	.string "unlocks STRENGTH traversal.\p"
+	.string "Take these GO-GOGGLES for the desert.$"
 
 LavaridgeTown_Gym_1F_Text_ExplainOverheat:
-	.string "That TM50 contains OVERHEAT.\p"
-	.string "That move inflicts serious damage on\n"
-	.string "the opponent.\p"
-	.string "But it also sharply cuts the SP. ATK\n"
-	.string "of the POKéMON using it. It might not\l"
-	.string "be suitable for longer battles.$"
+	.string "Here's a TM as well. Use it wisely.$"
 
 LavaridgeTown_Gym_1F_Text_RegisteredFlannery:
 	.string "Registered GYM LEADER FLANNERY\n"

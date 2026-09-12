@@ -5,7 +5,12 @@ FortreeCity_MapScripts::
 
 FortreeCity_OnTransition:
 	setflag FLAG_VISITED_FORTREE_CITY
+	call_if_set FLAG_KECLEON_FLED_FORTREE, FortreeCity_EventScript_ReconcileKecleonGate
 	end
+
+FortreeCity_EventScript_ReconcileKecleonGate::
+	setflag FLAG_HIDE_FORTREE_CITY_KECLEON
+	return
 
 FortreeCity_OnResume:
 	setstepcallback STEP_CB_FORTREE_BRIDGE
@@ -56,14 +61,8 @@ FortreeCity_EventScript_Kecleon::
 	lock
 	faceplayer
 	checkitem ITEM_DEVON_SCOPE
-	goto_if_eq VAR_RESULT, TRUE, FortreeCity_EventScript_AskUseDevonScope
+	goto_if_eq VAR_RESULT, TRUE, FortreeCity_EventScript_UseDevonScope
 	msgbox FortreeCity_Text_SomethingUnseeable, MSGBOX_DEFAULT
-	release
-	end
-
-FortreeCity_EventScript_AskUseDevonScope::
-	msgbox FortreeCity_Text_UnseeableUseDevonScope, MSGBOX_YESNO
-	goto_if_eq VAR_RESULT, YES, FortreeCity_EventScript_UseDevonScope
 	release
 	end
 
@@ -78,8 +77,9 @@ FortreeCity_EventScript_UseDevonScope::
 	waitmoncry
 	applymovement VAR_LAST_TALKED, FortreeCity_Movement_KecleonFlee
 	waitmovement 0
-	removeobject VAR_LAST_TALKED
 	setflag FLAG_KECLEON_FLED_FORTREE
+	setflag FLAG_HIDE_FORTREE_CITY_KECLEON
+	removeobject VAR_LAST_TALKED
 	release
 	end
 
@@ -131,17 +131,12 @@ FortreeCity_Text_PokemonThatEvolveWhenTraded:
 	.string "you trade them! That's what I heard.$"
 
 FortreeCity_Text_SomethingUnseeable:
-	.string "Something unseeable is in the way.$"
-
-FortreeCity_Text_UnseeableUseDevonScope:
-	.string "Something unseeable is in the way.\p"
-	.string "Want to use the DEVON SCOPE?$"
+	.string "Something unseeable blocks the GYM.\n"
+	.string "STEVEN may know how to reveal it.$"
 
 FortreeCity_Text_UsedDevonScopePokemonFled:
-	.string "{PLAYER} used the DEVON SCOPE.\p"
-	.string "An invisible POKéMON became completely\n"
-	.string "visible!\p"
-	.string "The startled POKéMON fled!$"
+	.string "{PLAYER} used the DEVON SCOPE!\p"
+	.string "The startled KECLEON fled.$"
 
 FortreeCity_Text_CitySign:
 	.string "FORTREE CITY\n"
@@ -153,4 +148,3 @@ FortreeCity_Text_GymSign:
 	.string "LEADER: WINONA\p"
 	.string "“The bird user taking flight into\n"
 	.string "the world.”$"
-

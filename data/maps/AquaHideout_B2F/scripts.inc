@@ -8,6 +8,7 @@ AquaHideout_B2F_OnTransition:
 
 AquaHideout_B2F_EventScript_PreventMattNoticing::
 	setvar VAR_TEMP_1, 1
+	setflag FLAG_HIDE_AQUA_HIDEOUT_B2F_SUBMARINE_SHADOW
 	return
 
 AquaHideout_B2F_EventScript_MattNoticePlayer::
@@ -31,9 +32,6 @@ AquaHideout_B2F_EventScript_Matt::
 AquaHideout_B2F_EventScript_SubmarineEscape::
 	setvar VAR_0x8008, LOCALID_AQUA_HIDEOUT_MATT
 	setvar VAR_0x8009, LOCALID_AQUA_HIDEOUT_SUBMARINE
-	applymovement VAR_0x8008, Common_Movement_WalkInPlaceFasterLeft
-	waitmovement 0
-	delay 20
 	applymovement VAR_0x8008, Common_Movement_FacePlayer
 	waitmovement 0
 	msgbox AquaHideout_B2F_Text_OurBossGotThroughHisPreparations, MSGBOX_DEFAULT
@@ -42,13 +40,20 @@ AquaHideout_B2F_EventScript_SubmarineEscape::
 	applymovement VAR_0x8009, AquaHideout_B2F_Movement_SumbarineDepartLeft
 	waitmovement 0
 	removeobject VAR_0x8009
-	delay 20
-	applymovement VAR_0x8008, Common_Movement_FacePlayer
-	waitmovement 0
-	msgbox AquaHideout_B2F_Text_MattPostBattle, MSGBOX_DEFAULT
 	setflag FLAG_TEAM_AQUA_ESCAPED_IN_SUBMARINE
 	setflag FLAG_HIDE_LILYCOVE_CITY_AQUA_GRUNTS
+	setflag FLAG_HIDE_AQUA_HIDEOUT_B2F_SUBMARINE_SHADOW
+	msgbox AquaHideout_B2F_Text_TravelToLilycove, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, YES, AquaHideout_B2F_EventScript_WarpToLilycove
 	release
+	end
+
+AquaHideout_B2F_EventScript_WarpToLilycove::
+	closemessage
+	fadescreen FADE_TO_BLACK
+	warp MAP_LILYCOVE_CITY, 70, 6
+	waitstate
+	releaseall
 	end
 
 AquaHideout_B2F_Movement_SumbarineDepartLeft:
@@ -101,19 +106,15 @@ AquaHideout_B2F_Text_MattDefeat:
 	.string "So, I lost, too…$"
 
 AquaHideout_B2F_Text_OurBossGotThroughHisPreparations:
-	.string "Hehehe!\p"
-	.string "While I was toying with you, our BOSS\n"
-	.string "got through his preparations!$"
+	.string "MATT: Our BOSS is ready.\n"
+	.string "The submarine leaves now!$"
 
 AquaHideout_B2F_Text_MattPostBattle:
-	.string "Hehehe!\p"
-	.string "Our BOSS has already gone on his way to\n"
-	.string "some cave under the sea!\p"
-	.string "If you're going to give chase, you'd\n"
-	.string "better search the big, wide sea beyond\l"
-	.string "LILYCOVE.\p"
-	.string "But will you find it then?\n"
-	.string "Hehehe!$"
+	.string "Our BOSS is headed for a cave under\n"
+	.string "the sea beyond LILYCOVE.$"
+
+AquaHideout_B2F_Text_TravelToLilycove:
+	.string "Return to LILYCOVE CITY? $"
 
 AquaHideout_B2F_Text_Grunt4Intro:
 	.string "Wahahah, I grew weary of waiting!\n"

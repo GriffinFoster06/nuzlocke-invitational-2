@@ -219,6 +219,7 @@ MossdeepCity_SpaceCenter_1F_EventScript_Grunt2::
 	msgbox MossdeepCity_SpaceCenter_1F_Text_Grunt2Intro, MSGBOX_DEFAULT
 	trainerbattle_no_intro TRAINER_GRUNT_SPACE_CENTER_2, MossdeepCity_SpaceCenter_1F_Text_Grunt2Defeat
 	setflag FLAG_DEFEATED_GRUNT_SPACE_CENTER_1F
+	call_if_eq VAR_MOSSDEEP_SPACE_CENTER_STATE, 1, MossdeepCity_SpaceCenter_1F_EventScript_AdvanceAfterGrunt2
 	copyobjectxytoperm LOCALID_SPACE_CENTER_1F_STAIR_GRUNT
 	switch VAR_FACING
 	case DIR_WEST, MossdeepCity_SpaceCenter_1F_EventScript_MoveGruntFromStairsWest
@@ -234,9 +235,14 @@ MossdeepCity_SpaceCenter_1F_EventScript_Grunt2::
 	end
 
 MossdeepCity_SpaceCenter_1F_EventScript_Grunt2Defeated::
+	call_if_eq VAR_MOSSDEEP_SPACE_CENTER_STATE, 1, MossdeepCity_SpaceCenter_1F_EventScript_AdvanceAfterGrunt2
 	msgbox MossdeepCity_SpaceCenter_1F_Text_Grunt2PostBattle, MSGBOX_DEFAULT
 	release
 	end
+
+MossdeepCity_SpaceCenter_1F_EventScript_AdvanceAfterGrunt2::
+	setvar VAR_MOSSDEEP_SPACE_CENTER_STATE, 2
+	return
 
 MossdeepCity_SpaceCenter_1F_EventScript_MoveGruntFromStairsWest::
 	applymovement LOCALID_SPACE_CENTER_1F_STAIR_GRUNT, MossdeepCity_SpaceCenter_1F_Movement_MoveGruntFromStairsWest

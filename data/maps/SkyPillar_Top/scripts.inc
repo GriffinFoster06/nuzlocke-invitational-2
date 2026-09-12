@@ -86,47 +86,20 @@ SkyPillar_Top_EventScript_RanFromRayquaza2::
 
 SkyPillar_Top_EventScript_AwakenRayquaza::
 	lockall
-	fadeoutbgm 1
 	applymovement LOCALID_PLAYER, Common_Movement_FaceUp
 	waitmovement 0
-	special SpawnCameraObject
-	applymovement LOCALID_CAMERA, SkyPillar_Top_Movement_CameraPanUp
-	waitmovement 0
-	special RemoveCameraObject
-	applymovement LOCALID_RAYQUAZA_SLEEPING, SkyPillar_Top_Movement_RayquazaStir
-	waitmovement 0
 	waitse
 	playmoncry SPECIES_RAYQUAZA, CRY_MODE_ENCOUNTER
-	setvar VAR_0x8004, 1  @ vertical pan
-	setvar VAR_0x8005, 1  @ horizontal pan
-	setvar VAR_0x8006, 8  @ num shakes
-	setvar VAR_0x8007, 3  @ shake delay
-	special ShakeCamera
-	waitstate
-	waitse
-	playmoncry SPECIES_RAYQUAZA, CRY_MODE_ENCOUNTER
-	setvar VAR_0x8004, 1  @ vertical pan
-	setvar VAR_0x8005, 2  @ horizontal pan
-	setvar VAR_0x8006, 8  @ num shakes
-	setvar VAR_0x8007, 5  @ shake delay
-	special ShakeCamera
-	waitstate
 	waitmoncry
 	applymovement LOCALID_RAYQUAZA_SLEEPING, SkyPillar_Top_Movement_RayquazaFlyOff
 	waitmovement 0
 	removeobject LOCALID_RAYQUAZA_SLEEPING
-	msgbox SkyPillar_Top_Text_RayquazaFlewOff, MSGBOX_DEFAULT
-	closemessage
-	delay 20
-	fadeinbgm 1
-	special SpawnCameraObject
-	applymovement LOCALID_CAMERA, SkyPillar_Top_Movement_CameraPanDown
-	waitmovement 0
-	special RemoveCameraObject
 	setvar VAR_SOOTOPOLIS_CITY_STATE, 5
 	setvar VAR_SKY_PILLAR_STATE, 1
 	setvar VAR_SKY_PILLAR_RAYQUAZA_CRY_DONE, 1
-	releaseall
+	setflag FLAG_HIDE_SKY_PILLAR_TOP_RAYQUAZA
+	warpwhitefade MAP_SOOTOPOLIS_CITY, 43, 32
+	waitstate
 	end
 
 @ Rayquaza has unusual movement frames
@@ -179,4 +152,3 @@ SkyPillar_Top_Movement_CameraPanDown:
 
 SkyPillar_Top_Text_RayquazaFlewOff:
 	.string "The awakened RAYQUAZA flew off…$"
-

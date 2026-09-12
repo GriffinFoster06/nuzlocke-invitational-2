@@ -5,7 +5,7 @@
   "music": "MUS_VICTORY_ROAD",
   "region": "REGION_HOENN",
   "region_map_section": "MAPSEC_VICTORY_ROAD",
-  "requires_flash": true,
+  "requires_flash": false,
   "weather": "WEATHER_NONE",
   "map_type": "MAP_TYPE_UNDERGROUND",
   "allow_cycling": true,
@@ -112,8 +112,8 @@
       "x": 30,
       "y": 25,
       "elevation": 3,
-      "dest_map": "MAP_VICTORY_ROAD_B1F",
-      "dest_warp_id": "0"
+      "dest_map": "MAP_VICTORY_ROAD_1F",
+      "dest_warp_id": "4"
     },
     {
       "x": 43,

@@ -33,9 +33,6 @@ MtPyre_Summit_EventScript_TeamAquaExits::
 	playbgm MUS_ENCOUNTER_AQUA, FALSE
 	applymovement LOCALID_PLAYER, Common_Movement_FaceUp
 	waitmovement 0
-	applymovement LOCALID_MT_PYRE_SUMMIT_ARCHIE, Common_Movement_WalkInPlaceFasterDown
-	waitmovement 0
-	delay 50
 	call_if_eq VAR_0x8008, 0, MtPyre_Summit_EventScript_ArchieFacePlayer0
 	call_if_eq VAR_0x8008, 1, MtPyre_Summit_EventScript_ArchieFacePlayer1
 	call_if_eq VAR_0x8008, 2, MtPyre_Summit_EventScript_ArchieFacePlayer2
@@ -51,15 +48,52 @@ MtPyre_Summit_EventScript_TeamAquaExits::
 	setflag FLAG_HIDE_MT_PYRE_SUMMIT_TEAM_AQUA
 	fadedefaultbgm
 	fadescreenswapbuffers FADE_FROM_BLACK
-	delay 20
 	setvar VAR_MT_PYRE_STATE, 1
 	call_if_eq VAR_0x8008, 0, MtPyre_Summit_EventScript_OldLadyApproachPlayer0
 	call_if_eq VAR_0x8008, 1, MtPyre_Summit_EventScript_OldLadyApproachPlayer1
 	call_if_eq VAR_0x8008, 2, MtPyre_Summit_EventScript_OldLadyApproachPlayer2
 	msgbox MtPyre_Summit_Text_BothOrbsTakenMagmaLeftThis, MSGBOX_DEFAULT
+	call MtPyre_Summit_EventScript_AwardMagmaEmblem
+	goto_if_unset FLAG_RECEIVED_RED_OR_BLUE_ORB, MtPyre_Summit_EventScript_FinishMagmaEmblemAward
+	call MtPyre_Summit_EventScript_OfferJaggedPassTravel
+
+MtPyre_Summit_EventScript_FinishMagmaEmblemAward::
+	releaseall
+	end
+
+MtPyre_Summit_EventScript_AwardMagmaEmblem::
+	checkitem ITEM_MAGMA_EMBLEM
+	goto_if_eq VAR_RESULT, TRUE, MtPyre_Summit_EventScript_ConfirmMagmaEmblem
+	checkpcitem ITEM_MAGMA_EMBLEM
+	goto_if_eq VAR_RESULT, TRUE, MtPyre_Summit_EventScript_ConfirmMagmaEmblem
 	giveitem ITEM_MAGMA_EMBLEM
+	goto_if_eq VAR_RESULT, FALSE, MtPyre_Summit_EventScript_MagmaEmblemBagFull
+	checkitem ITEM_MAGMA_EMBLEM
+	goto_if_eq VAR_RESULT, TRUE, MtPyre_Summit_EventScript_ConfirmMagmaEmblem
+	checkpcitem ITEM_MAGMA_EMBLEM
+	goto_if_eq VAR_RESULT, TRUE, MtPyre_Summit_EventScript_ConfirmMagmaEmblem
+	return
+
+MtPyre_Summit_EventScript_ConfirmMagmaEmblem::
 	setflag FLAG_RECEIVED_RED_OR_BLUE_ORB
 	setflag FLAG_HIDE_JAGGED_PASS_MAGMA_GUARD
+	setvar VAR_JAGGED_PASS_STATE, 2
+	return
+
+MtPyre_Summit_EventScript_MagmaEmblemBagFull::
+	call Common_EventScript_BagIsFull
+	return
+
+MtPyre_Summit_EventScript_OfferJaggedPassTravel::
+	msgbox MtPyre_Summit_Text_TravelToMagmaHideout, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, YES, MtPyre_Summit_EventScript_WarpToJaggedPass
+	return
+
+MtPyre_Summit_EventScript_WarpToJaggedPass::
+	closemessage
+	fadescreen FADE_TO_BLACK
+	warp MAP_JAGGED_PASS, 16, 19
+	waitstate
 	releaseall
 	end
 
@@ -154,10 +188,24 @@ MtPyre_Summit_EventScript_OldManNewTale::
 MtPyre_Summit_EventScript_OldLady::
 	lock
 	faceplayer
+	goto_if_eq VAR_MT_PYRE_STATE, 1, MtPyre_Summit_EventScript_OldLadyMagmaEmblem
 	goto_if_set FLAG_RETURNED_RED_OR_BLUE_ORB, MtPyre_Summit_EventScript_OldLadyAfterOrbsReturned
 	call_if_ge VAR_MT_PYRE_STATE, 3, MtPyre_Summit_EventScript_OldLadyOrbsReturned
 	goto_if_set FLAG_KYOGRE_ESCAPED_SEAFLOOR_CAVERN, MtPyre_Summit_EventScript_OldLadyLegendariesAwake
+
+MtPyre_Summit_EventScript_OldLadyOrbsTaken::
 	msgbox MtPyre_Summit_Text_OrbsHaveBeenTaken, MSGBOX_DEFAULT
+	release
+	end
+
+MtPyre_Summit_EventScript_OldLadyMagmaEmblem::
+	goto_if_set FLAG_RECEIVED_RED_OR_BLUE_ORB, MtPyre_Summit_EventScript_OldLadyOrbsTaken
+	msgbox MtPyre_Summit_Text_BothOrbsTakenMagmaLeftThis, MSGBOX_DEFAULT
+	call MtPyre_Summit_EventScript_AwardMagmaEmblem
+	goto_if_unset FLAG_RECEIVED_RED_OR_BLUE_ORB, MtPyre_Summit_EventScript_OldLadyMagmaEmblemDone
+	call MtPyre_Summit_EventScript_OfferJaggedPassTravel
+
+MtPyre_Summit_EventScript_OldLadyMagmaEmblemDone::
 	release
 	end
 
@@ -482,34 +530,17 @@ MtPyre_Summit_Text_Grunt4PostBattle:
 	.string "with us members and our leader.$"
 
 MtPyre_Summit_Text_ArchieWeGotTheOrbLetsGo:
-	.string "ARCHIE: TEAM MAGMA's MAXIE got ahead\n"
-	.string "of us, but we also got what we wanted.\p"
-	.string "The RED ORB preserved at MT. PYRE…\n"
-	.string "I, ARCHIE, now have it in my possession!\p"
-	.string "Fufufu… Now we can bring our ultimate\n"
-	.string "objective to fruition!\p"
-	.string "Okay, TEAM!\n"
-	.string "We're pulling out!$"
+	.string "ARCHIE: The RED ORB is ours.\n"
+	.string "TEAM AQUA, we're pulling out!$"
 
 MtPyre_Summit_Text_BothOrbsTakenMagmaLeftThis:
-	.string "Oh, no…\n"
-	.string "This cannot happen…\p"
-	.string "Not only the BLUE ORB, but even\n"
-	.string "the RED ORB has been taken…\p"
-	.string "The BLUE ORB and RED ORB must never\n"
-	.string "be separated. They belong together.\p"
-	.string "What are those men trying to do with\n"
-	.string "the two ORBS?\p"
-	.string "… … … … … …\n"
-	.string "… … … … … …\p"
-	.string "Oh, yes. Was it TEAM MAGMA who came\n"
-	.string "and took the BLUE ORB first?\p"
-	.string "Well, in their haste, they left this\n"
-	.string "behind.\p"
-	.string "I couldn't imagine what exactly it\n"
-	.string "could be.\p"
-	.string "I would like you to have it.\n"
-	.string "Perhaps it will be useful in some way.$"
+	.string "Both ORBS have been taken…\p"
+	.string "TEAM MAGMA left this EMBLEM behind.\n"
+	.string "Please use it to pursue them.$"
+
+MtPyre_Summit_Text_TravelToMagmaHideout:
+	.string "Travel straight to the\n"
+	.string "MAGMA HIDEOUT? $"
 
 MtPyre_Summit_Text_OrbsHaveBeenTaken:
 	.string "The BLUE ORB and RED ORB taken by\n"
@@ -614,4 +645,3 @@ MtPyre_Summit_Text_HoennTrioTale:
 	.string "becalmed the two enraged POKéMON.\p"
 	.string "Then, its duty done, the green POKéMON\n"
 	.string "flew off into the wild blue yonder…$"
-

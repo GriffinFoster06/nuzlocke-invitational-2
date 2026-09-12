@@ -286,23 +286,6 @@ review and emulator acceptance requirements are resolved.
 
 ---
 
-## Phase 11 — Tournament persistence & polish
-**Before pasting:** turn on plan mode for the persistent-SRAM design.
-
-**Prompt:**
-> Read the Run seed, Hall of Fame, and Hall-of-Fame species exclusion
-> sections of docs/SPEC.md. This is Phase 11 from docs/PHASES.md. Show me
-> your plan for a persistent SRAM region that stores the tournament species
-> exclusion list and survives "New Game" without corrupting or being
-> corrupted by normal save data, before implementing it. Seed-reproducibility
-> guarantees and the Hall of Fame / Run Information export can be planned
-> and implemented in the same pass.
-
-**After you approve:** exit plan mode and reply:
-> Confirmed, proceed. Build and confirm it compiles.
-
----
-
 ## General pattern for any phase not listed exactly as above
 
 > Read [the relevant SPEC.md section(s)] and docs/PHASES.md. This is Phase

@@ -503,27 +503,12 @@ bool32 ShouldDoRoxanneCall(void)
 
 bool32 ShouldDoRivalRayquazaCall(void)
 {
-    if (FlagGet(FLAG_DEFEATED_MAGMA_SPACE_CENTER))
-    {
-        switch (gMapHeader.mapType)
-        {
-        case MAP_TYPE_TOWN:
-        case MAP_TYPE_CITY:
-        case MAP_TYPE_ROUTE:
-        case MAP_TYPE_OCEAN_ROUTE:
-            if (++(*GetVarPointer(VAR_RIVAL_RAYQUAZA_CALL_STEP_COUNTER)) < 250)
-                return FALSE;
-            break;
-        default:
-            return FALSE;
-        }
-    }
-    else
-    {
-        return FALSE;
-    }
-
-    return TRUE;
+    // Phase 10 grants Dive at the Space Center and sends the player directly
+    // toward the eastern sea routes. Clear old-save call progress as well as
+    // the completion latch so this legacy interruption can never fire.
+    FlagClear(FLAG_DEFEATED_MAGMA_SPACE_CENTER);
+    VarSet(VAR_RIVAL_RAYQUAZA_CALL_STEP_COUNTER, 0);
+    return FALSE;
 }
 
 u8 GetLinkPartnerNames(void)

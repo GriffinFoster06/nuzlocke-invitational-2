@@ -77,38 +77,20 @@ MossdeepCity_EventScript_TeamMagmaEnterSpaceCenter::
 	lockall
 	applymovement LOCALID_MOSSDEEP_MAXIE, MossdeepCity_Movement_MaxieGestureToSpaceCenter
 	waitmovement 0
-	applymovement LOCALID_MOSSDEEP_GRUNT_1, MossdeepCity_Movement_GruntFaceSpaceCenter
-	applymovement LOCALID_MOSSDEEP_GRUNT_2, MossdeepCity_Movement_GruntFaceSpaceCenter
-	applymovement LOCALID_MOSSDEEP_GRUNT_3, MossdeepCity_Movement_GruntFaceSpaceCenter
-	applymovement LOCALID_MOSSDEEP_GRUNT_4, MossdeepCity_Movement_GruntFaceSpaceCenter
-	waitmovement 0
-	applymovement LOCALID_MOSSDEEP_MAXIE, MossdeepCity_Movement_MaxieEnterSpaceCenter
-	applymovement LOCALID_MOSSDEEP_GRUNT_1, MossdeepCity_Movement_Grunt1EnterSpaceCenter
-	applymovement LOCALID_MOSSDEEP_GRUNT_2, MossdeepCity_Movement_Grunt2EnterSpaceCenter
-	applymovement LOCALID_MOSSDEEP_GRUNT_3, MossdeepCity_Movement_Grunt3EnterSpaceCenter
-	applymovement LOCALID_MOSSDEEP_GRUNT_4, MossdeepCity_Movement_Grunt4EnterSpaceCenter
-	waitmovement 0
+	fadescreen FADE_TO_BLACK
 	removeobject LOCALID_MOSSDEEP_MAXIE
 	removeobject LOCALID_MOSSDEEP_GRUNT_1
 	removeobject LOCALID_MOSSDEEP_GRUNT_2
 	removeobject LOCALID_MOSSDEEP_GRUNT_3
 	removeobject LOCALID_MOSSDEEP_GRUNT_4
-	delay 30
 	setvar VAR_MOSSDEEP_CITY_STATE, 2
 	setflag FLAG_HIDE_MOSSDEEP_CITY_TEAM_MAGMA
+	fadescreen FADE_FROM_BLACK
 	releaseall
 	end
 
 MossdeepCity_Movement_MaxieGestureToSpaceCenter:
-	delay_16
 	face_right
-	delay_16
-	delay_16
-	delay_16
-	delay_16
-	face_left
-	delay_16
-	delay_16
 	step_end
 
 MossdeepCity_Movement_GruntFaceSpaceCenter:
@@ -425,4 +407,3 @@ MossdeepCity_Text_SootopolisNewGymLeader:
 	.string "LEADER come in.\p"
 	.string "People tell me the new LEADER once\n"
 	.string "mentored WALLACE.$"
-

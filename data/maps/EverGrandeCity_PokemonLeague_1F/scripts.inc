@@ -43,28 +43,24 @@ EverGrandeCity_PokemonLeague_1F_Pokemart:
 	.2byte ITEM_MAX_REPEL
 	pokemartlistend
 
-@ The door guards only check for FLAG_BADGE06_GET because Winonas badge is the only one that can be skipped
-@ Its assumed the player has the remaining badges
 EverGrandeCity_PokemonLeague_1F_EventScript_DoorGuard::
 	lockall
 	goto_if_set FLAG_ENTERED_ELITE_FOUR, EverGrandeCity_PokemonLeague_1F_EventScript_GoForth
 	getplayerxy VAR_TEMP_0, VAR_TEMP_1
 	call_if_ge VAR_TEMP_0, 11, EverGrandeCity_PokemonLeague_1F_EventScript_PlayerMoveToFrontFromRight
 	call_if_le VAR_TEMP_0, 8, EverGrandeCity_PokemonLeague_1F_EventScript_PlayerMoveToFrontFromLeft
-	message EverGrandeCity_PokemonLeague_1F_Text_MustHaveAllGymBadges
-	waitmessage
-	delay 120
+	goto_if_unset FLAG_BADGE01_GET, EverGrandeCity_PokemonLeague_1F_EventScript_NotAllBadges
+	goto_if_unset FLAG_BADGE02_GET, EverGrandeCity_PokemonLeague_1F_EventScript_NotAllBadges
+	goto_if_unset FLAG_BADGE03_GET, EverGrandeCity_PokemonLeague_1F_EventScript_NotAllBadges
+	goto_if_unset FLAG_BADGE04_GET, EverGrandeCity_PokemonLeague_1F_EventScript_NotAllBadges
+	goto_if_unset FLAG_BADGE05_GET, EverGrandeCity_PokemonLeague_1F_EventScript_NotAllBadges
 	goto_if_unset FLAG_BADGE06_GET, EverGrandeCity_PokemonLeague_1F_EventScript_NotAllBadges
-	closemessage
+	goto_if_unset FLAG_BADGE07_GET, EverGrandeCity_PokemonLeague_1F_EventScript_NotAllBadges
+	goto_if_unset FLAG_BADGE08_GET, EverGrandeCity_PokemonLeague_1F_EventScript_NotAllBadges
+	msgbox EverGrandeCity_PokemonLeague_1F_Text_AllBadgesConfirmed, MSGBOX_DEFAULT
 	applymovement LOCALID_LEAGUE_GUARD_1, EverGrandeCity_PokemonLeague_1F_Movement_LeftGuardOutOfWay
 	applymovement LOCALID_LEAGUE_GUARD_2, EverGrandeCity_PokemonLeague_1F_Movement_RightGuardOutOfWay
 	waitmovement 0
-	delay 10
-	playfanfare MUS_OBTAIN_BADGE
-	message EverGrandeCity_PokemonLeague_1F_Text_GoForth
-	waitmessage
-	waitfanfare
-	closemessage
 	copyobjectxytoperm LOCALID_LEAGUE_GUARD_1
 	copyobjectxytoperm LOCALID_LEAGUE_GUARD_2
 	setflag FLAG_ENTERED_ELITE_FOUR
@@ -119,19 +115,13 @@ EverGrandeCity_PokemonLeague_1F_Movement_RightGuardOutOfWay:
 	walk_in_place_faster_down
 	step_end
 
-EverGrandeCity_PokemonLeague_1F_Text_MustHaveAllGymBadges:
-	.string "Beyond this point, only those TRAINERS\n"
-	.string "who have collected all the GYM BADGES\l"
-	.string "are permitted to enter.\p"
-	.string "TRAINER, let us confirm that you have\n"
-	.string "all the GYM BADGES.$"
+EverGrandeCity_PokemonLeague_1F_Text_AllBadgesConfirmed:
+	.string "All eight GYM BADGES confirmed.\n"
+	.string "You may enter.$"
 
 EverGrandeCity_PokemonLeague_1F_Text_HaventObtainedAllBadges:
-	.string "You haven't obtained all the BADGES.\p"
-	.string "If you're bound for the POKéMON\n"
-	.string "LEAGUE, you must return with them.$"
+	.string "All eight GYM BADGES are required.$"
 
 EverGrandeCity_PokemonLeague_1F_Text_GoForth:
 	.string "TRAINER! Believe in yourself and your\n"
 	.string "POKéMON, and go forth!$"
-

@@ -4,30 +4,17 @@ SeafloorCavern_Room9_MapScripts::
 SeafloorCavern_Room9_EventScript_ArchieAwakenKyogre::
 	lockall
 	setvar VAR_0x8004, LOCALID_SEAFLOOR_CAVERN_ARCHIE
-	setvar VAR_0x8005, LOCALID_SEAFLOOR_CAVERN_MAXIE
-	setvar VAR_0x8006, LOCALID_SEAFLOOR_CAVERN_GRUNT_1
-	setvar VAR_0x8007, LOCALID_SEAFLOOR_CAVERN_GRUNT_2
 	applymovement LOCALID_PLAYER, Common_Movement_WalkInPlaceFasterUp
 	waitmovement 0
-	applymovement LOCALID_PLAYER, SeafloorCavern_Room9_Movement_Delay32
-	waitmovement 0
 	playbgm MUS_ENCOUNTER_AQUA, FALSE
-	msgbox SeafloorCavern_Room9_Text_ArchieHoldItRightThere, MSGBOX_DEFAULT
-	closemessage
 	addobject VAR_0x8004
 	applymovement LOCALID_PLAYER, Common_Movement_WalkInPlaceFasterLeft
 	waitmovement 0
 	applymovement VAR_0x8004, SeafloorCavern_Room9_Movement_ArchieApproachPlayer
 	waitmovement 0
-	msgbox SeafloorCavern_Room9_Text_ArchieSoItWasYou, MSGBOX_DEFAULT
-	applymovement VAR_0x8004, Common_Movement_WalkInPlaceFasterUp
-	waitmovement 0
-	msgbox SeafloorCavern_Room9_Text_ArchieBeholdKyogre, MSGBOX_DEFAULT
-	applymovement VAR_0x8004, Common_Movement_FacePlayer
-	waitmovement 0
-	msgbox SeafloorCavern_Room9_Text_ArchieYouMustDisappear, MSGBOX_DEFAULT
+	msgbox SeafloorCavern_Room9_Text_ArchieFinalStand, MSGBOX_DEFAULT
 	trainerbattle_no_intro TRAINER_ARCHIE, SeafloorCavern_Room9_Text_ArchieDefeat
-	msgbox SeafloorCavern_Room9_Text_ArchieWithThisRedOrb, MSGBOX_DEFAULT
+	msgbox SeafloorCavern_Room9_Text_ArchieWakeKyogre, MSGBOX_DEFAULT
 	setweather WEATHER_NONE
 	doweather
 	special Script_FadeOutMapMusic
@@ -69,51 +56,14 @@ SeafloorCavern_Room9_EventScript_ArchieAwakenKyogre::
 	setvar VAR_0x8007, 5  @ shake delay
 	special ShakeCamera
 	waitstate
-	delay 30
-	setvar VAR_0x8004, LOCALID_SEAFLOOR_CAVERN_ARCHIE
-	setvar VAR_0x8005, LOCALID_SEAFLOOR_CAVERN_MAXIE
-	setvar VAR_0x8006, LOCALID_SEAFLOOR_CAVERN_GRUNT_1
-	setvar VAR_0x8007, LOCALID_SEAFLOOR_CAVERN_GRUNT_2
-	msgbox SeafloorCavern_Room9_Text_ArchieWhereDidKyogreGo, MSGBOX_DEFAULT
-	playse SE_PC_LOGIN
-	applymovement LOCALID_PLAYER, Common_Movement_WalkInPlaceFasterLeft
-	waitmovement 0
-	msgbox SeafloorCavern_Room9_Text_ArchieAMessageFromOutside, MSGBOX_DEFAULT
-	closemessage
-	applymovement VAR_0x8004, SeafloorCavern_Room9_Movement_ArchieListenMessage
-	waitmovement 0
-	msgbox SeafloorCavern_Room9_Text_ArchieWhatRainingTooHard, MSGBOX_DEFAULT
-	closemessage
-	playse SE_PC_OFF
-	delay 20
-	applymovement VAR_0x8004, Common_Movement_WalkInPlaceFasterDown
-	waitmovement 0
-	msgbox SeafloorCavern_Room9_Text_ArchieWhyDidKyogreDisappear, MSGBOX_DEFAULT
-	closemessage
-	addobject VAR_0x8005
-	addobject VAR_0x8006
-	addobject VAR_0x8007
-	applymovement VAR_0x8007, SeafloorCavern_Room9_Movement_MagmaGruntArrive
-	applymovement VAR_0x8006, SeafloorCavern_Room9_Movement_MagmaGruntArrive
-	applymovement VAR_0x8005, SeafloorCavern_Room9_Movement_MaxieArrive
-	waitmovement 0
-	applymovement VAR_0x8004, Common_Movement_WalkInPlaceFasterLeft
-	waitmovement 0
-	msgbox SeafloorCavern_Room9_Text_MaxieWhatHaveYouWrought, MSGBOX_DEFAULT
-	playse SE_PIN
-	applymovement VAR_0x8004, Common_Movement_ExclamationMark
-	waitmovement 0
-	applymovement VAR_0x8004, Common_Movement_Delay48
-	waitmovement 0
-	msgbox SeafloorCavern_Room9_Text_ArchieDontGetAllHighAndMighty, MSGBOX_DEFAULT
-	msgbox SeafloorCavern_Room9_Text_MaxieWeDontHaveTimeToArgue, MSGBOX_DEFAULT
-	closemessage
-	applymovement VAR_0x8005, SeafloorCavern_Room9_Movement_MaxieExit
-	applymovement VAR_0x8004, SeafloorCavern_Room9_Movement_ArchieExit
-	waitmovement 0
-	msgbox SeafloorCavern_Room9_Text_MaxieComeOnPlayer, MSGBOX_DEFAULT
-	setvar VAR_ROUTE128_STATE, 1
+	msgbox SeafloorCavern_Room9_Text_ArchieConsequences, MSGBOX_DEFAULT
+	setvar VAR_SEAFLOOR_CAVERN_STATE, 1
+	setvar VAR_ROUTE128_STATE, 2
 	setvar VAR_SOOTOPOLIS_CITY_STATE, 1
+	setvar VAR_SKY_PILLAR_STATE, 0
+	setflag FLAG_KYOGRE_ESCAPED_SEAFLOOR_CAVERN
+	setflag FLAG_SYS_WEATHER_CTRL
+	setflag FLAG_LEGENDARIES_IN_SOOTOPOLIS
 	clearflag FLAG_HIDE_SOOTOPOLIS_CITY_STEVEN
 	clearflag FLAG_HIDE_SOOTOPOLIS_CITY_ARCHIE
 	clearflag FLAG_HIDE_SOOTOPOLIS_CITY_MAXIE
@@ -121,23 +71,21 @@ SeafloorCavern_Room9_EventScript_ArchieAwakenKyogre::
 	clearflag FLAG_HIDE_SOOTOPOLIS_CITY_GROUDON
 	clearflag FLAG_HIDE_SOOTOPOLIS_CITY_KYOGRE
 	setflag FLAG_HIDE_SOOTOPOLIS_CITY_MAN_1
-	setflag FLAG_LEGENDARIES_IN_SOOTOPOLIS
-	clearflag FLAG_HIDE_ROUTE_128_ARCHIE
-	clearflag FLAG_HIDE_ROUTE_128_MAXIE
-	setflag FLAG_SYS_WEATHER_CTRL
-	setflag FLAG_KYOGRE_ESCAPED_SEAFLOOR_CAVERN
+	setflag FLAG_HIDE_SOOTOPOLIS_CITY_RAYQUAZA
+	setflag FLAG_HIDE_ROUTE_128_STEVEN
+	setflag FLAG_HIDE_ROUTE_128_ARCHIE
+	setflag FLAG_HIDE_ROUTE_128_MAXIE
 	setflag FLAG_HIDE_MOSSDEEP_CITY_STEVENS_HOUSE_STEVEN
 	setvar VAR_STEVENS_HOUSE_STATE, 2
-	setvar VAR_SEAFLOOR_CAVERN_STATE, 1
 	setflag FLAG_HIDE_SEAFLOOR_CAVERN_ROOM_9_ARCHIE
 	setflag FLAG_HIDE_SEAFLOOR_CAVERN_ROOM_9_MAXIE
 	setflag FLAG_HIDE_SEAFLOOR_CAVERN_ROOM_9_MAGMA_GRUNTS
 	setflag FLAG_HIDE_SEAFLOOR_CAVERN_ROOM_9_KYOGRE
+	setflag FLAG_HIDE_SEAFLOOR_CAVERN_ROOM_9_KYOGRE_ASLEEP
 	setflag FLAG_HIDE_SEAFLOOR_CAVERN_AQUA_GRUNTS
 	setflag FLAG_HIDE_MAP_NAME_POPUP
-	warp MAP_ROUTE128, 38, 22
+	warpwhitefade MAP_SOOTOPOLIS_CITY, 43, 32
 	waitstate
-	releaseall
 	end
 
 SeafloorCavern_Room9_Movement_ArchieApproachPlayer:
@@ -217,6 +165,19 @@ SeafloorCavern_Room9_Movement_Delay32:
 
 SeafloorCavern_Room9_Text_ArchieHoldItRightThere:
 	.string "ARCHIE: Hold it right there.$"
+
+SeafloorCavern_Room9_Text_ArchieFinalStand:
+	.string "ARCHIE: You've come far, {PLAYER}.\p"
+	.string "But you won't stop TEAM AQUA from\n"
+	.string "awakening KYOGRE!$"
+
+SeafloorCavern_Room9_Text_ArchieWakeKyogre:
+	.string "ARCHIE: The RED ORB will awaken\n"
+	.string "KYOGRE now!$"
+
+SeafloorCavern_Room9_Text_ArchieConsequences:
+	.string "ARCHIE: The storm is out of control…\p"
+	.string "We have to reach SOOTOPOLIS!$"
 
 SeafloorCavern_Room9_Text_ArchieSoItWasYou:
 	.string "ARCHIE: Fufufu…\n"

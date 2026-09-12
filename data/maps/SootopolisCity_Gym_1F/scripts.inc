@@ -81,9 +81,14 @@ SootopolisCity_Gym_1F_Movement_FallThroughIce:
 
 SootopolisCity_Gym_1F_EventScript_Juan::
 	trainerbattle_single TRAINER_JUAN_1, SootopolisCity_Gym_1F_Text_JuanIntro, SootopolisCity_Gym_1F_Text_JuanDefeat, SootopolisCity_Gym_1F_EventScript_JuanDefeated, NO_MUSIC
+	goto SootopolisCity_Gym_1F_EventScript_JuanPostVictory
+	end
+
+SootopolisCity_Gym_1F_EventScript_JuanPostVictory::
+	goto_if_unset FLAG_RECEIVED_HM_WATERFALL, SootopolisCity_Gym_1F_EventScript_RetryWaterfall
+	goto_if_unset FLAG_RECEIVED_TM_WATER_PULSE, SootopolisCity_Gym_1F_EventScript_GiveWaterPulse2
 	specialvar VAR_RESULT, ShouldTryRematchBattle
 	goto_if_eq VAR_RESULT, TRUE, SootopolisCity_Gym_1F_EventScript_JuanRematch
-	goto_if_unset FLAG_RECEIVED_TM_WATER_PULSE, SootopolisCity_Gym_1F_EventScript_GiveWaterPulse2
 	goto_if_unset FLAG_BADGE06_GET, SootopolisCity_Gym_1F_EventScript_GoGetFortreeBadge
 	msgbox SootopolisCity_Gym_1F_Text_JuanPostBattle, MSGBOX_DEFAULT
 	release
@@ -93,7 +98,6 @@ SootopolisCity_Gym_1F_EventScript_JuanDefeated::
 	message SootopolisCity_Gym_1F_Text_ReceivedRainBadge
 	waitmessage
 	call Common_EventScript_PlayGymBadgeFanfare
-	msgbox SootopolisCity_Gym_1F_Text_ExplainRainBadgeTakeThis, MSGBOX_DEFAULT
 	setflag FLAG_DEFEATED_SOOTOPOLIS_GYM
 	setflag FLAG_BADGE08_GET
 	setflag FLAG_HIDE_SOOTOPOLIS_CITY_RESIDENTS
@@ -103,7 +107,9 @@ SootopolisCity_Gym_1F_EventScript_JuanDefeated::
 	clearflag FLAG_HIDE_SOOTOPOLIS_CITY_MAN_1
 	setvar VAR_0x8008, 8
 	call Common_EventScript_SetGymTrainers
-	call SootopolisCity_Gym_1F_EventScript_GiveWaterPulse
+	msgbox SootopolisCity_Gym_1F_Text_ExplainRainBadgeTakeThis, MSGBOX_DEFAULT
+	call SootopolisCity_Gym_1F_EventScript_AwardWaterfall
+	call_if_set FLAG_RECEIVED_HM_WATERFALL, SootopolisCity_Gym_1F_EventScript_GiveWaterPulse
 	closemessage
 	delay 30
 	playfanfare MUS_REGISTER_MATCH_CALL
@@ -114,6 +120,38 @@ SootopolisCity_Gym_1F_EventScript_JuanDefeated::
 	setflag FLAG_ENABLE_JUAN_MATCH_CALL
 	release
 	end
+
+SootopolisCity_Gym_1F_EventScript_RetryWaterfall::
+	call SootopolisCity_Gym_1F_EventScript_AwardWaterfall
+	goto_if_unset FLAG_RECEIVED_HM_WATERFALL, SootopolisCity_Gym_1F_EventScript_WaterfallRetryDone
+	goto_if_unset FLAG_RECEIVED_TM_WATER_PULSE, SootopolisCity_Gym_1F_EventScript_GiveWaterPulse2
+	goto SootopolisCity_Gym_1F_EventScript_JuanPostVictory
+
+SootopolisCity_Gym_1F_EventScript_WaterfallRetryDone::
+	release
+	end
+
+SootopolisCity_Gym_1F_EventScript_AwardWaterfall::
+	checkitem ITEM_HM_WATERFALL
+	goto_if_eq VAR_RESULT, TRUE, SootopolisCity_Gym_1F_EventScript_ConfirmWaterfall
+	checkpcitem ITEM_HM_WATERFALL
+	goto_if_eq VAR_RESULT, TRUE, SootopolisCity_Gym_1F_EventScript_ConfirmWaterfall
+	msgbox SootopolisCity_Gym_1F_Text_TakeWaterfall, MSGBOX_DEFAULT
+	giveitem ITEM_HM_WATERFALL
+	goto_if_eq VAR_RESULT, FALSE, SootopolisCity_Gym_1F_EventScript_WaterfallBagFull
+	checkitem ITEM_HM_WATERFALL
+	goto_if_eq VAR_RESULT, TRUE, SootopolisCity_Gym_1F_EventScript_ConfirmWaterfall
+	checkpcitem ITEM_HM_WATERFALL
+	goto_if_eq VAR_RESULT, TRUE, SootopolisCity_Gym_1F_EventScript_ConfirmWaterfall
+	return
+
+SootopolisCity_Gym_1F_EventScript_ConfirmWaterfall::
+	setflag FLAG_RECEIVED_HM_WATERFALL
+	return
+
+SootopolisCity_Gym_1F_EventScript_WaterfallBagFull::
+	call Common_EventScript_BagIsFull
+	return
 
 SootopolisCity_Gym_1F_EventScript_GiveWaterPulse::
 	giveitem ITEM_TM_WATER_PULSE
@@ -237,14 +275,12 @@ SootopolisCity_Gym_1F_Text_ReceivedRainBadge:
 	.string "from JUAN.$"
 
 SootopolisCity_Gym_1F_Text_ExplainRainBadgeTakeThis:
-	.string "Having the RAIN BADGE shall assure you\n"
-	.string "the full obedience of all your POKéMON\l"
-	.string "to your every command.\p"
-	.string "The RAIN BADGE also allows the use\n"
-	.string "of the HM move WATERFALL to scale\l"
-	.string "walls of cascading water.\p"
-	.string "And, so that you never forget the\n"
-	.string "battle we shared, take this…$"
+	.string "Your level cap is now 63, and\n"
+	.string "WATERFALL traversal is unlocked.$"
+
+SootopolisCity_Gym_1F_Text_TakeWaterfall:
+	.string "JUAN: Take this HM as a keepsake\n"
+	.string "of our battle.$"
 
 SootopolisCity_Gym_1F_Text_ExplainWaterPulse:
 	.string "The TECHNICAL MACHINE I handed you\n"
@@ -316,4 +352,3 @@ SootopolisCity_Gym_1F_Text_JuanRematchNeedTwoMons:
 	.string "You have with you but one POKéMON.\p"
 	.string "I wish that you would return with\n"
 	.string "two, perhaps more, POKéMON, please.$"
-

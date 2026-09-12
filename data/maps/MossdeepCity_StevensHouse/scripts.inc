@@ -22,11 +22,20 @@ MossdeepCity_StevensHouse_EventScript_SetStevenPos::
 	return
 
 MossdeepCity_StevensHouse_OnFrame:
-	map_script_2 VAR_STEVENS_HOUSE_STATE, 1, MossdeepCity_StevensHouse_EventScript_StevenGivesDive
+	map_script_2 VAR_TEMP_1, 0, MossdeepCity_StevensHouse_EventScript_CheckLegacyDive
 	.2byte 0
+
+MossdeepCity_StevensHouse_EventScript_CheckLegacyDive::
+	setvar VAR_TEMP_1, 1
+	goto_if_eq VAR_STEVENS_HOUSE_STATE, 1, MossdeepCity_StevensHouse_EventScript_StevenGivesDive
+	end
 
 MossdeepCity_StevensHouse_EventScript_StevenGivesDive::
 	lockall
+	checkitem ITEM_HM_DIVE
+	goto_if_eq VAR_RESULT, TRUE, MossdeepCity_StevensHouse_EventScript_ReconcileDive
+	checkpcitem ITEM_HM_DIVE
+	goto_if_eq VAR_RESULT, TRUE, MossdeepCity_StevensHouse_EventScript_ReconcileDive
 	applymovement LOCALID_STEVENS_HOUSE_STEVEN, Common_Movement_WalkInPlaceFasterLeft
 	waitmovement 0
 	playse SE_PIN
@@ -37,18 +46,56 @@ MossdeepCity_StevensHouse_EventScript_StevenGivesDive::
 	applymovement LOCALID_STEVENS_HOUSE_STEVEN, MossdeepCity_StevensHouse_Movement_StevenApproachPlayer
 	waitmovement 0
 	msgbox MossdeepCity_StevensHouse_Text_YouveEarnedHMDive, MSGBOX_DEFAULT
-	giveitem ITEM_HM_DIVE
-	setflag FLAG_RECEIVED_HM_DIVE
-	setflag FLAG_OMIT_DIVE_FROM_STEVEN_LETTER
+	call MossdeepCity_StevensHouse_EventScript_AwardDive
+	goto_if_unset FLAG_RECEIVED_HM_DIVE, MossdeepCity_StevensHouse_EventScript_DiveAwardDone
 	msgbox MossdeepCity_StevensHouse_Text_ExplainDive, MSGBOX_DEFAULT
 	closemessage
 	delay 20
 	applymovement LOCALID_STEVENS_HOUSE_STEVEN, MossdeepCity_StevensHouse_Movement_StevenReturn
 	waitmovement 0
+
+MossdeepCity_StevensHouse_EventScript_DiveAwardDone::
+	releaseall
+	end
+
+MossdeepCity_StevensHouse_EventScript_AwardDive::
+	checkitem ITEM_HM_DIVE
+	goto_if_eq VAR_RESULT, TRUE, MossdeepCity_StevensHouse_EventScript_ConfirmDive
+	checkpcitem ITEM_HM_DIVE
+	goto_if_eq VAR_RESULT, TRUE, MossdeepCity_StevensHouse_EventScript_ConfirmDive
+	giveitem ITEM_HM_DIVE
+	goto_if_eq VAR_RESULT, FALSE, MossdeepCity_StevensHouse_EventScript_DiveBagFull
+	checkitem ITEM_HM_DIVE
+	goto_if_eq VAR_RESULT, TRUE, MossdeepCity_StevensHouse_EventScript_ConfirmDive
+	checkpcitem ITEM_HM_DIVE
+	goto_if_eq VAR_RESULT, TRUE, MossdeepCity_StevensHouse_EventScript_ConfirmDive
+	return
+
+MossdeepCity_StevensHouse_EventScript_ConfirmDive::
+	setflag FLAG_RECEIVED_HM_DIVE
+	setflag FLAG_OMIT_DIVE_FROM_STEVEN_LETTER
 	setflag FLAG_HIDE_MOSSDEEP_CITY_SCOTT
 	setflag FLAG_HIDE_SEAFLOOR_CAVERN_ENTRANCE_AQUA_GRUNT
 	setvar VAR_STEVENS_HOUSE_STATE, 2
+	return
+
+MossdeepCity_StevensHouse_EventScript_ReconcileDive::
+	call MossdeepCity_StevensHouse_EventScript_ConfirmDive
 	releaseall
+	end
+
+MossdeepCity_StevensHouse_EventScript_DiveBagFull::
+	call Common_EventScript_BagIsFull
+	return
+
+MossdeepCity_StevensHouse_EventScript_RetryDive::
+	msgbox MossdeepCity_StevensHouse_Text_YouveEarnedHMDive, MSGBOX_DEFAULT
+	call MossdeepCity_StevensHouse_EventScript_AwardDive
+	goto_if_unset FLAG_RECEIVED_HM_DIVE, MossdeepCity_StevensHouse_EventScript_RetryDiveDone
+	msgbox MossdeepCity_StevensHouse_Text_ExplainDive, MSGBOX_DEFAULT
+
+MossdeepCity_StevensHouse_EventScript_RetryDiveDone::
+	release
 	end
 
 MossdeepCity_StevensHouse_Movement_StevenApproachPlayer:
@@ -132,7 +179,11 @@ MossdeepCity_StevensHouse_EventScript_RockDisplay::
 	end
 
 MossdeepCity_StevensHouse_EventScript_Steven::
-	msgbox MossdeepCity_StevensHouse_Text_UnderwateCavernBetweenMossdeepSootopolis, MSGBOX_NPC
+	lock
+	faceplayer
+	goto_if_eq VAR_STEVENS_HOUSE_STATE, 1, MossdeepCity_StevensHouse_EventScript_RetryDive
+	msgbox MossdeepCity_StevensHouse_Text_UnderwateCavernBetweenMossdeepSootopolis, MSGBOX_DEFAULT
+	release
 	end
 
 MossdeepCity_StevensHouse_EventScript_Letter::
@@ -211,4 +262,3 @@ MossdeepCity_StevensHouse_Text_LetterFromSteven:
 MossdeepCity_StevensHouse_Text_CollectionOfRareRocks:
 	.string "It's a collection of rare rocks and\n"
 	.string "stones assembled by STEVEN.$"
-

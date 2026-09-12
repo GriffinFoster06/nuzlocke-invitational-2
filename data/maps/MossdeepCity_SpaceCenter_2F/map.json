@@ -72,48 +72,6 @@
       "flag": "FLAG_HIDE_MOSSDEEP_CITY_SPACE_CENTER_2F_STEVEN"
     },
     {
-      "local_id": "LOCALID_SPACE_CENTER_GRUNT_6",
-      "graphics_id": "OBJ_EVENT_GFX_MAGMA_MEMBER_M",
-      "x": 12,
-      "y": 2,
-      "elevation": 3,
-      "movement_type": "MOVEMENT_TYPE_FACE_RIGHT",
-      "movement_range_x": 1,
-      "movement_range_y": 1,
-      "trainer_type": "TRAINER_TYPE_NONE",
-      "trainer_sight_or_berry_tree_id": "0",
-      "script": "MossdeepCity_SpaceCenter_2F_EventScript_Grunt6",
-      "flag": "FLAG_HIDE_MOSSDEEP_CITY_SPACE_CENTER_2F_TEAM_MAGMA"
-    },
-    {
-      "local_id": "LOCALID_SPACE_CENTER_GRUNT_5",
-      "graphics_id": "OBJ_EVENT_GFX_MAGMA_MEMBER_M",
-      "x": 13,
-      "y": 3,
-      "elevation": 3,
-      "movement_type": "MOVEMENT_TYPE_FACE_UP",
-      "movement_range_x": 1,
-      "movement_range_y": 1,
-      "trainer_type": "TRAINER_TYPE_NONE",
-      "trainer_sight_or_berry_tree_id": "0",
-      "script": "MossdeepCity_SpaceCenter_2F_EventScript_Grunt5",
-      "flag": "FLAG_HIDE_MOSSDEEP_CITY_SPACE_CENTER_2F_TEAM_MAGMA"
-    },
-    {
-      "local_id": "LOCALID_SPACE_CENTER_GRUNT_7",
-      "graphics_id": "OBJ_EVENT_GFX_MAGMA_MEMBER_M",
-      "x": 14,
-      "y": 2,
-      "elevation": 3,
-      "movement_type": "MOVEMENT_TYPE_FACE_LEFT",
-      "movement_range_x": 1,
-      "movement_range_y": 1,
-      "trainer_type": "TRAINER_TYPE_NONE",
-      "trainer_sight_or_berry_tree_id": "0",
-      "script": "MossdeepCity_SpaceCenter_2F_EventScript_Grunt7",
-      "flag": "FLAG_HIDE_MOSSDEEP_CITY_SPACE_CENTER_2F_TEAM_MAGMA"
-    },
-    {
       "local_id": "LOCALID_SPACE_CENTER_TABITHA",
       "graphics_id": "OBJ_EVENT_GFX_MAGMA_MEMBER_M",
       "x": 0,

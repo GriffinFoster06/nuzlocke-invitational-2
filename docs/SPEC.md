@@ -1,18 +1,14 @@
 # ROM Specification
 
-Defaults follow this priority rule:
-1. **Invitational 2 behavior whenever known.**
-2. **Randolocke behavior when Invitational 2 does not establish it.**
-3. **Our design choice only where neither establishes a default.**
+This document is the authoritative product design. Historical Invitational 2
+and Randolocke behavior can inform choices only where this specification does
+not decide them; neither is an authority over an explicit rule below.
 
-The official Invitational rules explicitly establish permadeath, location-tag
-encounters, evolutionary-family Dupes Clause, nicknames, Shiny Clause, no
-battle items, balanced Pokémon/move/ability randomization, automatic Gym
-caps, over-cap illegality, whiteout resets, Level to Cap, infinite Repels,
-HM-free traversal, linearized gameplay, Gen 9 mechanics, and the Hall-of-Fame
-species removal rule. Randolocke supplies the fallback defaults for things
-such as the 21-move 7/7/7 learnsets, universal compatibility, randomized
-items/Tutors, map additions, catch-rate boost, and various QoL features.
+This is a solo, replay-focused randomized Emerald adventure. There is no
+Tournament mode, no competitive final-team locking, and no persistent or
+cross-run species-ban system. A completed run must never change the species or
+other randomization pools used by a later fresh run. The Hall of Fame is an
+informational and celebratory solo-run archive only.
 
 ## Core game
 - Pokémon Emerald is the underlying world and campaign.
@@ -30,32 +26,33 @@ items/Tutors, map additions, catch-rate boost, and various QoL features.
 - All Pokémon included in the ROM can be fully evolved in a single-player game.
 
 ## Default preset
-- The default overall preset is Invitational 2 Solo.
+- The player-facing default is **Recommended**, representing the way the
+  developers genuinely intend the game to be played.
 - It uses: Hardcore Nuzlocke rules, balanced species randomization, randomized
-  moves, randomized abilities, randomized TMs/Tutors/items where Invitational
-  does not contradict Randolocke, Gen 9 mechanics, level caps, Level to Cap,
-  Infinite Repel, HM-free progression, linearized campaign, maximum-strength
-  fair AI.
-- A separate Invitational 2 Tournament preset adds the cross-run
-  Hall-of-Fame species exclusion system.
+  moves, randomized abilities, randomized TMs/Tutors/items, Gen 9 mechanics,
+  level caps, Level to Cap, Infinite Repel, HM-free progression, linearized
+  campaign, maximum-strength fair AI, and the other defaults specified below.
+- New Game should begin promptly with Recommended selected instead of forcing
+  the player through a large configuration wall.
 
-## Additional presets
-- **Invitational 2 Solo** — main default; designed for one player repeatedly
-  attempting the challenge.
-- **Invitational 2 Tournament** — same gameplay rules; adds persistent
-  Hall-of-Fame species exclusions for later fresh runs; adds final-team
-  locking/export information.
-- **Randolocke** — uses Randolocke's documented defaults as closely as
-  possible; retains our improved fair AI.
+## Core player-facing presets
+- **Recommended** — main default and intended solo replay experience.
 - **Modern Emerald** — normal Emerald species/trainers rather than
   randomized ones; modern Gen 9 battle engine and QoL; story streamlining
   can remain enabled.
 - **Randomizer** — full randomization and QoL without mandatory Nuzlocke
   restrictions.
-- **Custom** — every supported setting can be individually changed.
+- **Custom / Advanced** — supported settings can be individually changed.
+  Randolocke-style or other legacy configuration may remain here when useful,
+  but does not require equal player-facing prominence.
 - Choosing a preset fills all settings automatically. Changing an individual
-  setting changes the displayed ruleset to Custom. Players can restore an
-  individual category or the entire configuration to its preset defaults.
+  setting changes the displayed ruleset to Custom / Advanced. Players can
+  restore an individual category or the entire configuration to its preset
+  defaults.
+- Phase 12 may simplify, hide, reorganize, or remove redundant player-facing
+  settings while preserving supported underlying functionality. Feature
+  completeness does not require every historical option to have equal
+  prominence.
 
 ## Settings behavior
 - Settings that determine the generated world are chosen before starting the
@@ -73,10 +70,12 @@ items/Tutors, map additions, catch-rate boost, and various QoL features.
   specific seed. The seed is stored with the save. Reloading, resetting, or
   reopening the ROM does not change anything generated for that save.
   Starting a new attempt normally creates a new seed. An optional Retry Same
-  Seed setting can exist outside strict Invitational tournament play. The
-  seed is shown in Run Information. The ruleset version is also stored so a
-  seed remains reproducible after future ROM updates. Same
+  Seed setting may be available without tournament-specific restrictions.
+  The seed is shown in Run Information. The ruleset version is also stored so
+  a seed remains reproducible after future ROM updates. Same
   ROM/randomizer-version + seed + settings should generate the same world.
+  Previous completed runs and Hall-of-Fame records never influence generation
+  for a fresh run.
 
 ## Separate deterministic randomization systems
 Species replacements, trainer replacements, abilities, learnsets, TMs,
@@ -97,13 +96,27 @@ Extremely powerful restricted Pokémon use a separate pool from ordinary
 Pokémon. Default uses a curated high-power pool instead of allowing every box
 legendary to replace ordinary strong Pokémon.
 
+## Premium species category
+Whenever a project requirement refers to a "legendary" restriction or pool,
+it means the broader **Premium** category: Legendary Pokémon, Mythical
+Pokémon, Ultra Beasts, Paradox Pokémon, and equivalent restricted or
+high-power special species designated by the project.
+
+Premium species may appear at randomized premium/legendary static encounter
+locations, on Elite Four teams, and on Champion Wallace's team. They may not
+normally appear on ordinary trainers, the rival, Wally, Team Aqua or Team
+Magma members, admins, or Gym Leaders. Wallace is guaranteed at least one
+Premium species. Each Elite Four member may naturally roll zero or more; no
+individual Elite Four member is guaranteed one.
+
 ## Wild Pokémon randomization
 Default: ON. Every wild encounter slot receives a randomized species. Weak
 Pokémon are replaced by approximately weak Pokémon; strong by approximately
 strong. Completely unrestricted randomization exists as a non-default
 setting. Encounter rates remain those of the original slot unless
 encounter-rate randomization is independently enabled. Encounter levels
-remain progression appropriate.
+remain progression appropriate. If a generated wild encounter level would be
+above the active legal cap, it is clamped to that cap.
 
 ## Species power matching
 Default: Balanced. Randolocke's similar-BST philosophy is retained, but the
@@ -136,27 +149,29 @@ mapping / Global species-to-species mapping.
 ## Starter randomization
 Default: ON. Starter choices are randomized; power kept within an
 appropriate starter-level range. Player still chooses from three starters;
-selections should not duplicate each other. Starter previews show species,
-type, randomized ability. Full randomized learnsets need not be exposed
-before choosing.
+selections should not duplicate each other. Starter previews may show species
+and type icons. They must not reveal the randomized ability before selection;
+the ability remains unknown until the Pokémon is obtained and inspected. Full
+randomized learnsets need not be exposed before choosing.
 
 ## Starter IVs
-Invitational default: exactly 5 perfect IVs and 1 random IV (which stat is
+Recommended default: exactly 5 perfect IVs and 1 random IV (which stat is
 random is itself random).
 Settings: 5 perfect + 1 random (default) / 3 perfect / Natural IVs / All 31 /
 Custom floor.
 
 ## Gift Pokémon
-Default: randomized, power-appropriate replacements. Randolocke fallback
-applies since Invitational doesn't establish a separate gift-IV rule: 3
-guaranteed perfect IVs by default for ordinary gift Pokémon (separately
-configurable from starter IVs).
+Default: randomized, power-appropriate replacements with 3 guaranteed perfect
+IVs for ordinary gift Pokémon, separately configurable from starter IVs.
 
 ## Static Pokémon
 Default: randomized. Static encounters retain their fixed locations; species
 generated once per run. Ordinary static encounters use appropriate power
 matching; legendary/static premium encounters use the separate high-power
-pool.
+pool. If a generated static encounter level would be above the active legal
+cap, it is clamped to that cap. The over-cap/ineligible system remains useful
+defensive infrastructure, but normal randomizer generation must not routinely
+create unusable wild or static encounters.
 
 ## Trainer Pokémon
 Default: randomized. Applies to regular trainers, rival, Wally, Team
@@ -164,18 +179,30 @@ Aqua/Magma, admins, Gym Leaders, Elite Four, Champion. Each trainer slot
 receives a power-appropriate replacement. Party sizes remain authored unless
 party-size randomization is explicitly selected. Bosses use stricter power
 matching than ordinary route trainers. Trainer species remain fixed for the
-run.
+run. Slots are randomized individually: bosses do not receive artificially
+coherent teams, strategic synergy, physical/special balance, defensive cores,
+coverage requirements, or a minimum team-quality floor. A boss may naturally
+roll an excellent team or a terrible one.
 
 ## Trainer levels
-Default: scaled around the level-cap progression. Ordinary trainers
-generally below the area's boss cap; strong trainers approach the cap; Gym
-Leader ace establishes the area's actual cap. Trainer levels do not randomly
-fluctuate by seed.
+Default: deterministic scaling around the level-cap progression; levels are
+never randomly rerolled. For each ordinary mandatory or route trainer
+Pokémon, determine approximately how far its vanilla level was below the
+corresponding upcoming vanilla boss ace and preserve approximately that offset
+below the current custom cap. This retains the trainer's original difficulty
+relationship to the upcoming boss. Every Gym Leader Pokémon is exactly at that
+Gym's active cap. Every Elite Four Pokémon and every Champion Wallace Pokémon
+is exactly at the final pre-Champion cap. Difficulty should come primarily
+from randomized species, moves, abilities, and intelligent AI.
+
+## Trainer movesets
+A trainer Pokémon uses the four most recently learned moves available from its
+randomized learnset at its current level, following normal Pokémon
+move-learning behavior. Do not construct or optimize trainer movesets, and do
+not improve boss movesets separately.
 
 ## Default cap progression
-Invitational requires the cap to equal the next Gym Leader's highest level.
-Until exact Invitational 2 intermediate values are recovered, Randolocke
-values are the fallback:
+The cap equals the next Gym Leader's highest level. The progression is:
 - Before Roxanne: 14
 - After Roxanne / before Brawly: 21
 - Before Wattson: 24
@@ -187,8 +214,6 @@ values are the fallback:
 - After eight badges / before Elite Four: 63
 
 After completing the Elite Four/Champion, the general cap can rise to 100.
-If future Invitational evidence provides different intermediate values, the
-Invitational preset takes priority.
 
 ## Hard level caps
 Default: ON. Pokémon cannot gain levels past the active cap; additional EXP
@@ -223,33 +248,43 @@ Removed — Level to Cap makes an infinite +1-level item redundant.
 
 ## Optional Level to Next Breakpoint
 Available as optional QoL: level only to next move / next evolution
-threshold / current cap. Not required by the Invitational preset.
+threshold / current cap. Not required by Recommended.
 
 ## Randomized level-up moves
-Default: ON. Pokémon do not use canonical learnsets. Generated learnsets
-remain fixed for the run.
+Default: ON. Pokémon do not use canonical learnsets. Learnsets are generated
+once per run and remain deterministic.
 
 ## Learnset size
-Randolocke fallback (Invitational's exact implementation not publicly
-established): 21 randomized level-up moves per species. Every species
-receives the same number of move opportunities via the same 21 standardized
-learning checkpoints.
+Every species has exactly 21 standardized level-up move-learning
+opportunities, using the same 21 learning checkpoints. A species cannot have
+a duplicate move within its generated 21-move learnset.
 
-## 7/7/7 learnset composition
-Default: ON. Seven STAB damaging moves, seven additional damaging moves,
-seven non-damaging/status moves. STAB moves must correspond to at least one
-current type (dual-types can draw from either). Non-damaging moves can
-include setup, recovery, status, screens, hazards, speed control,
-disruption, protection, support — distributed through the level progression
-rather than necessarily occurring in blocks. Alternative smarter/weighted
-compositions available in Custom settings. Literal 7/7/7 remains default
-because it's Randolocke's established fallback.
+## Learnset composition
+The default is weighted random generation, not literal 7/7/7. The pool is the
+valid supported Gen 9 move pool after excluding nonfunctional, internal, and
+configured-blacklist moves. STAB moves have increased probability but are not
+guaranteed. Stronger damaging moves become progressively more likely at later
+checkpoints. Particularly powerful utility or status moves may likewise be
+weighted later. These are probabilities, not hard restrictions: weak or
+terrible moves may occur late and unusually strong moves may rarely occur
+early.
+
+There is no guarantee of coverage, recovery, setup, damaging/status ratios,
+physical-versus-special role optimization, or any general quality floor.
+Bosses receive no special moveset improvement. The randomizer must allow both
+spectacularly bad and spectacularly good Pokémon and must not deliberately
+prevent either result. For example, both of these are legal outcomes:
+
+- Charizard with Constrict / Splash / Nightmare / Smog and Truant.
+- Slaking with Spore / Shift Gear / Population Bomb / Wicked Blow and Huge
+  Power.
 
 ## Move-power progression
 Default: higher-power attacks tend to be learned later (weighted, not
 rigidly sorted — a rare unusually strong early roll can still occur). Status
-moves evaluated separately from raw base power. Randolocke v1.1 made
-higher-BP-later learning its default.
+moves are evaluated separately from raw base power, and exceptionally
+powerful utility/status moves may also be biased later. No quality threshold
+is imposed at any checkpoint.
 Optional mode: fully random move order.
 
 ## Move pool
@@ -258,14 +293,11 @@ unless the move literally cannot function outside its original
 implementation. Blank/internal moves, Struggle, and broken
 placeholder/debug effects excluded. Configurable move blacklist for OHKO
 moves, Evasion, Sleep moves, Self-KO moves, other unwanted effects.
-Invitational preset can use any verified Invitational-specific exclusions
-when identified.
 
 ## Move Reminder
-Default: disabled/free reminder not available, following the
-Invitational-style strategic importance of forgetting moves. A forgotten
-randomized level-up move is a meaningful loss unless reacquired through
-another legitimate source.
+Default: disabled/free reminder not available, preserving the strategic
+importance of forgetting moves. A forgotten randomized level-up move is a
+meaningful loss unless reacquired through another legitimate source.
 Settings: Disabled (default) / Normal Emerald reminder / Free reminder /
 Previously learned moves only.
 
@@ -297,9 +329,9 @@ ability — a Pokémon retains the corresponding randomized family/slot
 ability when evolving.
 
 ## Shedinja
-Randolocke fallback (Invitational exact behavior unknown). Default: Shedinja
-retains Wonder Guard; Wonder Guard does not randomly appear elsewhere by
-default. Custom chaos mode may permit full Wonder Guard randomization.
+Default: Shedinja retains Wonder Guard; Wonder Guard does not randomly appear
+elsewhere by default. Custom chaos mode may permit full Wonder Guard
+randomization.
 
 ## Items
 Default: field items randomized, gift items randomized. Hidden field items
@@ -307,16 +339,46 @@ treated as field items. Item results remain fixed for the run. Duplicate
 items allowed. Key items required for progression are never destroyed by
 randomization. Story-critical traversal items are either protected or
 replaced by automatic progression systems. Shops NOT randomized by default
-(optional in Custom).
+(optional in Custom). Field-item rewards are unrestricted by reward tier; do
+not tier-balance them.
 
 ## Item-pool safety
 Required key items do not become Potions. Ordinary consumable pickups cannot
 replace progression flags. Evolution availability guaranteed independently
-of random field-item luck.
+of random field-item luck. Items with no legitimate purpose under Recommended
+are excluded from the ordinary randomized field-item pool, including:
+
+- ordinary HP-healing and status-curing medicines;
+- Revives;
+- temporary X-item-style battle boosters and other non-held, battle-only
+  consumables that cannot legally be used;
+- Repels, because Infinite Repel replaces them;
+- Rare Candies, because Level to Cap replaces them;
+- sell-only treasure, because money is unlimited;
+- redundant PP-restoration consumables, because Portable Heal restores PP
+  outside battle;
+- Nature Mints, Ability Capsule, Ability Patch, Bottle Caps, and Hyper
+  Training items;
+- items used solely for Mega Evolution, Primal battle-gimmick
+  transformations, Z-Moves, Dynamax/Gigantamax, Terastallization, or another
+  deliberately absent battle gimmick;
+- every Poké Ball other than the Master Ball.
+
+Functional items remain eligible, including berries that can be held,
+ordinary held items, permanent stat boosters such as Protein, PP Up, PP Max,
+Toxic Orb and similar held items, and useful Gen 1-9 non-key items that work
+without violating the rules. An allowed ordinary item need not also be sold;
+items such as Toxic Orb may exist only through randomized pickups.
 
 ## Modern held items
 Held items through Gen 9 supported with Gen 9 effect behavior. Randomized
 item pools can include useful modern held items.
+
+## Vendor and modern-item integration
+Supported Gen 4-9 items must have logical game integration, but not every item
+must be sold. Items that logically belong in shops, especially modern Poké
+Balls, should be placed and priced as though they had existed in Emerald
+originally.
 
 ## Unlimited money
 Default: ON. Money is not intended to be a limiting resource — purchases
@@ -324,21 +386,38 @@ effectively do not exhaust spending ability. Removes money farming. The
 Oldale money-refill NPC can remain as a redundant convenience/easter egg.
 
 ## Poké Ball availability
-Unlimited money does NOT mean every Ball type is available immediately.
-Shops retain progression-based Ball inventories (e.g. Great Balls only once
-shops that sell them are reachable). Once a type is available, unlimited
-money means the player may purchase as many as desired.
+The Master Ball is the only Poké Ball permitted in the randomized field-item
+pool. Every other Ball comes from progression-based availability rather than
+randomized pickups. Unlimited money does not make every Ball available
+immediately, but it makes every currently unlocked Ball effectively unlimited
+without resource grinding.
+
+Use Emerald's existing shop progression as the anchor, assigning unlocks at
+logical points based on each Ball's power and usefulness. The ordinary Poké
+Ball unlocks when catching unlocks; Great Ball and comparable early/mid tiers
+come later; Timer Ball, Repeat Ball, and comparable specialty Balls unlock at
+a sensible early/midgame point; Ultra Ball arrives at its appropriate later
+point. By the time Ultra Ball is available, essentially every normal supported
+specialty Ball should also be obtainable. Mechanically normal modern options
+such as Apricorn Balls, Dream Ball, and Beast Ball may have late availability.
+Exclude Cherish, Safari, Sport, or other unusual Balls when their actual
+implementation is event/location-specific or inappropriate for normal shops.
+
+The Master Ball is never sold. The original Aqua Hideout Master Ball location
+becomes an ordinary randomized field item and may roll a Master Ball only by
+chance. Exactly one Master Ball is guaranteed immediately before the
+post-Rayquaza Premium encounters unlock. That guarantee does not prevent an
+additional Master Ball from appearing randomly.
 
 ## 999 Poké Ball NPC
-Default: present. Replaces Randolocke's 999 Ultra Ball NPC — gives 999
-ordinary Poké Balls (not Great/Ultra). Removes tedious early capture-resource
-management without destroying Ball progression.
+Default: present at the moment catching first unlocks. The player receives 999
+ordinary Poké Balls (not Great or Ultra Balls). Ordinary Poké Balls may remain
+purchasable afterward. This removes tedious early capture-resource management
+without destroying Ball progression.
 
 ## Catch rates
-Randolocke fallback (Invitational doesn't publish a catch-rate setting).
 Default: moderately increased catch rates.
-Settings: Vanilla / Moderate boost (default) / Large boost / Guaranteed
-capture.
+Settings: Vanilla / Moderate Boost (default) / Large Boost / Guaranteed.
 
 ## Fishing
 On a fishable tile with a non-null fishing table for the current map and time
@@ -348,10 +427,14 @@ Rod-specific tables, relative slot weights, level generation, randomizer and
 Nuzlocke behavior, catch probability, and presentation are preserved except
 for random no-bite and input-timing failures.
 
-## R-button Ball shortcut
-Default: ON. Pressing R in a wild battle provides a fast Ball-throwing
-shortcut using an appropriate Ball already in inventory (never creates a
-Ball the player doesn't possess).
+## Ball shortcut
+Default: ON. Outside the shortcut, normal Bag selection remains available.
+The L button cycles forward through Ball types currently possessed and wraps
+from the last available type to the first. During a legal wild encounter, the
+R button throws the currently selected Ball. The shortcut never creates an
+unowned Ball and never automatically chooses the Master Ball merely because
+one is available; the player must deliberately select it. No Ball-quantity
+display is required for the shortcut.
 
 ## Nuzlocke rules start gate
 **Nuzlocke rules (permadeath and one-encounter-per-location) do not begin
@@ -380,21 +463,28 @@ running from, or failing to catch the valid encounter all consume the
 location.
 
 ## Dupes Clause
-Default: ON. A Pokémon from an evolutionary family the player has already
-caught does not count as the route encounter — the game rerolls until a
-non-dupe appears. Family means the entire evolutionary family; split
-evolutions still count as one family; forms/regional variants of the same
-family count as duplicates under the strict Invitational default. Dead
-Pokémon still count as previously owned for Dupes Clause purposes.
+Default: ON. Dupes history covers evolutionary families that have previously
+been the player's valid encounter. A family enters that history whether the
+valid encounter was caught, killed, fled, or the player ran from it. Family
+means the entire evolutionary family; split evolutions count as one family,
+and forms/regional variants of the same family count as duplicates.
+
+A future encounter from a recorded family is a Dupes Clause encounter and
+does not consume the new location's encounter opportunity. Running from a
+dupe is always safe. The game continues searching or allowing encounters until
+a non-dupe valid encounter occurs. If the eligible pool is exhausted, it must
+handle that state safely rather than loop forever.
 
 ## Shiny Clause
-Default: ON. A shiny may be caught regardless of whether the location
-encounter has already been consumed, and doesn't invalidate the previously
-caught encounter. Normal shiny odds unless explicitly changed in Custom.
+Default: ON. A shiny may always be caught regardless of whether the location
+encounter was already consumed, Dupes Clause, or any previous encounter. It is
+a bonus encounter: catching it neither consumes nor replaces the location's
+normal Nuzlocke encounter opportunity. Normal shiny odds unless explicitly
+changed in Custom.
 
 ## Nicknames
-Default: mandatory. Every obtained Pokémon must be nicknamed; strict mode
-prevents bypassing the prompt.
+Default: optional/off. A separately selectable rule can require every obtained
+Pokémon to be nicknamed and prevent bypassing the prompt.
 
 ## No battle items
 Default: enforced. Trainer battle Bag access is disabled — no Potions, Full
@@ -409,8 +499,7 @@ attempts. Normal default generates a new seed for the new attempt.
 
 ## Set battle style
 Default: ON as the best-fit hardcore rule. No free switch offered after
-defeating an opposing Pokémon. Can be changed outside strict Invitational
-presets.
+defeating an opposing Pokémon. Can be changed when strict rules are not locked.
 
 ## Portable healing
 Default: ON. Available from the menu; restores HP/PP/status; does not
@@ -421,11 +510,24 @@ outside battles).
 Default: ON/available. Toggleable outside battle; prevents ordinary random
 encounters while enabled; player disables it when deliberately seeking a
 new-location encounter. Static/scripted encounters still occur. Visible
-indicator shows current state.
+indicator shows current state. Do not add an unused-encounter warning.
 
 ## Expanded Bag
-Default: ON — expanded enough to comfortably support the much larger Gen
-1-9 item pool.
+Default: ON. Bag capacity is effectively unlimited for normal gameplay: it has
+enough unique slots for the complete supported obtainable item pool, permits
+stack sizes up to 999 where appropriate, and does not fail in ordinary play
+because the player collected too many distinct useful items.
+
+## Bikes
+The player permanently receives both the Mach Bike and Acro Bike; returning to
+Rydel to exchange them is unnecessary. Bike mode can be switched from the menu
+outside battle.
+
+## Type icons
+Where technically appropriate, display Pokémon type icons next to Pokémon
+names in the Party, PC, Summary, starter selection, player battle HUD, and
+enemy battle HUD. Species typing is public information and may be shown for
+enemy Pokémon.
 
 ## IV / EV / Nature display
 Default: ON for all. Exact IV and EV per stat shown in Summary (no external
@@ -547,25 +649,25 @@ substitute. No Link Cable / second game necessary.
   Unlimited money means the purchase price isn't the meaningful gate — the
   Sootopolis progression flag is.
 
-## Legendary encounter balancing
-Static legendary locations use a curated premium species pool and don't
-necessarily contain the original legendary; they should yield powerful
-species comparable to the intended encounter tier. Ordinary low-level route
-slots don't draw from this restricted pool. Duplicate premium encounters can
-be allowed by default unless a future Invitational rule establishes
-otherwise.
+## Premium encounter balancing
+Static Premium locations use the curated Premium species pool and do not
+necessarily contain the original species; they should yield powerful species
+comparable to the intended encounter tier. Ordinary low-level route slots do
+not draw from this restricted pool. Duplicate Premium encounters are allowed
+unless another explicit rule in this specification says otherwise.
 
 ## Generation 9 mechanics
-Default: ON. Modern physical/special split, Fairy type, modern type chart,
-move effects, abilities, held items, damage calculation, critical-hit
-behavior, burn, paralysis, weather, terrain, priority, multi-hit behavior,
-targeting, switching interactions, status/type immunities, end-of-turn
-processing.
+Required modern battle baseline; ON in Recommended. Includes the modern
+physical/special split, Fairy type, modern type chart, move effects, abilities,
+held items, damage calculation, critical-hit behavior, burn, paralysis,
+weather, terrain, priority, multi-hit behavior, targeting, switching
+interactions, status/type immunities, and end-of-turn processing.
 
 ## Battle gimmicks
-Default OFF: Mega Evolution, Primal Reversion, Z-Moves, Dynamax,
-Gigantamax, Terastallization. Custom mode can expose any correctly
-implemented mechanic, but none are part of the default hack identity.
+Mega Evolution, Primal battle-gimmick transformations, Z-Moves, Dynamax,
+Gigantamax, and Terastallization are not part of this game and must not be
+exposed in Recommended gameplay. Items that exist solely for those systems
+must not enter the normal item pool.
 
 ## Maximum-strength fair AI
 Default: Pro Fair. The AI should play as intelligently as technically
@@ -595,11 +697,11 @@ evidence contradicts them.
 
 ### AI uncertainty
 Unrevealed information represented as possibilities/probabilities. AI can
-know the randomizer's general rules (e.g. that Pokémon tend to have STAB,
-coverage, and status tools under 7/7/7 generation) without knowing which
-four specific moves a given opposing Pokémon carries. It can hedge against
-plausible threats but cannot magically choose the correct counter to a
-secret move every turn.
+know the randomizer's general weighted-generation rules without knowing which
+four specific moves a given opposing Pokémon carries. It cannot assume that a
+Pokémon has STAB, coverage, status, setup, recovery, or any minimum move
+quality. It can hedge against plausible threats but cannot magically choose
+the correct counter to a secret move every turn.
 
 ### AI damage reasoning
 Identifies guaranteed KOs, likely KOs, 2HKOs; considers accuracy, priority,
@@ -640,9 +742,8 @@ Vanilla / Improved / Expert / Pro Fair (default). Increasing difficulty
 improves reasoning. No standard difficulty setting grants omniscience.
 
 ## Story streamlining — overall rule
-Default: heavily linearized. Official Invitational 2 confirms "linearized
-gameplay" but doesn't publicly document every script edit, so the
-individual cuts below are our implementation of that requirement.
+Default: heavily linearized. The individual cuts below define this project's
+implementation.
 
 Preserve: new encounter locations, important trainers, boss battles, major
 rival/villain battles, useful static encounters.
@@ -740,8 +841,9 @@ Phase 10.)*
   immediately.
 - **Aqua Hideout**: retained; important trainers/admin battle retained;
   teleporter maze simplified to essentially direct; optional side
-  rooms/items (Master Ball) can remain; eastern sea routes unlock after
-  the submarine escapes.
+  rooms and randomized items can remain; the original Master Ball pickup is
+  an ordinary randomized field item; eastern sea routes unlock after the
+  submarine escapes.
 - **Routes 124/Mossdeep**: new encounters remain; Gym remains; Tate & Liza
   keep their double-battle identity.
 - **Mossdeep Space Center**: Magma takeover retained (culminates in a
@@ -778,21 +880,18 @@ Phase 10.)*
   items once combat starts; Champion is the endpoint.
 
 ## Hall of Fame
-Final six Pokémon recorded, along with species, nicknames, abilities,
-moves, held items, IVs, EVs, nature, seed, and ruleset — useful for
-recreating/exporting the tournament team.
-
-## Hall-of-Fame species exclusion (Tournament preset only)
-Once a player defeats the Champion, all six species used for that victory
-are added to the tournament exclusion list and cannot appear in
-subsequently generated fresh saves. Existing active runs are unaffected.
-Solo preset leaves this off (no second competitor whose pool must be
-affected).
+The Hall of Fame is an informational and celebratory archive of completed solo
+runs. Where practical it records the final team, species, nicknames, moves,
+abilities, held items, IVs, EVs, Natures, seed, ruleset, deaths, encounters,
+and other useful completion statistics. It does not lock a competitive final
+team, ban species, change later randomization pools, or otherwise affect
+future fresh runs.
 
 ## Postgame
 Nuzlocke run formally ends at Champion by default. Player can optionally
 continue into postgame for exploration; permadeath can remain active if
-desired. Postgame does not alter the recorded Hall-of-Fame tournament team.
+desired. Postgame and completed-run records never influence randomization in a
+later fresh run.
 
 ## Fast battle presentation
 Faster battle introductions, HP-bar movement, reduced pauses, faster

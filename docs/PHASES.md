@@ -1,9 +1,36 @@
 # Build Phases
 
-> **Historical status:** Phases 0-9.5 are complete. Their prompts are retained
-> below as implementation history, not current instructions or evidence of the
-> present code state. Phase 10 now follows the grouped-arc workflow in
+> **Historical status:** Phases 0-10 are complete. The Phase 0-9.5 prompts
+> below are retained as implementation history, not current instructions,
+> current product requirements, or evidence of the present code state. Where
+> an old prompt conflicts with [SPEC.md](SPEC.md)—including old Tournament,
+> Invitational-named preset, mandatory-nickname, or literal 7/7/7 references—
+> SPEC.md controls. Phase 10's completed grouped-arc record remains in
 > [PHASE10_PROMPTS.md](PHASE10_PROMPTS.md).
+
+## Current completion roadmap
+
+- **Phase 10 — Final initial feature implementation:** complete. This produced
+  the initial feature-complete campaign and story-linearization implementation.
+- **Phase 11 — Ultra Review and correctness completion:** audit the complete
+  implementation against the final accepted specification and finish
+  correctness work. Specification consolidation is not Phase 11
+  implementation.
+- **Phase 12 — Fun, accessibility, UX, game feel, and polish:** improve the
+  intended solo replay experience. This phase may change defaults; simplify,
+  hide, reorganize, or remove redundant player-facing settings; improve
+  onboarding; reduce configuration overload and unnecessary button presses;
+  speed run restarts; and improve feedback, readability, pacing, and general
+  game feel. Supported underlying functionality should be preserved where
+  useful, but every historical option need not receive equal prominence. The
+  Recommended configuration should be the configuration the developers
+  genuinely believe is most enjoyable.
+- **Phase 13 — Documentation, release cleanup, and final product validation:**
+  complete documentation and release cleanup, then perform final product
+  validation. After Phase 13 the product is intended to be
+  development-complete.
+
+There is no Phase 14.
 
 The original phases were worked roughly in order, usually in one or a few
 focused sessions.
@@ -264,10 +291,10 @@ linearization pass later.
 
 ---
 
-## Phase 10 — Story linearization (grouped arcs)
+## Phase 10 — Story linearization (grouped arcs; complete)
 
-The active Phase 10 procedure, exact nine-arc membership, approval gates, and
-Arc 0 existing-state record are in
+The completed Phase 10 procedure, exact nine-arc membership, approval gates,
+and Arc 0 existing-state record are in
 [PHASE10_PROMPTS.md](PHASE10_PROMPTS.md). That document replaces the former
 one-area-per-session restriction.
 

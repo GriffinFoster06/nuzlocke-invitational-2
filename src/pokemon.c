@@ -1332,7 +1332,10 @@ void CreateEnemyEventMon(void)
     // docs/SPEC.md "Static Pokemon" / "Legendary encounter balancing". The
     // pre-battle playmoncry and post-battle bookkeeping vars in these scripts
     // still reference the vanilla species - deferred to Phase 10.
-    species = Randomizer_StaticSpecies(species, level, 0);
+    species = Randomizer_StaticSpecies(species, level,
+        ((u32)gSaveBlock1Ptr->location.mapGroup << 24)
+      | ((u32)gSaveBlock1Ptr->location.mapNum << 16)
+      | gSpecialVar_LastTalked);
     level = Caps_ClampLevel(level); // docs/SPEC.md "Caught Pokemon above the cap"
 
     ZeroEnemyPartyMons();

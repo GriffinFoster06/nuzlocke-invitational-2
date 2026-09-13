@@ -37,13 +37,13 @@ static bool32 OnlyMethodIsTrade(const struct Evolution *evos)
     return sawTrade;
 }
 
-TEST("GetSpeciesEvolutions returns the Phase 7 override for fixed species")
+TEST("GetSpeciesEvolutions returns the remaining project override")
 {
-    EXPECT(EvoFix_GetOverride(SPECIES_KARRABLAST) != NULL);
-    EXPECT_EQ(Evos(SPECIES_KARRABLAST), EvoFix_GetOverride(SPECIES_KARRABLAST));
-    EXPECT_EQ(Evos(SPECIES_KARRABLAST)[0].method, EVO_LEVEL);
-    EXPECT_EQ(Evos(SPECIES_KARRABLAST)[0].targetSpecies, SPECIES_ESCAVALIER);
-    EXPECT_EQ(Evos(SPECIES_SHELMET)[0].targetSpecies, SPECIES_ACCELGOR);
+    EXPECT(EvoFix_GetOverride(SPECIES_ZWEILOUS) != NULL);
+    EXPECT_EQ(Evos(SPECIES_ZWEILOUS), EvoFix_GetOverride(SPECIES_ZWEILOUS));
+    EXPECT_EQ(Evos(SPECIES_ZWEILOUS)[0].method, EVO_LEVEL);
+    EXPECT_EQ(Evos(SPECIES_ZWEILOUS)[0].param, PRE_CHAMPION_LEVEL_CAP);
+    EXPECT_EQ(Evos(SPECIES_ZWEILOUS)[0].targetSpecies, SPECIES_HYDREIGON);
 }
 
 TEST("An unlisted species keeps its stock evolutions")

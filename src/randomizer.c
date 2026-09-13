@@ -4,8 +4,10 @@
 // ============================================================================
 
 #include "global.h"
+#include "caps.h"
 #include "data.h"
 #include "event_data.h"
+#include "fishing.h"
 #include "item.h"
 #include "move.h"
 #include "learnset_gen.h"
@@ -28,9 +30,7 @@
 // Per-category salts and the seed helper now live in include/run_rng.h so the
 // Phase 4 learnset generator shares one implementation.
 
-#define STARTER_DEDUP_ATTEMPTS 24
-
-enum PoolKind { POOL_ORDINARY, POOL_PREMIUM };
+enum PoolKind { POOL_ORDINARY, POOL_STRICT_ORDINARY, POOL_PREMIUM, POOL_ORDINARY_OR_PREMIUM };
 
 // ---- enable checks --------------------------------------------------------
 
@@ -63,15 +63,20 @@ static bool32 InPool(enum Species s, enum PoolKind kind)
     if (kind == POOL_ORDINARY)
         return !IsSpeciesCategoryBanned(s);
 
+    if (kind == POOL_STRICT_ORDINARY)
+        return !IsSpeciesCategoryBanned(s) && !IsSpeciesPremium(s);
+
+    if (kind == POOL_ORDINARY_OR_PREMIUM)
+        return InPool(s, POOL_STRICT_ORDINARY) || InPool(s, POOL_PREMIUM);
+
     switch (GetRulesetSetting(SETTING_PREMIUM_POOL_MODE))
     {
     case PREMPOOL_SAME_AS_NORMAL:
-        return !IsSpeciesCategoryBanned(s);
     case PREMPOOL_ALL_LEGENDARY:
-        return IsSpeciesCategoryBanned(s);
+        return IsSpeciesPremium(s);
     case PREMPOOL_CURATED:
     default:
-        return IsSpeciesCategoryBanned(s) || IsSpeciesPremiumTier(s);
+        return IsSpeciesPremiumTier(s);
     }
 }
 
@@ -138,8 +143,18 @@ static bool32 RungAccepts(const struct LadderRung *rung, enum Species s,
     return TRUE;
 }
 
-static enum Species PickReplacementCore(rng_value_t *st, enum Species vanilla, enum PoolKind kind,
-                                        enum PowerMatchMode mode, u32 evoMode)
+static bool32 SpeciesIsExcluded(enum Species species, const enum Species *excluded, u32 excludedCount)
+{
+    u32 i;
+    for (i = 0; i < excludedCount; i++)
+        if (excluded[i] == species)
+            return TRUE;
+    return FALSE;
+}
+
+static enum Species PickReplacementCoreExcluding(rng_value_t *st, enum Species vanilla, enum PoolKind kind,
+                                                  enum PowerMatchMode mode, u32 evoMode,
+                                                  const enum Species *excluded, u32 excludedCount)
 {
     u32 target = GetSpeciesMatchMetric(vanilla, mode);
     enum EvoStageBucket tgtStage = GetSpeciesEvoStageBucket(vanilla);
@@ -154,7 +169,7 @@ static enum Species PickReplacementCore(rng_value_t *st, enum Species vanilla, e
 
         for (s = 1; s < NUM_SPECIES; s++)
         {
-            if (!InPool(s, kind))
+            if (!InPool(s, kind) || SpeciesIsExcluded(s, excluded, excludedCount))
                 continue;
             if (RungAccepts(&ladder[i], s, mode, target, tgtStage))
                 count++;
@@ -165,7 +180,7 @@ static enum Species PickReplacementCore(rng_value_t *st, enum Species vanilla, e
         pick = LocalRandom32(st) % count;
         for (s = 1; s < NUM_SPECIES; s++)
         {
-            if (!InPool(s, kind))
+            if (!InPool(s, kind) || SpeciesIsExcluded(s, excluded, excludedCount))
                 continue;
             if (!RungAccepts(&ladder[i], s, mode, target, tgtStage))
                 continue;
@@ -180,6 +195,12 @@ static enum Species PickReplacementCore(rng_value_t *st, enum Species vanilla, e
         }
     }
     return vanilla;
+}
+
+static enum Species PickReplacementCore(rng_value_t *st, enum Species vanilla, enum PoolKind kind,
+                                        enum PowerMatchMode mode, u32 evoMode)
+{
+    return PickReplacementCoreExcluding(st, vanilla, kind, mode, evoMode, NULL, 0);
 }
 
 static enum Species PickReplacement(rng_value_t *st, enum Species vanilla, enum PoolKind kind)
@@ -216,6 +237,59 @@ enum Species Randomizer_WildSlotSpecies(const struct WildPokemonInfo *info, u32 
     return PickReplacement(&st, vanilla, POOL_ORDINARY);
 }
 
+u32 Randomizer_WildRateSlot(const struct WildPokemonInfo *info, enum WildPokemonArea area,
+                            u8 rod, u32 slot)
+{
+    u8 permutation[NUM_LAND_MONS_ENCOUNTER_SLOTS];
+    u32 start = 0, count, i;
+    rng_value_t st;
+
+    if (info == NULL || !GetRulesetSetting(SETTING_ENCOUNTER_RATE_RANDOMIZATION))
+        return slot;
+    switch (area)
+    {
+    case WILD_AREA_LAND:  count = NUM_LAND_MONS_ENCOUNTER_SLOTS; break;
+    case WILD_AREA_WATER:
+    case WILD_AREA_ROCKS: count = NUM_WATER_MONS_ENCOUNTER_SLOTS; break;
+    case WILD_AREA_FISHING:
+        if (rod == OLD_ROD)       { start = 0; count = 2; }
+        else if (rod == GOOD_ROD) { start = 2; count = 3; }
+        else                      { start = 5; count = 5; }
+        break;
+    default:
+        return slot;
+    }
+    if (slot < start || slot >= start + count)
+        return slot;
+
+    for (i = 0; i < count; i++)
+        permutation[i] = start + i;
+    st = SeedFor(SALT_WILD_RATE, info->slotSeed, area, rod);
+    for (i = count - 1; i > 0; i--)
+    {
+        u32 k = LocalRandom32(&st) % (i + 1);
+        u8 tmp = permutation[i]; permutation[i] = permutation[k]; permutation[k] = tmp;
+    }
+    return permutation[slot - start];
+}
+
+enum Species Randomizer_SpecialWildSpecies(enum Species vanilla, u32 sourceKey, u32 routeKey)
+{
+    rng_value_t st;
+
+    if (!Randomizer_WildEnabled() || !IsReplaceableTarget(vanilla))
+        return vanilla;
+    PowerScore_EnsureBuilt();
+    switch (GetRulesetSetting(SETTING_ENCOUNTER_MAPPING))
+    {
+    case ENCMAP_ROUTE_SPECIES: st = SeedFor(SALT_WILD_SPECIAL, routeKey, vanilla, 0); break;
+    case ENCMAP_GLOBAL:        st = SeedFor(SALT_WILD_SPECIAL, vanilla, 0, 0); break;
+    case ENCMAP_SLOT:
+    default:                   st = SeedFor(SALT_WILD_SPECIAL, sourceKey, 0, 0); break;
+    }
+    return PickReplacement(&st, vanilla, POOL_ORDINARY);
+}
+
 // ---- starters --------------------------------------------------------------
 
 // Emerald build. (This is an Emerald hack; the FRLG starter trio is not handled.)
@@ -233,30 +307,13 @@ static void ResolveStarterTrio(enum Species out[3])
     for (i = 0; i < 3; i++)
     {
         enum Species vanilla = sVanillaStarters[i];
-        u32 attempt;
+        rng_value_t st = SeedFor(SALT_STARTER, i, 0, 0);
 
-        out[i] = vanilla;
-        for (attempt = 0; attempt < STARTER_DEDUP_ATTEMPTS; attempt++)
-        {
-            rng_value_t st = SeedFor(SALT_STARTER, i, attempt, 0);
-            enum Species pick;
-            bool32 collide = FALSE;
-            u32 j;
-
-            // Starters always evolve twice: force same-stage matching here
-            // regardless of the global evo-stage setting.
-            pick = PickReplacementCore(&st, vanilla, POOL_ORDINARY,
-                                       GetRulesetSetting(SETTING_POWER_MATCHING), EVOSTAGE_STRICT);
-
-            for (j = 0; j < i; j++)
-            {
-                if (out[j] == pick)
-                    collide = TRUE;
-            }
-            out[i] = pick;
-            if (!collide)
-                break;
-        }
+        // Count-and-pick excludes prior choices directly, guaranteeing a
+        // unique trio whenever the eligible rung contains three candidates.
+        out[i] = PickReplacementCoreExcluding(&st, vanilla, POOL_ORDINARY,
+                                               GetRulesetSetting(SETTING_POWER_MATCHING),
+                                               EVOSTAGE_STRICT, out, i);
     }
 }
 
@@ -354,12 +411,26 @@ static void ApplyGiftIvMode(struct PokemonTemplate *t, rng_value_t *st)
     u8 order[NUM_STATS];
     u32 i, floor;
 
+    // Natural mode deliberately leaves USE_RANDOM_IVS markers in place so the
+    // normal template resolver can preserve fixed IVs and species-specific
+    // perfect-IV counts.
+    if (mode == GIFTIV_NATURAL)
+        return;
+
     for (i = 0; i < NUM_STATS; i++)
         order[i] = i;
     for (i = NUM_STATS - 1; i > 0; i--)
     {
         u32 k = LocalRandom32(st) % (i + 1);
         u8 tmp = order[i]; order[i] = order[k]; order[k] = tmp;
+    }
+
+    // Resolve natural/template-random IVs from the gift-IV stream first. This
+    // makes every IV mode reproducible without coupling it to gift species.
+    for (i = 0; i < NUM_STATS; i++)
+    {
+        if (t->ivs[i] == USE_RANDOM_IVS)
+            t->ivs[i] = LocalRandom32(st) % (MAX_PER_STAT_IVS + 1);
     }
 
     switch (mode)
@@ -371,10 +442,9 @@ static void ApplyGiftIvMode(struct PokemonTemplate *t, rng_value_t *st)
     case GIFTIV_CUSTOM_FLOOR:
         floor = GetRulesetSetting(SETTING_GIFT_IV_FLOOR);
         for (i = 0; i < NUM_STATS; i++)
-            t->ivs[i] = floor;   // guarantees >= floor (loses the "random above floor")
+            if (t->ivs[i] < floor)
+                t->ivs[i] = floor;
         break;
-    case GIFTIV_NATURAL:
-        break;   // leave whatever the script asked for (USE_RANDOM_IVS by default)
     case GIFTIV_3_PERFECT:
     default:
         for (i = 0; i < 3; i++)
@@ -383,36 +453,69 @@ static void ApplyGiftIvMode(struct PokemonTemplate *t, rng_value_t *st)
     }
 }
 
-void Randomizer_ApplyGiftTemplate(struct PokemonTemplate *monTemplate)
+enum Species Randomizer_GiftSpecies(enum Species vanilla, u8 level, u32 sourceKey)
 {
-    u32 mg, mn;
     rng_value_t st;
 
-    if (monTemplate == NULL || monTemplate->isEgg || !Randomizer_GiftEnabled())
+    if (!Randomizer_GiftEnabled() || !IsReplaceableTarget(vanilla))
+        return vanilla;
+    PowerScore_EnsureBuilt();
+    st = SeedFor(SALT_GIFT, sourceKey, vanilla, level);
+    return PickReplacement(&st, vanilla, POOL_ORDINARY);
+}
+
+void Randomizer_ApplyGiftMonIVs(struct Pokemon *mon, enum Species vanilla, u32 sourceKey)
+{
+    struct PokemonTemplate t = {0};
+    rng_value_t st;
+    u32 i;
+
+    if (mon == NULL)
+        return;
+    if (GetRulesetSetting(SETTING_GIFT_IV_MODE) == GIFTIV_NATURAL)
+        return;
+    // Standalone gift constructors (including eggs) have already consumed the
+    // global RNG by the time they reach this hook.  Treat those IVs as the
+    // template's natural/random request so the saved run seed and source key,
+    // rather than call timing, determine the final result.
+    for (i = 0; i < NUM_STATS; i++)
+        t.ivs[i] = USE_RANDOM_IVS;
+    st = SeedFor(SALT_GIFT_IV, sourceKey, vanilla, GetMonData(mon, MON_DATA_LEVEL));
+    ApplyGiftIvMode(&t, &st);
+    for (i = 0; i < NUM_STATS; i++)
+    {
+        u8 iv = t.ivs[i];
+        SetMonData(mon, MON_DATA_HP_IV + i, &iv);
+    }
+    CalculateMonStats(mon);
+}
+
+void Randomizer_ApplyGiftTemplate(struct PokemonTemplate *monTemplate, u32 sourceKey)
+{
+    enum Species vanilla;
+    rng_value_t ivRng;
+
+    if (monTemplate == NULL)
         return;
     if (!IsReplaceableTarget(monTemplate->species))
         return;
 
+    vanilla = monTemplate->species;
     PowerScore_EnsureBuilt();
-
-    mg = gSaveBlock1Ptr->location.mapGroup;
-    mn = gSaveBlock1Ptr->location.mapNum;
-    st = SeedFor(SALT_GIFT, (mg << 8) | mn, monTemplate->species, monTemplate->level);
-
-    monTemplate->species = PickReplacement(&st, monTemplate->species, POOL_ORDINARY);
-    ApplyGiftIvMode(monTemplate, &st);
+    ivRng = SeedFor(SALT_GIFT_IV, sourceKey, vanilla, monTemplate->level);
+    monTemplate->species = Randomizer_GiftSpecies(vanilla, monTemplate->level, sourceKey);
+    ApplyGiftIvMode(monTemplate, &ivRng);
 }
 
 // ---- static / event / roamer -----------------------------------------------
 
 static bool32 VanillaIsPremiumTier(enum Species vanilla)
 {
-    return IsSpeciesCategoryBanned(vanilla) || IsSpeciesPremiumTier(vanilla);
+    return IsSpeciesPremium(vanilla);
 }
 
-enum Species Randomizer_StaticSpecies(enum Species vanilla, u8 level, u8 idx)
+enum Species Randomizer_StaticSpecies(enum Species vanilla, u8 level, u32 sourceKey)
 {
-    u32 mg, mn;
     bool32 premium;
     rng_value_t st;
 
@@ -432,14 +535,12 @@ enum Species Randomizer_StaticSpecies(enum Species vanilla, u8 level, u8 idx)
         return vanilla;
     }
 
-    mg = gSaveBlock1Ptr->location.mapGroup;
-    mn = gSaveBlock1Ptr->location.mapNum;
-    st = SeedFor(SALT_STATIC, (mg << 8) | mn, ((u32)vanilla << 8) | level, idx);
+    st = SeedFor(SALT_STATIC, sourceKey, ((u32)vanilla << 8) | level, 0);
 
     return PickReplacement(&st, vanilla, premium ? POOL_PREMIUM : POOL_ORDINARY);
 }
 
-enum Species Randomizer_RoamerSpecies(enum Species vanilla, u8 level)
+enum Species Randomizer_RoamerSpecies(enum Species vanilla, u8 level, u32 roamerId)
 {
     bool32 premium;
     rng_value_t st;
@@ -453,7 +554,7 @@ enum Species Randomizer_RoamerSpecies(enum Species vanilla, u8 level)
     if (premium ? !Randomizer_LegendaryEnabled() : !Randomizer_StaticEnabled())
         return vanilla;
 
-    st = SeedFor(SALT_ROAMER, ((u32)vanilla << 8) | level, 0, 0);
+    st = SeedFor(SALT_ROAMER, roamerId, ((u32)vanilla << 8) | level, 0);
     return PickReplacement(&st, vanilla, premium ? POOL_PREMIUM : POOL_ORDINARY);
 }
 
@@ -496,47 +597,133 @@ static u32 TrainerMatchMode(u8 trainerClass)
     return mode;
 }
 
-void Randomizer_ApplyTrainerMon(struct TrainerMon *entry, u16 trainerId, u32 monIndex, u8 trainerClass)
+static bool32 TrainerIsEliteFour(u16 trainerId)
 {
-    enum Species vanilla, pick;
-    bool32 premium;
-    rng_value_t st;
+    return trainerId >= TRAINER_SIDNEY && trainerId <= TRAINER_DRAKE;
+}
+
+static bool32 TrainerIsGymRematch(u16 trainerId)
+{
+    return trainerId >= TRAINER_ROXANNE_2 && trainerId <= TRAINER_JUAN_5;
+}
+
+static u8 MainGymLevel(u16 trainerId)
+{
+    static const u8 sLevels[] = { 14, 21, 24, 29, 36, 43, 47, 50 };
+
+    if (trainerId < TRAINER_ROXANNE_1 || trainerId > TRAINER_JUAN_1)
+        return 0;
+    return sLevels[trainerId - TRAINER_ROXANNE_1];
+}
+
+static u8 UpcomingVanillaAce(void)
+{
+    static const u8 sAceLevels[] = { 15, 19, 24, 29, 31, 33, 42, 46, 58 };
+    static const u16 sBadgeFlags[] =
+    {
+        FLAG_BADGE01_GET, FLAG_BADGE02_GET, FLAG_BADGE03_GET, FLAG_BADGE04_GET,
+        FLAG_BADGE05_GET, FLAG_BADGE06_GET, FLAG_BADGE07_GET, FLAG_BADGE08_GET,
+    };
     u32 i;
 
-    if (entry == NULL || trainerId == TRAINER_NONE || !Randomizer_TrainerEnabled())
-        return;
+    for (i = 0; i < ARRAY_COUNT(sBadgeFlags); i++)
+        if (!FlagGet(sBadgeFlags[i]))
+            return sAceLevels[i];
+    return sAceLevels[ARRAY_COUNT(sAceLevels) - 1];
+}
 
-    vanilla = entry->species;
-    if (!IsReplaceableTarget(vanilla))
-        return;
+static u8 TrainerLevel(u16 trainerId, u8 authoredLevel)
+{
+    u32 cap, gap;
+    u8 gymLevel;
 
-    PowerScore_EnsureBuilt();
+    if (GetRulesetSetting(SETTING_TRAINER_LEVEL_MODE) == TRLEVEL_VANILLA
+     || trainerId == TRAINER_NONE
+     || FlagGet(FLAG_IS_CHAMPION)
+     || TrainerIsGymRematch(trainerId))
+        return authoredLevel;
 
-    // Steven's / Wallace's aces and any other premium-tier authored mon draw from
-    // the premium pool, exactly as static encounters do, and obey the legendary
-    // toggle rather than the trainer one.
-    premium = VanillaIsPremiumTier(vanilla);
-    if (premium && !Randomizer_LegendaryEnabled())
-        return;
+    gymLevel = MainGymLevel(trainerId);
+    if (gymLevel != 0)
+        return gymLevel;
+    if (TrainerIsEliteFour(trainerId) || trainerId == TRAINER_WALLACE)
+        return 63;
 
-    st = SeedFor(SALT_TRAINER, trainerId, monIndex, vanilla);
-    pick = PickReplacementCore(&st, vanilla, premium ? POOL_PREMIUM : POOL_ORDINARY,
-                               TrainerMatchMode(trainerClass),
+    cap = GetProgressionLevelCap();
+    gap = UpcomingVanillaAce();
+    if (authoredLevel < gap)
+        gap -= authoredLevel;
+    else
+        gap = 0;
+    if (gap >= cap)
+        return 1;
+    return cap - gap;
+}
+
+u8 Randomizer_GetTrainerPartySize(u16 trainerId, u8 authoredPartySize)
+{
+    rng_value_t st;
+
+    if (trainerId == TRAINER_NONE || authoredPartySize == 0
+     || !GetRulesetSetting(SETTING_TRAINER_PARTY_SIZE_RANDOMIZATION))
+        return authoredPartySize;
+    st = SeedFor(SALT_TRAINER_SIZE, trainerId, authoredPartySize, 0);
+    return 1 + LocalRandom32(&st) % authoredPartySize;
+}
+
+static enum Species ResolveTrainerSpecies(enum Species vanilla, u16 trainerId,
+                                           u32 sourceIndex, u8 trainerClass)
+{
+    enum PoolKind kind = POOL_STRICT_ORDINARY;
+    rng_value_t st;
+
+    if (TrainerIsEliteFour(trainerId) || trainerId == TRAINER_WALLACE)
+        kind = POOL_ORDINARY_OR_PREMIUM;
+    st = SeedFor(SALT_TRAINER, trainerId, sourceIndex, vanilla);
+    return PickReplacementCore(&st, vanilla, kind, TrainerMatchMode(trainerClass),
                                GetRulesetSetting(SETTING_EVO_STAGE_MATCHING));
-    if (pick == vanilla)
+}
+
+void Randomizer_ApplyTrainerParty(struct TrainerMon *entries, const u32 *sourceIndices,
+                                  u8 count, u16 trainerId, u8 trainerClass)
+{
+    bool32 hasPremium = FALSE;
+    enum Species vanillaSpecies[PARTY_SIZE];
+    u32 i;
+
+    if (entries == NULL || trainerId == TRAINER_NONE)
         return;
 
-    entry->species = pick;
+    if (Randomizer_TrainerEnabled())
+        PowerScore_EnsureBuilt();
 
-    // The authored ability and moveset belonged to the vanilla species. Keeping
-    // either would be illegal for the replacement: SetCorrectAbilityNum() would
-    // fail on an ability the new species does not have, and the moves would be
-    // off-species. Clearing moves makes CustomTrainerPartyAssignMoves() fall back
-    // to GiveMonInitialMoveset(), which reads the Phase 4 *generated* learnset -
-    // the right answer in a randomized world.
-    entry->ability = ABILITY_NONE;
-    for (i = 0; i < MAX_MON_MOVES; i++)
-        entry->moves[i] = MOVE_NONE;
+    for (i = 0; i < count; i++)
+    {
+        vanillaSpecies[i] = entries[i].species;
+        entries[i].lvl = TrainerLevel(trainerId, entries[i].lvl);
+        if (Randomizer_TrainerEnabled() && IsReplaceableTarget(entries[i].species))
+        {
+            entries[i].species = ResolveTrainerSpecies(entries[i].species, trainerId,
+                sourceIndices == NULL ? i : sourceIndices[i], trainerClass);
+            entries[i].ability = ABILITY_NONE;
+            for (u32 move = 0; move < MAX_MON_MOVES; move++)
+                entries[i].moves[move] = MOVE_NONE;
+        }
+        if (IsSpeciesPremium(entries[i].species))
+            hasPremium = TRUE;
+    }
+
+    if (Randomizer_TrainerEnabled() && trainerId == TRAINER_WALLACE && count != 0 && !hasPremium)
+    {
+        rng_value_t choose = SeedFor(SALT_TRAINER_PREMIUM_GUARANTEE, trainerId, count, 0);
+        u32 slot = LocalRandom32(&choose) % count;
+        enum Species vanilla = vanillaSpecies[slot];
+        rng_value_t st = SeedFor(SALT_TRAINER, trainerId,
+            (sourceIndices == NULL ? slot : sourceIndices[slot]), vanilla);
+
+        entries[slot].species = PickReplacementCore(&st, vanilla, POOL_PREMIUM,
+            TrainerMatchMode(trainerClass), GetRulesetSetting(SETTING_EVO_STAGE_MATCHING));
+    }
 }
 
 // ============================================================================

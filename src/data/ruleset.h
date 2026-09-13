@@ -1,12 +1,9 @@
 // ============================================================================
-// Nuzlocke-Randomizer ruleset data tables.
-//
-// Included once, by src/ruleset.c. Phase 1 scaffolding: this is the data model
-// only - no gameplay code consumes these values yet.
+// Nuzlocke-Randomizer ruleset data tables, included once by src/ruleset.c.
 //
 //  * sSettingDescriptors  - one row per SettingId, in enum order. defaultValue
-//                           is the Invitational 2 Solo value.
-//  * sPresetOverrides_*    - sparse "differs from Invitational 2 Solo" lists for
+//                           is the Recommended value.
+//  * sPresetOverrides_*    - sparse "differs from Recommended" lists for
 //                           each other named preset.
 // ============================================================================
 
@@ -18,9 +15,7 @@ static const u8 *const sLbl_OffOn[] = { COMPOUND_STRING("Off"), COMPOUND_STRING(
 
 static const u8 *const sLbl_Preset[] =
 {
-    COMPOUND_STRING("Inv. 2 Solo"),
-    COMPOUND_STRING("Inv. 2 Tourney"),
-    COMPOUND_STRING("Randolocke"),
+    COMPOUND_STRING("Recommended"),
     COMPOUND_STRING("Modern Emerald"),
     COMPOUND_STRING("Randomizer"),
     COMPOUND_STRING("Custom"),
@@ -80,8 +75,7 @@ static const u8 *const sLbl_LrnComp[] =
 {
     COMPOUND_STRING("7 / 7 / 7"),
     COMPOUND_STRING("Fully random"),
-    // LRNCOMP_WEIGHTED is deferred - see include/constants/ruleset.h. No label
-    // because the descriptor's maxValue keeps it out of the menu.
+    COMPOUND_STRING("Weighted random"),
 };
 static const u8 *const sLbl_MoveOrder[] = { COMPOUND_STRING("Higher power later"), COMPOUND_STRING("Fully random") };
 static const u8 *const sLbl_MoveReminder[] =
@@ -186,10 +180,10 @@ static const struct SettingDescriptor sSettingDescriptors[NUM_SETTINGS] =
     [SETTING_SEED_MODE] = DESC_ENUM(SETTING_CAT_PRESET_SEED, GEN, SEEDMODE_RANDOM, SETTING_FLAG_NONE,
         sLbl_SeedMode, 1, "Seed Source",
         "Random: new seed each run. Manual: enter your own."),
-    [SETTING_RUN_SEED] = DESC_NUM(SETTING_CAT_PRESET_SEED, GEN, 0, 0, 0, SETTING_FLAG_NOT_RULESET | SETTING_FLAG_READ_ONLY,
+    [SETTING_RUN_SEED] = DESC_NUM(SETTING_CAT_PRESET_SEED, GEN, 0, 0, 0, SETTING_FLAG_NOT_RULESET,
         "Run Seed",
-        "This run's seed. Press A to reroll (before the run)."),
-    [SETTING_RETRY_SAME_SEED] = DESC_BOOL(SETTING_CAT_PRESET_SEED, GEN, 0, SETTING_FLAG_NONE,
+        "This run's seed. Press A to reroll or edit before the run."),
+    [SETTING_RETRY_SAME_SEED] = DESC_BOOL(SETTING_CAT_PRESET_SEED, GEN, 0, SETTING_FLAG_HIDDEN,
         "Retry Same Seed",
         "Reuse this seed on the next attempt instead of rerolling."),
 
@@ -235,7 +229,7 @@ static const struct SettingDescriptor sSettingDescriptors[NUM_SETTINGS] =
     [SETTING_ENCOUNTER_RATE_RANDOMIZATION] = DESC_BOOL(SETTING_CAT_WILD, GEN, 0, SETTING_FLAG_NONE,
         "Randomize Enc. Rates",
         "Also randomize each slot's encounter rate."),
-    [SETTING_ENCOUNTER_LEVEL_MODE] = DESC_ENUM(SETTING_CAT_WILD, GEN, ENCLVL_PROGRESSION, SETTING_FLAG_NONE,
+    [SETTING_ENCOUNTER_LEVEL_MODE] = DESC_ENUM(SETTING_CAT_WILD, GEN, ENCLVL_PROGRESSION, SETTING_FLAG_HIDDEN,
         sLbl_EncLvl, 1, "Encounter Levels",
         "Progression-appropriate levels, or the vanilla levels."),
 
@@ -264,7 +258,7 @@ static const struct SettingDescriptor sSettingDescriptors[NUM_SETTINGS] =
     [SETTING_LEGENDARY_RANDOMIZATION] = DESC_BOOL(SETTING_CAT_STARTERS, GEN, 1, SETTING_FLAG_NONE,
         "Randomize Legendaries",
         "Randomize legendary static slots from the premium pool."),
-    [SETTING_ALLOW_DUPLICATE_PREMIUM] = DESC_BOOL(SETTING_CAT_STARTERS, GEN, 1, SETTING_FLAG_NONE,
+    [SETTING_ALLOW_DUPLICATE_PREMIUM] = DESC_BOOL(SETTING_CAT_STARTERS, GEN, 1, SETTING_FLAG_HIDDEN,
         "Dup. Premium Allowed",
         "Allow the same premium species at more than one slot."),
 
@@ -279,7 +273,7 @@ static const struct SettingDescriptor sSettingDescriptors[NUM_SETTINGS] =
         sLbl_BossMatch, 1, "Boss Power Matching",
         "Use stricter power matching for Gym Leaders/E4/bosses."),
     [SETTING_TRAINER_LEVEL_MODE] = DESC_ENUM(SETTING_CAT_TRAINERS, GEN, TRLEVEL_CAP_SCALED, SETTING_FLAG_NONE,
-        sLbl_TrLevel, 2, "Trainer Levels",
+        sLbl_TrLevel, 1, "Trainer Levels",
         "Scale trainer levels around the level-cap progression."),
 
     // -- Learnsets & Moves --
@@ -289,9 +283,9 @@ static const struct SettingDescriptor sSettingDescriptors[NUM_SETTINGS] =
     [SETTING_LEARNSET_SIZE] = DESC_NUM(SETTING_CAT_LEARNSETS, GEN, 4, 25, 21, SETTING_FLAG_NONE,
         "Learnset Size",
         "Randomized level-up moves per species."),
-    [SETTING_LEARNSET_COMPOSITION] = DESC_ENUM(SETTING_CAT_LEARNSETS, GEN, LRNCOMP_777, SETTING_FLAG_NONE,
-        sLbl_LrnComp, 1, "Learnset Mix",
-        "7/7/7 STAB / coverage / status, or fully random."),
+    [SETTING_LEARNSET_COMPOSITION] = DESC_ENUM(SETTING_CAT_LEARNSETS, GEN, LRNCOMP_WEIGHTED, SETTING_FLAG_NONE,
+        sLbl_LrnComp, 2, "Learnset Mix",
+        "Weighted random is the intended no-quota move mixture."),
     [SETTING_MOVE_POWER_PROGRESSION] = DESC_ENUM(SETTING_CAT_LEARNSETS, GEN, MVORDER_WEIGHTED_LATE, SETTING_FLAG_NONE,
         sLbl_MoveOrder, 1, "Move Order",
         "Bias stronger attacks toward later levels, or full random."),
@@ -488,12 +482,19 @@ static const struct SettingDescriptor sSettingDescriptors[NUM_SETTINGS] =
     [SETTING_SHOW_DEAD_MARKER] = DESC_BOOL(SETTING_CAT_DISPLAY, FREE, 1, SETTING_FLAG_NOT_RULESET,
         "Show Dead Marker",
         "Clearly mark dead Pokemon in menus."),
-    [SETTING_HOF_SPECIES_EXCLUSION] = DESC_BOOL(SETTING_CAT_DISPLAY, GEN, 0, SETTING_FLAG_NONE,
+    [SETTING_HOF_SPECIES_EXCLUSION] = DESC_BOOL(SETTING_CAT_DISPLAY, GEN, 0, SETTING_FLAG_HIDDEN,
         "HoF Species Exclusion",
         "Tournament: winning species are banned from later runs."),
-    [SETTING_FINAL_TEAM_LOCK] = DESC_BOOL(SETTING_CAT_DISPLAY, RUL, 0, SETTING_FLAG_NONE,
+    [SETTING_FINAL_TEAM_LOCK] = DESC_BOOL(SETTING_CAT_DISPLAY, RUL, 0, SETTING_FLAG_HIDDEN,
         "Final Team Lock",
         "Tournament: lock/export the final six for records."),
+
+    [SETTING_SPECIES_BANS] = DESC_BOOL(SETTING_CAT_SPECIES_POOL, GEN, 0, SETTING_FLAG_NOT_RULESET,
+        "Species Bans",
+        "Open the exact-species ban list; relatives are unaffected."),
+    [SETTING_RESTORE_ALL] = DESC_BOOL(SETTING_CAT_PRESET_SEED, FREE, 0, SETTING_FLAG_NOT_RULESET,
+        "Restore All",
+        "Restore the entire configuration to the selected preset."),
 };
 
 #undef DESC_BOOL
@@ -504,35 +505,10 @@ static const struct SettingDescriptor sSettingDescriptors[NUM_SETTINGS] =
 #undef FREE
 
 // ---------------------------------------------------------------------------
-// Preset override tables. Each lists only what differs from the Invitational 2
-// Solo defaults above. Keep entries grouped by category for readability.
+// Preset override tables. Each lists only what differs from Recommended.
 // ---------------------------------------------------------------------------
 
-// Invitational 2 Solo == the descriptor defaults, so it has no overrides.
-static const struct RulesetPresetOverride sPresetOverrides_InvitationalSolo[] = { {0} };
-
-// Invitational 2 Tournament: same rules + persistent Hall-of-Fame exclusions.
-static const struct RulesetPresetOverride sPresetOverrides_InvitationalTournament[] =
-{
-    { SETTING_HOF_SPECIES_EXCLUSION, 1 },
-    { SETTING_FINAL_TEAM_LOCK,       1 },
-};
-
-// Randolocke: its documented defaults, but keep our fair AI.
-static const struct RulesetPresetOverride sPresetOverrides_Randolocke[] =
-{
-    { SETTING_PREMIUM_POOL_MODE,          PREMPOOL_SAME_AS_NORMAL },
-    { SETTING_BOSS_POWER_MATCHING,        BOSSMATCH_SAME_AS_ROUTE },
-    { SETTING_BAN_OHKO_MOVES,             0 },
-    { SETTING_BAN_EVASION_MOVES,          0 },
-    { SETTING_BAN_SLEEP_MOVES,            0 },
-    { SETTING_MOVE_REMINDER_MODE,         MVREMIND_NORMAL },
-    { SETTING_CATCH_RATE,                 CATCHRATE_LARGE },
-    { SETTING_ENCOUNTER_CONSUMED_MODE,    ENCCONSUMED_ON_CATCH_ONLY },
-    { SETTING_NICKNAME_MODE,              NICK_MANDATORY },
-    { SETTING_NO_BATTLE_ITEMS,            0 },
-    { SETTING_FORCE_SET_BATTLE_STYLE,     0 },
-};
+static const struct RulesetPresetOverride sPresetOverrides_Recommended[] = { {0} };
 
 // Modern Emerald: vanilla species/trainers, modern engine + QoL kept.
 static const struct RulesetPresetOverride sPresetOverrides_ModernEmerald[] =
@@ -545,6 +521,7 @@ static const struct RulesetPresetOverride sPresetOverrides_ModernEmerald[] =
     { SETTING_STATIC_RANDOMIZATION,          0 },
     { SETTING_LEGENDARY_RANDOMIZATION,       0 },
     { SETTING_TRAINER_RANDOMIZATION,         0 },
+    { SETTING_TRAINER_LEVEL_MODE,            TRLEVEL_VANILLA },
     { SETTING_MOVE_RANDOMIZATION,            0 },
     { SETTING_MOVE_REMINDER_MODE,            MVREMIND_NORMAL },
     { SETTING_TM_RANDOMIZATION,              0 },
@@ -589,18 +566,14 @@ static const struct RulesetPresetOverride sPresetOverrides_Randomizer[] =
 // Indexed by enum RulesetPreset (only the named presets; CUSTOM has none).
 static const struct RulesetPresetOverride *const sPresetOverrideTables[RULESET_NAMED_PRESET_COUNT] =
 {
-    [RULESET_PRESET_INVITATIONAL_SOLO]       = sPresetOverrides_InvitationalSolo,
-    [RULESET_PRESET_INVITATIONAL_TOURNAMENT] = sPresetOverrides_InvitationalTournament,
-    [RULESET_PRESET_RANDOLOCKE]              = sPresetOverrides_Randolocke,
-    [RULESET_PRESET_MODERN_EMERALD]          = sPresetOverrides_ModernEmerald,
-    [RULESET_PRESET_RANDOMIZER]              = sPresetOverrides_Randomizer,
+    [RULESET_PRESET_RECOMMENDED]    = sPresetOverrides_Recommended,
+    [RULESET_PRESET_MODERN_EMERALD] = sPresetOverrides_ModernEmerald,
+    [RULESET_PRESET_RANDOMIZER]     = sPresetOverrides_Randomizer,
 };
 
 static const u8 sPresetOverrideCounts[RULESET_NAMED_PRESET_COUNT] =
 {
-    [RULESET_PRESET_INVITATIONAL_SOLO]       = 0,  // the {0} entry is a placeholder, not a real override
-    [RULESET_PRESET_INVITATIONAL_TOURNAMENT] = ARRAY_COUNT(sPresetOverrides_InvitationalTournament),
-    [RULESET_PRESET_RANDOLOCKE]              = ARRAY_COUNT(sPresetOverrides_Randolocke),
-    [RULESET_PRESET_MODERN_EMERALD]          = ARRAY_COUNT(sPresetOverrides_ModernEmerald),
-    [RULESET_PRESET_RANDOMIZER]              = ARRAY_COUNT(sPresetOverrides_Randomizer),
+    [RULESET_PRESET_RECOMMENDED]    = 0,
+    [RULESET_PRESET_MODERN_EMERALD] = ARRAY_COUNT(sPresetOverrides_ModernEmerald),
+    [RULESET_PRESET_RANDOMIZER]     = ARRAY_COUNT(sPresetOverrides_Randomizer),
 };

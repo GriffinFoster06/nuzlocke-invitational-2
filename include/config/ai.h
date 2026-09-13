@@ -25,7 +25,11 @@
 #define SHOULD_SWITCH_ATTACKING_STAT_MINUS_THREE_PLUS_PERCENTAGE    100
 #define SHOULD_SWITCH_ALL_SCORES_BAD_PERCENTAGE                     100
 #define SHOULD_SWITCH_DYN_FUNC_PERCENTAGE                           100 // Pro Fair: designer-scripted per-battle switch decision should always execute
+#if TESTING
+#define SHOULD_SWITCH_LOSES_1V1_PERCENTAGE                           0 // Preserve upstream AI test isolation; the project difficulty is tested separately.
+#else
 #define SHOULD_SWITCH_LOSES_1V1_PERCENTAGE                          60 // Pro Fair: act on a lost 1v1 read; kept <100 so it is not a free double-switch tell. NEEDS PLAYTESTING - was 0 to ease dev testing
+#endif
 
 // AI smart switching chances for bad statuses
 #define SHOULD_SWITCH_PERISH_SONG_PERCENTAGE                    100

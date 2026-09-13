@@ -16125,10 +16125,9 @@ const struct ItemInfo gItemsInfo[] =
         .name = ITEM_NAME("Infinite Repel"),
         .price = 0,
         .description = COMPOUND_STRING(
-            "Toggles the endless\n"
-            "repellent that keeps\n"
-            "weak wild POKéMON\n"
-            "away."),
+            "Toggles endless\n"
+            "repellent against\n"
+            "wild POKéMON."),
         .importance = 1,
         .pocket = POCKET_KEY_ITEMS,
         .type = ITEM_USE_FIELD,

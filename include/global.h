@@ -257,7 +257,6 @@ struct NPCFollower
 #define ITEM_FLAGS_COUNT ((ITEMS_COUNT / 8) + ((ITEMS_COUNT % 8) ? 1 : 0))
 
 // Custom Nuzlocke-Randomizer ruleset store (docs/SPEC.md "Settings behavior").
-// Phase 1 scaffolding: persisted here, but no gameplay code reads it yet.
 // Append fields only - never insert - so an older save's zeroed tail keeps
 // validating (there is no save-migration system in this fork).
 struct RulesetSettings
@@ -266,11 +265,15 @@ struct RulesetSettings
     u16 rulesetVersion;      // RULESET_VERSION; 0 == never initialized
     u8 displayedPreset;      // enum RulesetPreset, incl. RULESET_PRESET_CUSTOM
     u8 lastNamedPreset;      // last preset explicitly applied; source for "restore"
-    u8 runStarted:1;         // generation settings lock once this is set (Phase 2)
-    u8 runActive:1;          // rules settings lock while a strict run is live (Phase 3)
+    u8 runStarted:1;         // generation settings lock once this is set
+    u8 runActive:1;          // rules settings lock while a strict run is live
     u8 infiniteRepelActive:1; // docs/SPEC.md "Infinite Repel": current player toggle state
     u8 reserved:5;
     u8 values[NUM_SETTINGS]; // one byte per setting, indexed by enum SettingId
+    // Phase 11A append-only fields. A zero run seed is valid when initialized.
+    u16 randomizerVersion;
+    u8 seedInitialized;
+    u8 speciesBans[ROUND_BITS_TO_BYTES(NUM_SPECIES)];
 };
 
 // Phase 3 Nuzlocke ruleset engine (docs/SPEC.md "Nuzlocke permadeath",

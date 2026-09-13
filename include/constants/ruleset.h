@@ -4,9 +4,9 @@
 // ============================================================================
 // Nuzlocke-Randomizer ruleset: data-model constants.
 //
-// Phase 1 scaffolding ONLY. Nothing in gameplay reads these values yet; this
-// header just defines the shape of the persistent settings store and the
-// menu that edits it. See docs/SPEC.md ("Settings behavior") and docs/PHASES.md.
+// This header defines the stable indices and values used by the persistent
+// settings store, menu, and gameplay consumers. See docs/SPEC.md ("Settings
+// behavior") and docs/PHASES.md.
 // ============================================================================
 
 // Ruleset format version, stored with the save so a seed stays reproducible
@@ -15,19 +15,19 @@
 // "settings never initialized" - see RulesetSettings_EnsureInitialized().
 //   v2: SETTING_EVOLUTION_ASSISTANCE removed mid-enum (Phase 9.5), shifting the
 //       saved byte index of every later setting - old saves must re-init.
-#define RULESET_VERSION 2
+//   v3: Phase 11A finalizes presets, seed/version persistence and species bans.
+#define RULESET_VERSION 3
+#define RANDOMIZER_VERSION 1
 
 // ----------------------------------------------------------------------------
 // Presets
 // ----------------------------------------------------------------------------
 enum RulesetPreset
 {
-    RULESET_PRESET_INVITATIONAL_SOLO,        // main default (docs/SPEC.md "Default preset")
-    RULESET_PRESET_INVITATIONAL_TOURNAMENT,  // + persistent Hall-of-Fame species exclusion
-    RULESET_PRESET_RANDOLOCKE,               // Randolocke documented defaults, our fair AI
-    RULESET_PRESET_MODERN_EMERALD,           // vanilla species/trainers, modern engine + QoL
-    RULESET_PRESET_RANDOMIZER,               // full randomization + QoL, no mandatory Nuzlocke
-    RULESET_PRESET_CUSTOM,                   // shown when the config matches no named preset
+    RULESET_PRESET_RECOMMENDED,
+    RULESET_PRESET_MODERN_EMERALD,
+    RULESET_PRESET_RANDOMIZER,
+    RULESET_PRESET_CUSTOM,
     RULESET_PRESET_COUNT,
 };
 
@@ -35,7 +35,7 @@ enum RulesetPreset
 #define RULESET_NAMED_PRESET_COUNT RULESET_PRESET_CUSTOM
 
 // The overall default preset.
-#define RULESET_DEFAULT_PRESET RULESET_PRESET_INVITATIONAL_SOLO
+#define RULESET_DEFAULT_PRESET RULESET_PRESET_RECOMMENDED
 
 // ----------------------------------------------------------------------------
 // Menu categories (one settings page each)
@@ -85,6 +85,7 @@ enum SettingType
 #define SETTING_FLAG_NONE        0
 #define SETTING_FLAG_NOT_RULESET (1 << 0)  // ignored when matching the config to a preset
 #define SETTING_FLAG_READ_ONLY   (1 << 1)  // displayed but never editable
+#define SETTING_FLAG_HIDDEN      (1 << 2)  // retained storage id, omitted from player UI
 
 // ----------------------------------------------------------------------------
 // ENUM value constants (grouped; prefixes keep them collision-free)
@@ -104,11 +105,6 @@ enum { GIFTIV_3_PERFECT, GIFTIV_NATURAL, GIFTIV_ALL_31, GIFTIV_CUSTOM_FLOOR };
 enum { TRLEVEL_CAP_SCALED, TRLEVEL_VANILLA, TRLEVEL_FLAT_OFFSET };
 enum { BOSSMATCH_SAME_AS_ROUTE, BOSSMATCH_STRICTER };
 
-// LRNCOMP_WEIGHTED (docs/SPEC.md "7/7/7 learnset composition": "Alternative
-// smarter/weighted compositions available in Custom settings") is deferred and
-// intentionally NOT exposed in the settings menu - the descriptor's maxValue is
-// 1, so only 7/7/7 and Fully random are selectable. Kept last so adding the
-// menu option later is an append, not a renumber.
 enum { LRNCOMP_777, LRNCOMP_FULLY_RANDOM, LRNCOMP_WEIGHTED };
 enum { MVORDER_WEIGHTED_LATE, MVORDER_FULLY_RANDOM };
 enum { MVREMIND_DISABLED, MVREMIND_NORMAL, MVREMIND_FREE, MVREMIND_LEARNED_ONLY };
@@ -261,6 +257,10 @@ enum SettingId
     SETTING_SHOW_DEAD_MARKER,
     SETTING_HOF_SPECIES_EXCLUSION,         // generation
     SETTING_FINAL_TEAM_LOCK,               // rules
+
+    // Phase 11A virtual action rows. Existing stored ids above remain stable.
+    SETTING_SPECIES_BANS,
+    SETTING_RESTORE_ALL,
 
     NUM_SETTINGS,
 };

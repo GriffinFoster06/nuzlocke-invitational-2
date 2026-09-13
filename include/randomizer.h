@@ -29,6 +29,9 @@ bool32 Randomizer_TrainerEnabled(void);
 // (encounter table, slot); returns `vanilla` unchanged when randomization is
 // off or the target is not a valid replaceable species.
 enum Species Randomizer_WildSlotSpecies(const struct WildPokemonInfo *info, u32 slot, enum Species vanilla);
+u32 Randomizer_WildRateSlot(const struct WildPokemonInfo *info, enum WildPokemonArea area,
+                            u8 rod, u32 slot);
+enum Species Randomizer_SpecialWildSpecies(enum Species vanilla, u32 sourceKey, u32 routeKey);
 
 // Starters. `index` is 0..2; the three results are de-duplicated.
 enum Species Randomizer_StarterSpecies(u32 index);
@@ -37,26 +40,25 @@ void Randomizer_ApplyStarterIVs(struct Pokemon *mon);
 // Freeze the generation settings: the first irreversible act of a run.
 void Randomizer_MarkRunStarted(void);
 
-// Script gifts (givemon / createmon, player side). Rewrites species + IV
-// template in place per SETTING_GIFT_* ; no-op for eggs and when disabled.
-void Randomizer_ApplyGiftTemplate(struct PokemonTemplate *monTemplate);
+// Script gifts (including eggs). Species and IVs use independent streams.
+enum Species Randomizer_GiftSpecies(enum Species vanilla, u8 level, u32 sourceKey);
+void Randomizer_ApplyGiftMonIVs(struct Pokemon *mon, enum Species vanilla, u32 sourceKey);
+void Randomizer_ApplyGiftTemplate(struct PokemonTemplate *monTemplate, u32 sourceKey);
 
-// Static encounters. `idx` disambiguates the two mons of a double battle.
+// Static encounters. `sourceKey` identifies the script/object event; callers
+// disambiguate members of a double encounter in that key.
 // Premium-tier vanilla species route through the curated premium pool and obey
 // SETTING_LEGENDARY_RANDOMIZATION instead of SETTING_STATIC_RANDOMIZATION.
-enum Species Randomizer_StaticSpecies(enum Species vanilla, u8 level, u8 idx);
+enum Species Randomizer_StaticSpecies(enum Species vanilla, u8 level, u32 sourceKey);
 
 // Roaming legendaries (Latias/Latios). Premium pool, legendary toggle.
-enum Species Randomizer_RoamerSpecies(enum Species vanilla, u8 level);
+enum Species Randomizer_RoamerSpecies(enum Species vanilla, u8 level, u32 roamerId);
 
-// Trainer parties (docs/SPEC.md "Trainer Pokemon"). Rewrites one *mutable copy*
-// of a ROM party entry in place before the mon is generated: species is replaced
-// power-appropriately (stricter for boss classes when SETTING_BOSS_POWER_MATCHING
-// says so), and the authored ability / moveset are cleared because they belonged
-// to the vanilla species. Level, IVs, EVs, nature, held item, ball and shininess
-// are left alone. `trainerId` of TRAINER_NONE means "unidentified trainer, leave
-// the entry alone" (debug-built parties). No-op when randomization is off.
-void Randomizer_ApplyTrainerMon(struct TrainerMon *entry, u16 trainerId, u32 monIndex, u8 trainerClass);
+// Trainer parties are resolved as a unit so role-based Premium rules, Wallace's
+// guarantee, party size, and cap-relative levels cannot be bypassed per slot.
+u8 Randomizer_GetTrainerPartySize(u16 trainerId, u8 authoredPartySize);
+void Randomizer_ApplyTrainerParty(struct TrainerMon *entries, const u32 *sourceIndices,
+                                  u8 count, u16 trainerId, u8 trainerClass);
 
 // ---- TMs (docs/SPEC.md "TMs") ---------------------------------------------
 // The 50 TM->move assignments are drawn once from the ban-filtered move pool

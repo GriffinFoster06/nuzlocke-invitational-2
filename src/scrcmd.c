@@ -2271,11 +2271,12 @@ bool8 ScrCmd_bufferboxname(struct ScriptContext *ctx)
 
 bool8 ScrCmd_giveegg(struct ScriptContext *ctx)
 {
+    u32 sourceKey = (u32)ctx->scriptPtr - ROM_START;
     enum Species species = VarGet(ScriptReadHalfword(ctx));
 
     Script_RequestEffects(SCREFF_V1 | SCREFF_SAVE);
 
-    gSpecialVar_Result = ScriptGiveEgg(species);
+    gSpecialVar_Result = ScriptGiveEgg(species, sourceKey);
     return FALSE;
 }
 
@@ -2464,6 +2465,7 @@ bool8 ScrCmd_cleartrainerflag(struct ScriptContext *ctx)
 
 bool8 ScrCmd_setwildbattle(struct ScriptContext *ctx)
 {
+    u32 sourceKey = (u32)ctx->scriptPtr - ROM_START;
     enum Species species = ScriptReadHalfword(ctx);
     u8 level = ScriptReadByte(ctx);
     enum Item item = ScriptReadHalfword(ctx);
@@ -2475,12 +2477,12 @@ bool8 ScrCmd_setwildbattle(struct ScriptContext *ctx)
 
     if (species2 == SPECIES_NONE)
     {
-        CreateScriptedWildMon(species, level, item);
+        CreateScriptedWildMon(species, level, item, sourceKey);
         sIsScriptedWildDouble = FALSE;
     }
     else
     {
-        CreateScriptedDoubleWildMon(species, level, item, species2, level2, item2);
+        CreateScriptedDoubleWildMon(species, level, item, species2, level2, item2, sourceKey);
         sIsScriptedWildDouble = TRUE;
     }
 

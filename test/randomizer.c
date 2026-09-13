@@ -1,11 +1,19 @@
 #include "global.h"
+#include "data.h"
+#include "event_data.h"
+#include "fishing.h"
 #include "pokemon.h"
 #include "power_score.h"
+#include "random_mon_generation.h"
 #include "randomizer.h"
 #include "ruleset.h"
 #include "test/test.h"
 #include "constants/ruleset.h"
+#include "constants/abilities.h"
+#include "constants/moves.h"
+#include "constants/opponents.h"
 #include "constants/species.h"
+#include "constants/trainers.h"
 
 // ---------------------------------------------------------------------------
 // Phase 2 core randomizer: power score + deterministic power-matched selection.
@@ -19,6 +27,8 @@ static void UseBalancedRandomizerRuleset(void)
     SetRulesetSetting(SETTING_GIFT_RANDOMIZATION, 1);
     SetRulesetSetting(SETTING_STATIC_RANDOMIZATION, 1);
     SetRulesetSetting(SETTING_LEGENDARY_RANDOMIZATION, 1);
+    SetRulesetSetting(SETTING_TRAINER_RANDOMIZATION, 1);
+    SetRulesetSetting(SETTING_TRAINER_LEVEL_MODE, TRLEVEL_CAP_SCALED);
     SetRulesetSetting(SETTING_POWER_MATCHING, PWRMATCH_NORMAL);
     SetRulesetSetting(SETTING_EVO_STAGE_MATCHING, EVOSTAGE_PREFER);
     SetRulesetSetting(SETTING_ENCOUNTER_MAPPING, ENCMAP_SLOT);
@@ -58,23 +68,29 @@ TEST("Potential blend lifts an unevolved mon toward its final form")
     EXPECT_LT(magikarpBlend, GetSpeciesPowerScore(SPECIES_GYARADOS));
 }
 
-TEST("Ability adjustment flips Slaking / Azumarill only when abilities are vanilla")
+TEST("Intrinsic power and species mappings do not depend on ability randomization")
 {
+    static const struct WildPokemon slots[1] = { { 5, 5, SPECIES_SLAKING } };
+    struct WildPokemonInfo info = { 20, slots, 0xAB11u, 0xAB12u };
     u32 slakingRand, slakingVanilla, azuRand, azuVanilla;
+    enum Species pickRand, pickVanilla;
 
     UseBalancedRandomizerRuleset();
     SetRulesetSetting(SETTING_ABILITY_RANDOMIZATION, 1);
     PowerScore_Invalidate();
     slakingRand = GetSpeciesRawPowerScore(SPECIES_SLAKING);
     azuRand = GetSpeciesRawPowerScore(SPECIES_AZUMARILL);
+    pickRand = Randomizer_WildSlotSpecies(&info, 0, SPECIES_SLAKING);
 
     SetRulesetSetting(SETTING_ABILITY_RANDOMIZATION, 0);
     PowerScore_Invalidate();
     slakingVanilla = GetSpeciesRawPowerScore(SPECIES_SLAKING);
     azuVanilla = GetSpeciesRawPowerScore(SPECIES_AZUMARILL);
+    pickVanilla = Randomizer_WildSlotSpecies(&info, 0, SPECIES_SLAKING);
 
-    EXPECT_LT(slakingVanilla, slakingRand);   // Truant drags Slaking down
-    EXPECT_GT(azuVanilla, azuRand);           // Huge Power lifts Azumarill up
+    EXPECT_EQ(slakingVanilla, slakingRand);
+    EXPECT_EQ(azuVanilla, azuRand);
+    EXPECT_EQ(pickVanilla, pickRand);
 }
 
 TEST("Evolutionary-stage buckets")
@@ -200,6 +216,25 @@ TEST("Starter trio is randomized, distinct, and all fully evolvable")
     EXPECT_EQ(GetSpeciesEvoStageBucket(c), EVO_BUCKET_UNEVOLVED);
 }
 
+TEST("Starter choices remain unique across a broad seed sample")
+{
+    UseBalancedRandomizerRuleset();
+    // Count-and-pick provides the proof; keep a representative seed sweep
+    // small enough for the 60-second GBA test-runner watchdog.
+    for (u32 seed = 0; seed < 64; seed++)
+    {
+        enum Species a, b, c;
+
+        SetRunSeed(seed);
+        a = Randomizer_StarterSpecies(0);
+        b = Randomizer_StarterSpecies(1);
+        c = Randomizer_StarterSpecies(2);
+        EXPECT_NE(a, b);
+        EXPECT_NE(a, c);
+        EXPECT_NE(b, c);
+    }
+}
+
 TEST("A legendary static slot draws from the premium pool")
 {
     enum Species pick;
@@ -211,8 +246,262 @@ TEST("A legendary static slot draws from the premium pool")
 
     EXPECT_NE(pick, SPECIES_NONE);
     EXPECT((IsSpeciesPowerEligible(pick)));
-    // Curated premium pool = category-banned OR blended power >= 600.
-    EXPECT((IsSpeciesCategoryBanned(pick) || GetSpeciesPowerScore(pick) >= 600));
+    EXPECT((IsSpeciesPremiumTier(pick)));
+}
+
+TEST("Zero is a valid deterministic run seed")
+{
+    static const struct WildPokemon slots[1] = { { 5, 5, SPECIES_ZIGZAGOON } };
+    struct WildPokemonInfo info = { 20, slots, 0x010203u, 0x040506u };
+    enum Species first;
+
+    UseBalancedRandomizerRuleset();
+    EXPECT((SetRunSeed(0)));
+    EXPECT_EQ(GetRunSeed(), 0);
+    first = Randomizer_WildSlotSpecies(&info, 0, SPECIES_ZIGZAGOON);
+    EXPECT_EQ(Randomizer_WildSlotSpecies(&info, 0, SPECIES_ZIGZAGOON), first);
+}
+
+TEST("Exact species bans exclude only the selected species")
+{
+    UseBalancedRandomizerRuleset();
+    EXPECT((Ruleset_SetSpeciesBanned(SPECIES_ZIGZAGOON, TRUE)));
+    EXPECT((Ruleset_IsSpeciesBanned(SPECIES_ZIGZAGOON)));
+    EXPECT(!(Ruleset_IsSpeciesBanned(SPECIES_LINOONE)));
+    PowerScore_EnsureBuilt();
+    EXPECT(!(IsSpeciesPowerEligible(SPECIES_ZIGZAGOON)));
+    EXPECT((IsSpeciesPowerEligible(SPECIES_LINOONE)));
+}
+
+TEST("Unsafe transient forms never enter the project roster")
+{
+    UseBalancedRandomizerRuleset();
+    SetRulesetSetting(SETTING_ALLOW_OTHER_FORMS, TRUE);
+    PowerScore_EnsureBuilt();
+
+    EXPECT(!(IsRandomSpeciesFormSafe(SPECIES_DARMANITAN_ZEN)));
+    EXPECT(!(IsSpeciesPowerEligible(SPECIES_DARMANITAN_ZEN)));
+    EXPECT((IsRandomSpeciesFormSafe(SPECIES_VULPIX_ALOLA)));
+    EXPECT((IsSpeciesPowerEligible(SPECIES_VULPIX_ALOLA)));
+}
+
+TEST("Premium identity is immutable and excludes ordinary high-BST species")
+{
+    UseBalancedRandomizerRuleset();
+    EXPECT((IsSpeciesPremium(SPECIES_RAYQUAZA)));
+    EXPECT((IsSpeciesPremium(SPECIES_MEWTWO)));
+    EXPECT(!(IsSpeciesPremium(SPECIES_SALAMENCE)));
+    EXPECT(!(IsSpeciesPremium(SPECIES_SLAKING)));
+
+    SetRulesetSetting(SETTING_ALLOW_LEGENDARY, TRUE);
+    EXPECT((IsSpeciesPremium(SPECIES_RAYQUAZA)));
+    SetRulesetSetting(SETTING_ALLOW_LEGENDARY, FALSE);
+    EXPECT((IsSpeciesPremium(SPECIES_RAYQUAZA)));
+}
+
+TEST("Encounter-rate layouts are deterministic permutations within each table")
+{
+    static const struct WildPokemon slots[NUM_LAND_MONS_ENCOUNTER_SLOTS] = {0};
+    struct WildPokemonInfo info = { 20, slots, 0x13579u, 0x24680u };
+    bool8 seen[NUM_LAND_MONS_ENCOUNTER_SLOTS] = {0};
+
+    UseBalancedRandomizerRuleset();
+    SetRulesetSetting(SETTING_ENCOUNTER_RATE_RANDOMIZATION, 1);
+    for (u32 i = 0; i < NUM_LAND_MONS_ENCOUNTER_SLOTS; i++)
+    {
+        u32 mapped = Randomizer_WildRateSlot(&info, WILD_AREA_LAND, 0, i);
+        EXPECT_LT(mapped, NUM_LAND_MONS_ENCOUNTER_SLOTS);
+        EXPECT(!(seen[mapped]));
+        seen[mapped] = TRUE;
+        EXPECT_EQ(Randomizer_WildRateSlot(&info, WILD_AREA_LAND, 0, i), mapped);
+    }
+}
+
+TEST("Fishing encounter-rate permutations never cross rod subgroups")
+{
+    static const struct WildPokemon slots[NUM_FISHING_MONS_ENCOUNTER_SLOTS] = {0};
+    struct WildPokemonInfo info = { 20, slots, 0x97531u, 0x86420u };
+
+    UseBalancedRandomizerRuleset();
+    SetRulesetSetting(SETTING_ENCOUNTER_RATE_RANDOMIZATION, TRUE);
+    for (u32 i = 0; i < 2; i++)
+        EXPECT_LT(Randomizer_WildRateSlot(&info, WILD_AREA_FISHING, OLD_ROD, i), 2);
+    for (u32 i = 2; i < 5; i++)
+    {
+        u32 mapped = Randomizer_WildRateSlot(&info, WILD_AREA_FISHING, GOOD_ROD, i);
+        EXPECT_GE(mapped, 2);
+        EXPECT_LT(mapped, 5);
+    }
+    for (u32 i = 5; i < 10; i++)
+        EXPECT_GE(Randomizer_WildRateSlot(&info, WILD_AREA_FISHING, SUPER_ROD, i), 5);
+}
+
+TEST("Special wild mapping honors slot route and global identities")
+{
+    enum Species a, b;
+
+    UseBalancedRandomizerRuleset();
+    SetRulesetSetting(SETTING_ENCOUNTER_MAPPING, ENCMAP_ROUTE_SPECIES);
+    a = Randomizer_SpecialWildSpecies(SPECIES_FEEBAS, 0x10, 0xCAFE);
+    b = Randomizer_SpecialWildSpecies(SPECIES_FEEBAS, 0x20, 0xCAFE);
+    EXPECT_EQ(a, b);
+
+    SetRulesetSetting(SETTING_ENCOUNTER_MAPPING, ENCMAP_GLOBAL);
+    EXPECT_EQ(Randomizer_SpecialWildSpecies(SPECIES_FEEBAS, 0x10, 0xCAFE),
+              Randomizer_SpecialWildSpecies(SPECIES_FEEBAS, 0x20, 0xBABE));
+
+    SetRulesetSetting(SETTING_ENCOUNTER_MAPPING, ENCMAP_SLOT);
+    a = Randomizer_SpecialWildSpecies(SPECIES_FEEBAS, 0x10, 0xCAFE);
+    for (u32 source = 0x11; source < 0x30; source++)
+    {
+        b = Randomizer_SpecialWildSpecies(SPECIES_FEEBAS, source, 0xCAFE);
+        if (b != a)
+            break;
+    }
+    EXPECT_NE(a, b);
+}
+
+TEST("Gift IV modes are deterministic and independent of gift species randomization")
+{
+    struct PokemonTemplate vanilla = { .species = SPECIES_CASTFORM, .level = 25 };
+    struct PokemonTemplate randomized = vanilla;
+
+    UseBalancedRandomizerRuleset();
+    SetRulesetSetting(SETTING_GIFT_IV_MODE, GIFTIV_NATURAL);
+    for (u32 i = 0; i < NUM_STATS; i++)
+    {
+        vanilla.ivs[i] = USE_RANDOM_IVS;
+        randomized.ivs[i] = USE_RANDOM_IVS;
+    }
+
+    SetRulesetSetting(SETTING_GIFT_RANDOMIZATION, FALSE);
+    Randomizer_ApplyGiftTemplate(&vanilla, 0x12345678);
+    SetRulesetSetting(SETTING_GIFT_RANDOMIZATION, TRUE);
+    Randomizer_ApplyGiftTemplate(&randomized, 0x12345678);
+    for (u32 i = 0; i < NUM_STATS; i++)
+        EXPECT_EQ(vanilla.ivs[i], randomized.ivs[i]);
+
+    randomized = (struct PokemonTemplate){ .species = SPECIES_CASTFORM, .level = 25,
+        .ivs = { 0, 5, 10, 15, 20, 31 } };
+    SetRulesetSetting(SETTING_GIFT_RANDOMIZATION, FALSE);
+    SetRulesetSetting(SETTING_GIFT_IV_MODE, GIFTIV_CUSTOM_FLOOR);
+    SetRulesetSetting(SETTING_GIFT_IV_FLOOR, 12);
+    Randomizer_ApplyGiftTemplate(&randomized, 0x87654321);
+    EXPECT_EQ(randomized.ivs[0], 12);
+    EXPECT_EQ(randomized.ivs[1], 12);
+    EXPECT_EQ(randomized.ivs[2], 12);
+    EXPECT_EQ(randomized.ivs[3], 15);
+    EXPECT_EQ(randomized.ivs[4], 20);
+    EXPECT_EQ(randomized.ivs[5], 31);
+}
+
+TEST("Trainer party roles and level overrides are applied party-wide")
+{
+    struct TrainerMon ordinary[2] =
+    {
+        { .species = SPECIES_RAYQUAZA, .lvl = 5, .ability = ABILITY_AIR_LOCK,
+          .moves = { MOVE_DRAGON_ASCENT, MOVE_FLY, MOVE_REST, MOVE_EXTREME_SPEED } },
+        { .species = SPECIES_ZIGZAGOON, .lvl = 6, .ability = ABILITY_PICKUP,
+          .moves = { MOVE_TACKLE, MOVE_GROWL, MOVE_NONE, MOVE_NONE } },
+    };
+    struct TrainerMon wallace[2] =
+    {
+        { .species = SPECIES_ZIGZAGOON, .lvl = 40 },
+        { .species = SPECIES_POOCHYENA, .lvl = 41 },
+    };
+    u32 indices[2] = {0, 1};
+
+    UseBalancedRandomizerRuleset();
+    FlagClear(FLAG_IS_CHAMPION);
+    Randomizer_ApplyTrainerParty(ordinary, indices, 2, TRAINER_ROXANNE_1, TRAINER_CLASS_LEADER);
+    for (u32 i = 0; i < 2; i++)
+    {
+        EXPECT(!(IsSpeciesPremium(ordinary[i].species)));
+        EXPECT_EQ(ordinary[i].lvl, 14);
+        EXPECT_EQ(ordinary[i].ability, ABILITY_NONE);
+        for (u32 move = 0; move < MAX_MON_MOVES; move++)
+            EXPECT_EQ(ordinary[i].moves[move], MOVE_NONE);
+    }
+
+    Randomizer_ApplyTrainerParty(wallace, indices, 2, TRAINER_WALLACE, TRAINER_CLASS_CHAMPION);
+    EXPECT_EQ(wallace[0].lvl, 63);
+    EXPECT_EQ(wallace[1].lvl, 63);
+    EXPECT((IsSpeciesPremium(wallace[0].species) || IsSpeciesPremium(wallace[1].species)));
+}
+
+TEST("Trainer party-size randomization is deterministic and bounded")
+{
+    bool8 seen[PARTY_SIZE + 1] = {0};
+
+    UseBalancedRandomizerRuleset();
+    SetRulesetSetting(SETTING_TRAINER_PARTY_SIZE_RANDOMIZATION, TRUE);
+    for (u32 seed = 0; seed < 128; seed++)
+    {
+        u8 count;
+
+        SetRunSeed(seed);
+        count = Randomizer_GetTrainerPartySize(TRAINER_ROXANNE_1, PARTY_SIZE);
+        EXPECT_GE(count, 1);
+        EXPECT_LE(count, PARTY_SIZE);
+        EXPECT_EQ(count, Randomizer_GetTrainerPartySize(TRAINER_ROXANNE_1, PARTY_SIZE));
+        seen[count] = TRUE;
+    }
+    for (u32 count = 1; count <= PARTY_SIZE; count++)
+        EXPECT((seen[count]));
+}
+
+TEST("Elite Four slots naturally allow both ordinary and Premium results")
+{
+    bool32 sawOrdinary = FALSE, sawPremium = FALSE;
+    u32 index = 0;
+
+    UseBalancedRandomizerRuleset();
+    for (u32 seed = 0; seed < 256 && (!sawOrdinary || !sawPremium); seed++)
+    {
+        // Drake's high-power ordinary ace is a target for which strict power
+        // matching contains both pseudo-legendary and Premium candidates.
+        struct TrainerMon mon = { .species = SPECIES_SALAMENCE, .lvl = 50 };
+
+        SetRunSeed(seed);
+        Randomizer_ApplyTrainerParty(&mon, &index, 1, TRAINER_SIDNEY, TRAINER_CLASS_ELITE_FOUR);
+        if (IsSpeciesPremium(mon.species))
+            sawPremium = TRUE;
+        else
+            sawOrdinary = TRUE;
+    }
+    EXPECT((sawOrdinary));
+    EXPECT((sawPremium));
+}
+
+TEST("Cap-relative trainer levels follow badge offsets and preserve postgame levels")
+{
+    struct TrainerMon mon = { .species = SPECIES_ZIGZAGOON, .lvl = 10 };
+    u32 index = 0;
+
+    UseBalancedRandomizerRuleset();
+    SetRulesetSetting(SETTING_TRAINER_RANDOMIZATION, FALSE);
+    SetRulesetSetting(SETTING_TRAINER_LEVEL_MODE, TRLEVEL_CAP_SCALED);
+    for (u32 flag = FLAG_BADGE01_GET; flag <= FLAG_BADGE08_GET; flag++)
+        FlagClear(flag);
+    FlagClear(FLAG_IS_CHAMPION);
+
+    Randomizer_ApplyTrainerParty(&mon, &index, 1, 1, TRAINER_CLASS_YOUNGSTER);
+    EXPECT_EQ(mon.lvl, 9); // cap 14 - (upcoming vanilla ace 15 - authored 10)
+
+    FlagSet(FLAG_BADGE01_GET);
+    mon.lvl = 10;
+    Randomizer_ApplyTrainerParty(&mon, &index, 1, 1, TRAINER_CLASS_YOUNGSTER);
+    EXPECT_EQ(mon.lvl, 12); // cap 21 - (upcoming vanilla ace 19 - authored 10)
+
+    FlagSet(FLAG_IS_CHAMPION);
+    mon.lvl = 10;
+    Randomizer_ApplyTrainerParty(&mon, &index, 1, 1, TRAINER_CLASS_YOUNGSTER);
+    EXPECT_EQ(mon.lvl, 10);
+
+    FlagClear(FLAG_IS_CHAMPION);
+    mon.lvl = 44;
+    Randomizer_ApplyTrainerParty(&mon, &index, 1, TRAINER_ROXANNE_2, TRAINER_CLASS_LEADER);
+    EXPECT_EQ(mon.lvl, 44);
 }
 
 TEST("An ordinary static slot draws from the ordinary pool")

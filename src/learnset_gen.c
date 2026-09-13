@@ -244,7 +244,7 @@ enum Move LearnsetGen_PoolMove(u32 index)
 
 // ---- generation --------------------------------------------------------
 
-// kind: 0 = STAB (damaging, type t0/t1), 1 = any damaging, 2 = status.
+// kind: 0 = STAB damage, 1 = any damage, 2 = status, 3 = non-STAB damage.
 // Draws up to k distinct not-yet-picked moves into out[*outCount], marking them.
 static void DrawMoves(rng_value_t *st, u32 kind, u8 t0, u8 t1, u32 k,
                       enum Move *out, u32 *outCount)
@@ -269,6 +269,8 @@ static void DrawMoves(rng_value_t *st, u32 kind, u8 t0, u8 t1, u32 k,
             if (PickedGet(m))
                 continue;
             if (kind == 0 && sDmgType[i] != t0 && sDmgType[i] != t1)
+                continue;
+            if (kind == 3 && (sDmgType[i] == t0 || sDmgType[i] == t1))
                 continue;
             sScratch[scratchN++] = m;
         }
@@ -359,6 +361,99 @@ static u16 CheckpointLevel(u32 idx, u32 n)
     return (u16)(1 + (idx * (LG_LAST_LEVEL - 1)) / (n - 1));
 }
 
+static u32 MovePotency(enum Move move)
+{
+    u32 power, accuracy, strikes10, effective;
+
+    if (GetMoveCategory(move) == DAMAGE_CATEGORY_STATUS)
+        return 128;
+    power = GetMovePower(move);
+    accuracy = GetMoveAccuracy(move);
+    strikes10 = GetMoveStrikeCount(move) * 10;
+    if (power <= 1)
+        power = 60;
+    if (accuracy == 0)
+        accuracy = 100;
+    if (IsMultiHitMove(move))
+        strikes10 = 31; // Gen 5+ 2-5-hit distribution has 3.1 expected strikes.
+    if (strikes10 < 10)
+        strikes10 = 10;
+    effective = power * accuracy * strikes10 / 1000;
+    if (effective < 10)
+        effective = 10;
+    if (effective > 150)
+        effective = 150;
+    return (effective - 10) * 255 / 140;
+}
+
+// Phase 11A approved weighted formula: one combined pool, no quotas, sampled
+// without replacement. STAB damage receives composition weight 2; timing is
+// the exact checkpoint/potency interpolation from the approved plan.
+static u32 GenerateWeighted(enum Species species, struct LevelUpMove *out, u32 n,
+                            u32 compositionMode, u32 order, rng_value_t *st)
+{
+    u8 t0 = GetSpeciesType(species, 0);
+    u8 t1 = GetSpeciesType(species, 1);
+    u32 checkpoint, count = 0;
+
+    PickedClear();
+    for (checkpoint = 0; checkpoint < n; checkpoint++)
+    {
+        u32 p = (n <= 1) ? 0 : checkpoint * 20 / (n - 1);
+        u32 totalWeight = 0;
+        u32 i, choice;
+
+        for (i = 0; i < (u32)sDmgCount + (LG_POOL_CAP - sStatusStart); i++)
+        {
+            enum Move move = LearnsetGen_PoolMove(i);
+            u32 q, timing, composition;
+
+            if (PickedGet(move))
+                continue;
+            q = MovePotency(move);
+            timing = (order == MVORDER_FULLY_RANDOM)
+                   ? 256
+                   : 64 + (((20 - p) * (255 - q) + p * q) * 192) / (20 * 255);
+            composition = (compositionMode == LRNCOMP_WEIGHTED
+                        && GetMoveCategory(move) != DAMAGE_CATEGORY_STATUS
+                        && IsStab(move, t0, t1)) ? 2 : 1;
+            totalWeight += composition * timing;
+        }
+        if (totalWeight == 0)
+            break;
+
+        choice = LocalRandom32(st) % totalWeight;
+        for (i = 0; i < (u32)sDmgCount + (LG_POOL_CAP - sStatusStart); i++)
+        {
+            enum Move move = LearnsetGen_PoolMove(i);
+            u32 q, timing, weight;
+
+            if (PickedGet(move))
+                continue;
+            q = MovePotency(move);
+            timing = (order == MVORDER_FULLY_RANDOM)
+                   ? 256
+                   : 64 + (((20 - p) * (255 - q) + p * q) * 192) / (20 * 255);
+            weight = ((compositionMode == LRNCOMP_WEIGHTED
+                    && GetMoveCategory(move) != DAMAGE_CATEGORY_STATUS
+                    && IsStab(move, t0, t1)) ? 2 : 1) * timing;
+            if (choice < weight)
+            {
+                out[count].move = move;
+                out[count].level = CheckpointLevel(checkpoint, n);
+                count++;
+                PickedSet(move);
+                break;
+            }
+            choice -= weight;
+        }
+    }
+
+    out[count].move = LEVEL_UP_MOVE_END;
+    out[count].level = 0;
+    return count;
+}
+
 // Fills out[] (must hold LG_MAX_MOVES + 1). Returns the move count, 0 on
 // total failure (empty pool).
 static u32 Generate(enum Species species, struct LevelUpMove *out)
@@ -380,6 +475,9 @@ static u32 Generate(enum Species species, struct LevelUpMove *out)
     if (n < LG_MIN_MOVES) n = LG_MIN_MOVES;
     if (n > LG_MAX_MOVES) n = LG_MAX_MOVES;
 
+    if (comp == LRNCOMP_WEIGHTED || comp == LRNCOMP_FULLY_RANDOM)
+        return GenerateWeighted(species, out, n, comp, order, &st);
+
     PickedClear();
 
     if (comp == LRNCOMP_FULLY_RANDOM)
@@ -388,8 +486,7 @@ static u32 Generate(enum Species species, struct LevelUpMove *out)
         wantStatus = 0;
         wantCoverage = n;
     }
-    else // LRNCOMP_777 (LRNCOMP_WEIGHTED is deferred and not menu-selectable;
-         // if it is ever stored it falls through to 7/7/7 here)
+    else // LRNCOMP_777
     {
         wantStab = (n + 2) / 3;
         wantStatus = n / 3;
@@ -412,10 +509,10 @@ static u32 Generate(enum Species species, struct LevelUpMove *out)
         DrawMoves(&st, 0, t0, t1, wantStab, dmg, &nDmg);      // STAB
         if (nDmg < wantStab)                                  // short -> coverage
             DrawMoves(&st, 1, 0, 0, wantStab - nDmg, dmg, &nDmg);
-        DrawMoves(&st, 1, 0, 0, wantCoverage, dmg, &nDmg);    // coverage
+        DrawMoves(&st, 3, t0, t1, wantCoverage, dmg, &nDmg);  // non-STAB coverage
         DrawMoves(&st, 2, 0, 0, wantStatus, status, &nStatus); // status
         if (nStatus < wantStatus)                             // short -> coverage
-            DrawMoves(&st, 1, 0, 0, wantStatus - nStatus, dmg, &nDmg);
+            DrawMoves(&st, 3, t0, t1, wantStatus - nStatus, dmg, &nDmg);
     }
 
     total = nDmg + nStatus;

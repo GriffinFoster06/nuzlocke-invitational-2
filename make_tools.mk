@@ -3,6 +3,11 @@
 
 MAKEFLAGS += --no-print-directory
 
+# Preserve the host link flags before the root Makefile replaces LDFLAGS with
+# ARM/GBA linker options. Environment-provided host flags must not be replaced
+# by those target flags when recursively building native tools.
+HOST_LDFLAGS := $(LDFLAGS)
+
 # Inclusive list. If you don't want a tool to be built, don't add it here.
 TOOLS_DIR := tools
 TOOL_NAMES := bin2c gbafix gbagfx jsonproc mapjson mid2agb preproc ramscrgen rsfont scaninc trainerproc compresSmol wav2agb
@@ -20,10 +25,10 @@ tools: history $(TOOLDIRS)
 check-tools: $(CHECKTOOLDIRS)
 
 $(TOOLDIRS):
-	@$(MAKE) -C $@
+	@LDFLAGS="$(HOST_LDFLAGS)" $(MAKE) -C $@
 
 $(CHECKTOOLDIRS):
-	@$(MAKE) -C $@
+	@LDFLAGS="$(HOST_LDFLAGS)" $(MAKE) -C $@
 
 clean-tools:
 	@$(foreach tooldir,$(TOOLDIRS),$(MAKE) clean -C $(tooldir);)

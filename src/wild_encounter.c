@@ -524,6 +524,7 @@ static u8 PickWildMonNature(enum Species species)
 
 void CreateWildMon(enum Species species, u8 level)
 {
+    level = Caps_ClampLevel(level);
     ZeroEnemyPartyMons();
     u32 personality = GetMonPersonality(species, GetSynchronizedGender(WILDMON_ORIGIN, species), PickWildMonNature(species), RANDOM_UNOWN_LETTER);
     CreateMonWithIVs(&gParties[B_TRAINER_OPPONENT_A][0], species, level, personality, OTID_STRUCT_PLAYER_ID, USE_RANDOM_IVS);
@@ -560,6 +561,7 @@ static u8 NuzlockeRerollDupeSlot(const struct WildPokemonInfo *info, enum WildPo
         case WILD_AREA_LAND:
         default:                slot = ChooseWildMonIndex_Land(); break;
         }
+        slot = Randomizer_WildRateSlot(info, area, rod, slot);
         if (!Nuzlocke_IsFamilyOwned(Randomizer_WildSlotSpecies(info, slot, info->wildPokemon[slot].species)))
             break;
     }
@@ -570,6 +572,7 @@ bool8 TryGenerateWildMon(const struct WildPokemonInfo *wildMonInfo, enum WildPok
 {
     u8 wildMonIndex = 0;
     u8 level;
+    bool8 usedWeightedPicker = FALSE;
 
     switch (area)
     {
@@ -588,6 +591,7 @@ bool8 TryGenerateWildMon(const struct WildPokemonInfo *wildMonInfo, enum WildPok
             break;
 
         wildMonIndex = ChooseWildMonIndex_Land();
+        usedWeightedPicker = TRUE;
         break;
     case WILD_AREA_WATER:
         if (TRY_GET_ABILITY_INFLUENCED_WILD_MON_INDEX(wildMonInfo,TYPE_STEEL, ABILITY_MAGNET_PULL, &wildMonIndex, NUM_WATER_MONS_ENCOUNTER_SLOTS))
@@ -604,9 +608,11 @@ bool8 TryGenerateWildMon(const struct WildPokemonInfo *wildMonInfo, enum WildPok
             break;
 
         wildMonIndex = ChooseWildMonIndex_Water();
+        usedWeightedPicker = TRUE;
         break;
     case WILD_AREA_ROCKS:
         wildMonIndex = ChooseWildMonIndex_Rocks();
+        usedWeightedPicker = TRUE;
         break;
     default:
     case WILD_AREA_FISHING:
@@ -614,6 +620,8 @@ bool8 TryGenerateWildMon(const struct WildPokemonInfo *wildMonInfo, enum WildPok
         break;
     }
 
+    if (usedWeightedPicker)
+        wildMonIndex = Randomizer_WildRateSlot(wildMonInfo, area, 0, wildMonIndex);
     if (area == WILD_AREA_LAND || area == WILD_AREA_WATER || area == WILD_AREA_ROCKS)
         wildMonIndex = NuzlockeRerollDupeSlot(wildMonInfo, area, 0, wildMonIndex);
 
@@ -634,6 +642,7 @@ static u16 GenerateFishingWildMon(const struct WildPokemonInfo *wildMonInfo, u8 
     enum Species wildMonSpecies;
     u8 level;
 
+    wildMonIndex = Randomizer_WildRateSlot(wildMonInfo, WILD_AREA_FISHING, rod, wildMonIndex);
     wildMonIndex = NuzlockeRerollDupeSlot(wildMonInfo, WILD_AREA_FISHING, rod, wildMonIndex);
     wildMonSpecies = Randomizer_WildSlotSpecies(wildMonInfo, wildMonIndex,
                          wildMonInfo->wildPokemon[wildMonIndex].species);
@@ -1013,7 +1022,8 @@ void FishingWildEncounter(u8 rod)
     {
         u8 level = ChooseWildMonLevel(&gWildFeebas, 0, WILD_AREA_FISHING);
 
-        species = gWildFeebas.species;
+        species = Randomizer_SpecialWildSpecies(gWildFeebas.species, 0xFEEB0001,
+            ((u32)gSaveBlock1Ptr->location.mapGroup << 8) | gSaveBlock1Ptr->location.mapNum);
         CreateWildMon(species, level);
     }
     else

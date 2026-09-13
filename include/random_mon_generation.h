@@ -19,5 +19,8 @@ enum Species GetRandomSpecies(u32 optionId, const struct FilterFuncArgs *filterF
 enum Item GetRandomItem(u32 optionId, const struct FilterFuncArgs *filterFuncArgs);
 enum PokeBall GetRandomBall(void);
 void ResolveMoves(enum Species species, u32 level, const u16 *movesTemplate, enum Move *moves);
+// Shared safety gate for project-owned candidate pools. Rejects transient,
+// battle-only, internal and otherwise unsafe form targets.
+bool32 IsRandomSpeciesFormSafe(enum Species species);
 
 #endif // GUARD_RANDOM_MON_GENERATION_H

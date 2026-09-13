@@ -6,9 +6,11 @@
 #include "main.h"
 #include "malloc.h"
 #include "random.h"
+#include "ruleset.h"
 #include "task.h"
 #include "union_room_chat.h"
 #include "constants/characters.h"
+#include "constants/ruleset.h"
 #include "test_runner.h"
 #include "test/test.h"
 #include "test/battle.h"
@@ -197,6 +199,12 @@ static void ClearSaveBlocks(void)
     ClearSav1();
     ClearSav2();
     ClearSav3();
+
+    // Most upstream tests exercise authored species, abilities, moves, levels,
+    // and gifts. Give every isolated fixture the non-randomized preset; tests
+    // of project rules explicitly select or reset the configuration they need.
+    ApplyRulesetPreset(RULESET_PRESET_MODERN_EMERALD);
+    SetRulesetSetting(SETTING_AI_DIFFICULTY, AIDIFF_VANILLA);
 }
 
 void CB2_TestRunner(void)

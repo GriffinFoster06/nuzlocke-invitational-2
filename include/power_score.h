@@ -6,8 +6,8 @@
 //
 // One scalar per species in BST-like units (~170-800), combining BST with
 // offensive efficiency, defensive efficiency, a speed premium, special-species
-// classification, an "artificially restrained by a crippling ability" flag
-// (inert unless ability randomization is off), and a blend toward the strongest
+// classification, canonical ability restraints (independent of randomized
+// ability settings), and a blend toward the strongest
 // reachable final evolution. Also exposes the evolutionary-stage bucket and the
 // species-pool eligibility / category-ban predicates the selector needs.
 //
@@ -52,6 +52,7 @@ enum EvoStageBucket GetSpeciesEvoStageBucket(enum Species species);
 // Species-pool predicates, evaluated against the current ruleset toggles.
 bool32 IsSpeciesPowerEligible(enum Species species);   // enabled, not a hard-excluded form, form-category gates
 bool32 IsSpeciesCategoryBanned(enum Species species);  // legendary/mythical/sub/UB/paradox vs SETTING_ALLOW_*
-bool32 IsSpeciesPremiumTier(enum Species species);     // curated premium pool membership (blended power >= floor)
+bool32 IsSpeciesPremium(enum Species species);         // immutable upstream traits + project designations
+bool32 IsSpeciesPremiumTier(enum Species species);     // curated premium membership (Premium && power >= floor)
 
 #endif // GUARD_POWER_SCORE_H

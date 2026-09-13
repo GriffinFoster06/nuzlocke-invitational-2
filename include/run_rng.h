@@ -19,13 +19,18 @@
 #define SALT_WILD_SLOT    0x574C5344  // "WLSD"
 #define SALT_WILD_ROUTE   0x574C5254  // "WLRT"
 #define SALT_WILD_GLOBAL  0x574C4742  // "WLGB"
+#define SALT_WILD_RATE    0x574C5253  // "WLRS"
+#define SALT_WILD_SPECIAL 0x574C5350  // "WLSP"
 #define SALT_STARTER      0x53544152  // "STAR"
 #define SALT_STARTER_IV   0x53544956  // "STIV"
 #define SALT_GIFT         0x47494654  // "GIFT"
+#define SALT_GIFT_IV      0x47495653  // "GIVS"
 #define SALT_STATIC       0x53544154  // "STAT"
 #define SALT_ROAMER       0x524F414D  // "ROAM"
 #define SALT_LEARNSET     0x4C524E53  // "LRNS"
 #define SALT_TRAINER      0x54524E52  // "TRNR"
+#define SALT_TRAINER_SIZE 0x5452535A  // "TRSZ"
+#define SALT_TRAINER_PREMIUM_GUARANTEE 0x54525047 // "TRPG"
 #define SALT_ABILITY      0x41424C54  // "ABLT"
 #define SALT_TM           0x544D4D56  // "TMMV"
 #define SALT_TUTOR        0x5455544F  // "TUTO"
@@ -35,7 +40,7 @@
 
 static inline rng_value_t RunRng_Seed(u32 salt, u32 k0, u32 k1, u32 k2)
 {
-    const u32 pieces[5] = { GetRunSeed(), salt, k0, k1, k2 };
+    const u32 pieces[6] = { GetRunSeed(), GetSavedRandomizerVersion(), salt, k0, k1, k2 };
     return LocalRandomSeed(Crc32B((const u8 *)pieces, sizeof(pieces)));
 }
 

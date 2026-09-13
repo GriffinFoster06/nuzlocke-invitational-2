@@ -65,12 +65,15 @@ static void HealPlayerBoxes(void)
     }
 }
 
-u8 ScriptGiveEgg(enum Species species)
+u8 ScriptGiveEgg(enum Species species, u32 sourceKey)
 {
     struct Pokemon mon;
     u8 isEgg;
 
+    enum Species vanilla = species;
+    species = Randomizer_GiftSpecies(species, EGG_HATCH_LEVEL, sourceKey);
     CreateEgg(&mon, species, TRUE);
+    Randomizer_ApplyGiftMonIVs(&mon, vanilla, sourceKey);
     isEgg = TRUE;
     SetMonData(&mon, MON_DATA_IS_EGG, &isEgg);
 
@@ -121,11 +124,11 @@ bool8 DoesPartyHaveEnigmaBerry(void)
     return hasItem;
 }
 
-void CreateScriptedWildMon(enum Species species, u8 level, enum Item item)
+void CreateScriptedWildMon(enum Species species, u8 level, enum Item item, u32 sourceKey)
 {
     u8 heldItem[2];
 
-    species = Randomizer_StaticSpecies(species, level, 0);   // docs/SPEC.md "Static Pokemon"
+    species = Randomizer_StaticSpecies(species, level, sourceKey); // docs/SPEC.md "Static Pokemon"
     level = Caps_ClampLevel(level);                          // docs/SPEC.md "Caught Pokemon above the cap"
 
     ZeroEnemyPartyMons();
@@ -142,13 +145,13 @@ void CreateScriptedWildMon(enum Species species, u8 level, enum Item item)
         SetMonData(&gParties[B_TRAINER_OPPONENT_A][0], MON_DATA_HELD_ITEM, heldItem);
     }
 }
-void CreateScriptedDoubleWildMon(enum Species species1, u8 level1, enum Item item1, enum Species species2, u8 level2, enum Item item2)
+void CreateScriptedDoubleWildMon(enum Species species1, u8 level1, enum Item item1, enum Species species2, u8 level2, enum Item item2, u32 sourceKey)
 {
     u8 heldItem1[2];
     u8 heldItem2[2];
 
-    species1 = Randomizer_StaticSpecies(species1, level1, 0);
-    species2 = Randomizer_StaticSpecies(species2, level2, 1);
+    species1 = Randomizer_StaticSpecies(species1, level1, sourceKey);
+    species2 = Randomizer_StaticSpecies(species2, level2, sourceKey ^ 1);
     level1 = Caps_ClampLevel(level1);                        // docs/SPEC.md "Caught Pokemon above the cap"
     level2 = Caps_ClampLevel(level2);
 
@@ -416,6 +419,7 @@ u32 ScriptGiveMon(enum Species species, u8 level, enum Item item)
 void ScrCmd_createmon(struct ScriptContext *ctx)
 {
     u32 i;
+    u32 sourceKey = (u32)ctx->scriptPtr - ROM_START;
     u8 side                   = ScriptReadByte(ctx);
     u8 slot                   = ScriptReadByte(ctx);
 
@@ -465,7 +469,7 @@ void ScrCmd_createmon(struct ScriptContext *ctx)
     {
         Script_RequestEffects(SCREFF_V1 | SCREFF_SAVE);
         monTemplate.origin = GIFTMON_ORIGIN;
-        Randomizer_ApplyGiftTemplate(&monTemplate);   // docs/SPEC.md "Gift Pokemon"
+        Randomizer_ApplyGiftTemplate(&monTemplate, sourceKey); // docs/SPEC.md "Gift Pokemon"
         if (!monTemplate.isEgg)                        // docs/SPEC.md "Caught Pokemon above the cap"
             monTemplate.level = Caps_ClampLevel(monTemplate.level);
     }

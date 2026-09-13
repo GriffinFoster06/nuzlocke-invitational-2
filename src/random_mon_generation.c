@@ -217,6 +217,27 @@ static bool32 IsRandomSpeciesFormAllowed(enum Species species, const u16 *formTa
         && !speciesInfo->isPrimalReversion;
 }
 
+bool32 IsRandomSpeciesFormSafe(enum Species species)
+{
+    enum Species baseSpecies;
+    const u16 *formTable;
+
+    if (species <= SPECIES_NONE || species >= NUM_SPECIES || !IsSpeciesEnabled(species))
+        return FALSE;
+    baseSpecies = GET_BASE_SPECIES_ID(species);
+    formTable = GetSpeciesFormTable(baseSpecies);
+    if (formTable == NULL)
+        formTable = GetSpeciesFormTable(species);
+    if (formTable == NULL)
+    {
+        const struct SpeciesInfo *si = &gSpeciesInfo[species];
+        return !si->isMegaEvolution && !si->isGigantamax && !si->isTotem
+            && !si->isUltraBurst && !si->cannotBeTraded && !si->isTeraForm
+            && !si->isPrimalReversion;
+    }
+    return IsRandomSpeciesFormAllowed(species, formTable);
+}
+
 static enum Species GetSpeciesCandidateForm(enum Species species, const struct RandomSpeciesGeneratorOptions *options, const struct FilterFuncArgs *filterFuncArgs)
 {
     const u16 *formTable = GetSpeciesFormTable(species);

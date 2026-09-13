@@ -3558,7 +3558,7 @@ static const struct DebugSelection sComplexPokemonSelection = {
 
 static bool32 DebugSelection_GiveEggPokemon_OnComplete(u8 taskId)
 {
-    ScriptGiveEgg(DebugSelection_GetData(taskId, 0));
+    ScriptGiveEgg(DebugSelection_GetData(taskId, 0), 0);
     DebugSelectionStep_ReturnToGiveMenu(taskId);
     PlaySE(SE_SUCCESS);
     return TRUE;

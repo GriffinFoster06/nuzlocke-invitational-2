@@ -2251,7 +2251,7 @@ void CreateNPCTrainerPartyFromTrainer(struct Pokemon *party, const struct Traine
 
     ZeroPartyMons(party);
 
-    monsCount = trainer->partySize;
+    monsCount = Randomizer_GetTrainerPartySize(trainerId, trainer->partySize);
     if (gBattleTypeFlags & BATTLE_TYPE_TWO_OPPONENTS && (B_MULTI_HALF_TEAMS || trainer->multiTeamSize == MULTI_TEAM_SIZE_HALF))
     {
         if (monsCount > PARTY_SIZE / 2)
@@ -2259,19 +2259,18 @@ void CreateNPCTrainerPartyFromTrainer(struct Pokemon *party, const struct Traine
     }
 
     u32 monIndices[monsCount];
+    struct TrainerMon entries[monsCount];
     struct TrainerGenerator *trainerGen = AllocZeroed(sizeof(struct TrainerGenerator));
     MakeTrainerGenerator(trainerGen, trainer);
     DoTrainerPartyPool(trainer, monIndices, monsCount, gBattleTypeFlags);
 
     for (i = 0; i < monsCount; i++)
-    {
-        u32 monIndex = monIndices[i];
-        // docs/SPEC.md "Trainer Pokemon": trainer parties live in ROM, so the
-        // replacement is applied to a mutable copy on the way to the generator.
-        struct TrainerMon entry = trainer->party[monIndex];
+        entries[i] = trainer->party[monIndices[i]];
+    Randomizer_ApplyTrainerParty(entries, monIndices, monsCount, trainerId, trainer->trainerClass);
 
-        Randomizer_ApplyTrainerMon(&entry, trainerId, monIndex, trainer->trainerClass);
-        GenerateMonFromTrainerMon(&party[i], &entry, trainerGen);
+    for (i = 0; i < monsCount; i++)
+    {
+        GenerateMonFromTrainerMon(&party[i], &entries[i], trainerGen);
     }
     Free(trainerGen);
 }

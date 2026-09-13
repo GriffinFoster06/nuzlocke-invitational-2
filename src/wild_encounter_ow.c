@@ -4,6 +4,7 @@
 #include "battle_main.h"
 #include "battle_pike.h"
 #include "battle_pyramid.h"
+#include "caps.h"
 #include "event_data.h"
 #include "event_object_movement.h"
 #include "fieldmap.h"
@@ -14,6 +15,7 @@
 #include "metatile_behavior.h"
 #include "overworld.h"
 #include "random.h"
+#include "randomizer.h"
 #include "roamer.h"
 #include "ruleset_field.h"
 #include "script.h"
@@ -393,6 +395,7 @@ void StartWildBattleWithOWE(struct ScriptContext *ctx)
     {
         level = MIN_LEVEL;
     }
+    level = Caps_ClampLevel(level);
 
     ZeroEnemyPartyMons();
     personality = GetMonPersonality(speciesId, gender, NATURE_RANDOM, RANDOM_UNOWN_LETTER);
@@ -503,7 +506,9 @@ static bool32 CreateEnemyPartyOWE(struct InfoOWE *info, s32 x, s32 y)
         }
         else if (WE_OWE_FEEBAS_SPOTS && MetatileBehavior_IsWaterWildEncounter(metatileBehavior) && CheckFeebasAtCoords(x, y))
         {
-            CreateWildMon(gWildFeebas.species, ChooseWildMonLevel(&gWildFeebas, 0, WILD_AREA_FISHING));
+            CreateWildMon(Randomizer_SpecialWildSpecies(gWildFeebas.species, 0xFEEB0001,
+                ((u32)gSaveBlock1Ptr->location.mapGroup << 8) | gSaveBlock1Ptr->location.mapNum),
+                ChooseWildMonLevel(&gWildFeebas, 0, WILD_AREA_FISHING));
             info->category = OWE_CATEGORY_FEEBAS;
             if (WE_OWE_PREVENT_FEEBAS_DESPAWN)
                 info->noDespawn = TRUE;

@@ -4,8 +4,8 @@
 #include "constants/ruleset.h"
 
 // Metadata for one setting. One row per SettingId, in enum order, in
-// src/data/ruleset.h. `defaultValue` is the Invitational 2 Solo value - the
-// other named presets are expressed as sparse overrides of these defaults.
+// src/data/ruleset.h. `defaultValue` is the Recommended value; the other named
+// presets are expressed as sparse overrides of those defaults.
 struct SettingDescriptor
 {
     const u8 *name;
@@ -21,7 +21,7 @@ struct SettingDescriptor
 };
 
 // One entry of a preset's override list: "for this preset, this setting
-// differs from the Invitational 2 Solo default".
+// differs from the Recommended default".
 struct RulesetPresetOverride
 {
     u16 settingId;
@@ -38,25 +38,32 @@ bool8 RulesetTablesAreValid(void);                 // debug-time descriptor-tabl
 
 // ---- value get / set ----
 u8 GetRulesetSetting(u32 settingId);
-void SetRulesetSetting(u32 settingId, u8 value);   // clamps, stores, recomputes displayed preset
-void NudgeRulesetSetting(u32 settingId, s32 delta); // menu helper: step + wrap within range
+bool8 SetRulesetSetting(u32 settingId, u8 value);  // false when invalid or locked
+bool8 NudgeRulesetSetting(u32 settingId, s32 delta);
 
 // ---- presets ----
-void ApplyRulesetPreset(u32 preset);              // fill defaults + overrides, update displayed preset
-void RestoreRulesetCategory(u32 category);        // reset one category to the last named preset
-void RestoreRulesetAll(void);                     // reset everything to the last named preset
-u32 RulesetSettings_RecomputeDisplayedPreset(void); // returns + stores the matching preset (or CUSTOM)
+bool8 ApplyRulesetPreset(u32 preset);
+bool8 RestoreRulesetCategory(u32 category);
+bool8 RestoreRulesetAll(void);
+u32 RulesetSettings_RecomputeDisplayedPreset(void); // compatibility: preserves explicit named/Custom identity
 u32 GetDisplayedRulesetPreset(void);
 
 // ---- locking ----
 bool8 IsRulesetSettingEditable(u32 settingId);
-void SetRulesetRunStarted(bool8 started);          // Phase 2 will call this
-void SetRulesetRunActive(bool8 active);            // Phase 3 will call this
+void SetRulesetRunStarted(bool8 started);
+void SetRulesetRunActive(bool8 active);
 
 // ---- run seed ----
 u32 GetRunSeed(void);
-void SetRunSeed(u32 seed);
-void RerollRunSeed(void);
+bool8 SetRunSeed(u32 seed);
+bool8 RerollRunSeed(void);
+u16 GetSavedRulesetVersion(void);
+u16 GetSavedRandomizerVersion(void);
+
+// Exact-form, per-save generation bans. Bans never imply relatives/forms.
+bool8 Ruleset_IsSpeciesBanned(enum Species species);
+bool8 Ruleset_SetSpeciesBanned(enum Species species, bool8 banned);
+bool8 Ruleset_ClearSpeciesBans(void);
 
 // ---- lifecycle ----
 void ResetRulesetSettings(void);                  // New Game: re-apply the default preset

@@ -1,16 +1,15 @@
 // ============================================================================
-// Nuzlocke-Randomizer ruleset settings screen (Phase 1 scaffolding).
+// Nuzlocke-Randomizer ruleset settings screen.
 //
-// Reached from the debug menu. Data-driven from the descriptor table in
-// src/data/ruleset.h via the accessors in src/ruleset.c - adding a setting in a
-// later phase needs no change here.
+// Reached from Start Menu -> Run Info and the debug menu. Data-driven from the
+// descriptor table in src/data/ruleset.h via the accessors in src/ruleset.c.
 //
 //   Up/Down     move between settings
 //   Left/Right  change the highlighted setting's value (-> preset recomputes)
 //   L/R         switch category page
 //   Start       cycle to the next named preset and apply it
 //   Select      restore the current category to the last applied preset
-//   A           (seed row) reroll the run seed; (preset row) next preset
+//   A           activate the highlighted value or action
 //   B           exit
 // ============================================================================
 
@@ -23,6 +22,9 @@
 #include "malloc.h"
 #include "menu.h"
 #include "palette.h"
+#include "pokedex.h"
+#include "pokemon.h"
+#include "random_mon_generation.h"
 #include "scanline_effect.h"
 #include "sound.h"
 #include "sprite.h"
@@ -60,6 +62,12 @@ struct RulesetMenuState
     u8 rowText[RSMENU_MAX_ROWS][RSMENU_ROW_TEXT_LEN];
     u16 scrollOffset;
     u16 selectedRow;
+    bool8 seedEditing;
+    u8 seedNibble;
+    u32 seedEditValue;
+    bool8 speciesBansOpen;
+    u16 banSpecies;
+    bool8 restoreConfirm;
 };
 
 static EWRAM_DATA struct RulesetMenuState *sState = NULL;
@@ -69,14 +77,18 @@ static void Task_RulesetMenuProcessInput(u8 taskId);
 static void Task_RulesetMenuFadeOut(u8 taskId);
 
 // docs/SPEC.md "Run seed": Run Information shows the active ruleset, its stored
-// format version (so a seed stays reproducible across ROM updates), and the run
-// seed itself. This screen is that panel - the header carries all three and the
-// Preset/Seed category lists the seed row for manual entry / reroll.
-static const u8 sText_HeaderFmt[]     = _("{STR_VAR_1}  v{STR_VAR_2}  0x{STR_VAR_3}");
+// format versions (so a seed stays reproducible across ROM updates), and the
+// run seed itself. The header shows both versions; Preset/Seed shows the seed.
+static const u8 sText_HeaderFmt[]     = _("{STR_VAR_1} R{STR_VAR_2}/G{STR_VAR_3}");
 static const u8 sText_CategoryFmt[]   = _("{STR_VAR_1}/{STR_VAR_2}  {STR_VAR_3}");
 static const u8 sText_Locked[]        = _(" (L)");
 static const u8 sText_Controls[]      = _("{DPAD_LEFTRIGHT} change   L/R page   START preset");
 static const u8 sText_SeedPrefix[]    = _("0x");
+static const u8 sText_Open[]          = _("Open");
+static const u8 sText_Confirm[]       = _("Confirm");
+static const u8 sText_SeedEdit[]      = _("Edit 0x{STR_VAR_1} nibble {STR_VAR_2}\n{DPAD_LEFTRIGHT} select {DPAD_UPDOWN} change A save B cancel");
+static const u8 sText_BanControls[]   = _("National Dex order\nA toggle  START clear all  B return");
+static const u8 sText_RestoreConfirm[] = _("Press A again to restore every setting; B cancels.");
 
 static const struct BgTemplate sRulesetMenuBgTemplates[] =
 {
@@ -144,11 +156,19 @@ static void RulesetMenu_FormatRow(u8 row)
     if (settingId == SETTING_RUN_SEED)
     {
         StringCopy(valueBuf, sText_SeedPrefix);
-        ConvertIntToHexStringN(valueBuf + 2, GetRunSeed(), STR_CONV_MODE_LEADING_ZEROS, 8);
+        ConvertIntToHexStringN(valueBuf + 2, sState->seedEditing ? sState->seedEditValue : GetRunSeed(), STR_CONV_MODE_LEADING_ZEROS, 8);
     }
     else if (settingId == SETTING_PRESET)
     {
         StringCopy(valueBuf, GetRulesetPresetName(value));
+    }
+    else if (settingId == SETTING_SPECIES_BANS)
+    {
+        StringCopy(valueBuf, sText_Open);
+    }
+    else if (settingId == SETTING_RESTORE_ALL)
+    {
+        StringCopy(valueBuf, sText_Confirm);
     }
     else if (d->optionLabels != NULL)
     {
@@ -161,7 +181,8 @@ static void RulesetMenu_FormatRow(u8 row)
 
     StringAppend(dst, valueBuf);
 
-    if (settingId != SETTING_RUN_SEED && !IsRulesetSettingEditable(settingId))
+    if (settingId != SETTING_RUN_SEED && settingId != SETTING_RESTORE_ALL
+     && !IsRulesetSettingEditable(settingId))
         StringAppend(dst, sText_Locked);
 }
 
@@ -169,10 +190,10 @@ static void RulesetMenu_DrawHeader(void)
 {
     FillWindowPixelBuffer(sState->windowIds[RSWIN_HEADER], PIXEL_FILL(1));
 
-    // Line 1: active preset, stored format version, run seed.
+    // Line 1: active preset and both persisted format/algorithm versions.
     StringCopy(gStringVar1, GetRulesetPresetName(GetDisplayedRulesetPreset()));
-    ConvertIntToDecimalStringN(gStringVar2, RULESET_VERSION, STR_CONV_MODE_LEFT_ALIGN, 3);
-    ConvertIntToHexStringN(gStringVar3, GetRunSeed(), STR_CONV_MODE_LEADING_ZEROS, 8);
+    ConvertIntToDecimalStringN(gStringVar2, GetSavedRulesetVersion(), STR_CONV_MODE_LEFT_ALIGN, 3);
+    ConvertIntToDecimalStringN(gStringVar3, GetSavedRandomizerVersion(), STR_CONV_MODE_LEFT_ALIGN, 3);
     StringExpandPlaceholders(gStringVar4, sText_HeaderFmt);
     AddTextPrinterParameterized(sState->windowIds[RSWIN_HEADER], FONT_SMALL, gStringVar4, 0, 1, TEXT_SKIP_DRAW, NULL);
 
@@ -200,6 +221,22 @@ static void RulesetMenu_DrawDescription(s32 row)
 
     FillWindowPixelBuffer(sState->windowIds[RSWIN_DESC], PIXEL_FILL(1));
 
+    if (sState->seedEditing)
+    {
+        ConvertIntToHexStringN(gStringVar1, sState->seedEditValue, STR_CONV_MODE_LEADING_ZEROS, 8);
+        ConvertIntToDecimalStringN(gStringVar2, sState->seedNibble + 1, STR_CONV_MODE_LEFT_ALIGN, 1);
+        StringExpandPlaceholders(descBuf, sText_SeedEdit);
+        AddTextPrinterParameterized(sState->windowIds[RSWIN_DESC], FONT_SMALL, descBuf, 0, 0, TEXT_SKIP_DRAW, NULL);
+        CopyWindowToVram(sState->windowIds[RSWIN_DESC], COPYWIN_FULL);
+        return;
+    }
+    if (sState->restoreConfirm)
+    {
+        AddTextPrinterParameterized(sState->windowIds[RSWIN_DESC], FONT_SMALL, sText_RestoreConfirm, 0, 0, TEXT_SKIP_DRAW, NULL);
+        CopyWindowToVram(sState->windowIds[RSWIN_DESC], COPYWIN_FULL);
+        return;
+    }
+
     // Descriptions are single sentences that overrun one line; wrap them into
     // the top two rows and keep the controls hint on the last row.
     StringCopy(descBuf, d->description);
@@ -226,7 +263,8 @@ static void RulesetMenu_BuildCategory(bool8 firstBuild)
 
     for (i = 0; i < NUM_SETTINGS && count < RSMENU_MAX_ROWS; i++)
     {
-        if (GetSettingDescriptor(i)->category != sState->category)
+        if (GetSettingDescriptor(i)->category != sState->category
+         || (GetSettingDescriptor(i)->flags & SETTING_FLAG_HIDDEN))
             continue;
         sState->rowSettingIds[count] = i;
         count++;
@@ -283,6 +321,14 @@ static s32 RulesetMenu_CurrentSettingId(void)
     return sState->rowSettingIds[scroll + row];
 }
 
+static s32 RulesetMenu_CurrentRow(void)
+{
+    u16 scroll = 0, row = 0;
+
+    ListMenuGetScrollAndRow(sState->listTaskId, &scroll, &row);
+    return scroll + row;
+}
+
 static void RulesetMenu_RefreshVisibleRows(void)
 {
     u32 i;
@@ -291,6 +337,151 @@ static void RulesetMenu_RefreshVisibleRows(void)
         RulesetMenu_FormatRow(i);
     RedrawListMenu(sState->listTaskId);
     RulesetMenu_DrawHeader();
+}
+
+static bool32 RulesetMenu_CanListSpecies(enum Species species)
+{
+    return species > SPECIES_NONE && species < NUM_SPECIES
+        && species != SPECIES_EGG && IsSpeciesEnabled(species)
+        && IsRandomSpeciesFormSafe(species);
+}
+
+static u32 RulesetMenu_SpeciesOrderKey(enum Species species)
+{
+    return (u32)SpeciesToNationalPokedexNum(species) * NUM_SPECIES + species;
+}
+
+static enum Species RulesetMenu_FindOrderedSpecies(enum Species current, bool32 forward)
+{
+    u32 currentKey = current == SPECIES_NONE ? 0 : RulesetMenu_SpeciesOrderKey(current);
+    enum Species best = SPECIES_NONE, wrap = SPECIES_NONE, species;
+    u32 bestKey = 0xFFFFFFFF, wrapKey = 0xFFFFFFFF;
+
+    for (species = 1; species < NUM_SPECIES; species++)
+    {
+        u32 key;
+        if (!RulesetMenu_CanListSpecies(species))
+            continue;
+        key = RulesetMenu_SpeciesOrderKey(species);
+        if (forward)
+        {
+            if (key > currentKey && key < bestKey) { best = species; bestKey = key; }
+            if (key < wrapKey) { wrap = species; wrapKey = key; }
+        }
+        else
+        {
+            if (key < currentKey && (best == SPECIES_NONE || key > bestKey)) { best = species; bestKey = key; }
+            if (wrap == SPECIES_NONE || key > wrapKey) { wrap = species; wrapKey = key; }
+        }
+    }
+    return best == SPECIES_NONE ? wrap : best;
+}
+
+static void RulesetMenu_DrawSpeciesBans(void)
+{
+    enum Species species = sState->banSpecies;
+    u8 line[48];
+    u32 i;
+
+    FillWindowPixelBuffer(sState->windowIds[RSWIN_LIST], PIXEL_FILL(1));
+    for (i = 0; i < RSMENU_VISIBLE_ROWS && species != SPECIES_NONE; i++)
+    {
+        line[0] = i == 0 ? CHAR_GREATER_THAN : CHAR_SPACE;
+        line[1] = CHAR_SPACE;
+        line[2] = CHAR_SPACE;
+        line[3] = CHAR_SPACE;
+        line[4] = EOS;
+        if (Ruleset_IsSpeciesBanned(species))
+            line[2] = CHAR_X;
+        StringAppend(line, GetSpeciesName(species));
+        AddTextPrinterParameterized(sState->windowIds[RSWIN_LIST], FONT_NARROW, line, 0, i * 16, TEXT_SKIP_DRAW, NULL);
+        species = RulesetMenu_FindOrderedSpecies(species, TRUE);
+        if (species == sState->banSpecies)
+            break;
+    }
+    CopyWindowToVram(sState->windowIds[RSWIN_LIST], COPYWIN_FULL);
+    FillWindowPixelBuffer(sState->windowIds[RSWIN_DESC], PIXEL_FILL(1));
+    AddTextPrinterParameterized(sState->windowIds[RSWIN_DESC], FONT_SMALL, sText_BanControls, 0, 0, TEXT_SKIP_DRAW, NULL);
+    CopyWindowToVram(sState->windowIds[RSWIN_DESC], COPYWIN_FULL);
+}
+
+static void RulesetMenu_OpenSpeciesBans(void)
+{
+    if (!IsRulesetSettingEditable(SETTING_SPECIES_BANS))
+    {
+        PlaySE(SE_FAILURE);
+        return;
+    }
+    sState->speciesBansOpen = TRUE;
+    sState->banSpecies = RulesetMenu_FindOrderedSpecies(SPECIES_NONE, TRUE);
+    RulesetMenu_DrawSpeciesBans();
+}
+
+static void RulesetMenu_ProcessSpeciesBans(void)
+{
+    if (JOY_NEW(B_BUTTON))
+    {
+        PlaySE(SE_SELECT);
+        sState->speciesBansOpen = FALSE;
+        RulesetMenu_BuildCategory(FALSE);
+    }
+    else if (JOY_NEW(DPAD_UP) || JOY_NEW(DPAD_DOWN))
+    {
+        PlaySE(SE_SELECT);
+        sState->banSpecies = RulesetMenu_FindOrderedSpecies(sState->banSpecies, JOY_NEW(DPAD_DOWN));
+        RulesetMenu_DrawSpeciesBans();
+    }
+    else if (JOY_NEW(A_BUTTON))
+    {
+        bool8 banned = !Ruleset_IsSpeciesBanned(sState->banSpecies);
+        PlaySE(Ruleset_SetSpeciesBanned(sState->banSpecies, banned) ? SE_SELECT : SE_FAILURE);
+        RulesetMenu_DrawSpeciesBans();
+        RulesetMenu_DrawHeader();
+    }
+    else if (JOY_NEW(START_BUTTON))
+    {
+        PlaySE(Ruleset_ClearSpeciesBans() ? SE_SELECT : SE_FAILURE);
+        RulesetMenu_DrawSpeciesBans();
+        RulesetMenu_DrawHeader();
+    }
+}
+
+static void RulesetMenu_ProcessSeedEditor(void)
+{
+    u32 shift = (7 - sState->seedNibble) * 4;
+    u32 digit = (sState->seedEditValue >> shift) & 0xF;
+
+    if (JOY_NEW(B_BUTTON))
+    {
+        PlaySE(SE_SELECT);
+        sState->seedEditing = FALSE;
+    }
+    else if (JOY_NEW(DPAD_LEFT) || JOY_NEW(DPAD_RIGHT))
+    {
+        PlaySE(SE_SELECT);
+        if (JOY_NEW(DPAD_LEFT))
+            sState->seedNibble = sState->seedNibble == 0 ? 7 : sState->seedNibble - 1;
+        else
+            sState->seedNibble = (sState->seedNibble + 1) & 7;
+    }
+    else if (JOY_NEW(DPAD_UP) || JOY_NEW(DPAD_DOWN))
+    {
+        PlaySE(SE_SELECT);
+        digit = (digit + (JOY_NEW(DPAD_UP) ? 1 : 15)) & 0xF;
+        sState->seedEditValue = (sState->seedEditValue & ~(0xFu << shift)) | (digit << shift);
+    }
+    else if (JOY_NEW(A_BUTTON))
+    {
+        if (SetRunSeed(sState->seedEditValue))
+        {
+            PlaySE(SE_SELECT);
+            sState->seedEditing = FALSE;
+        }
+        else
+            PlaySE(SE_FAILURE);
+    }
+    RulesetMenu_RefreshVisibleRows();
+    RulesetMenu_DrawDescription(RulesetMenu_CurrentRow());
 }
 
 // ---------------------------------------------------------------------------
@@ -317,6 +508,33 @@ static void Task_RulesetMenuProcessInput(u8 taskId)
 {
     s32 settingId;
 
+    if (sState->speciesBansOpen)
+    {
+        RulesetMenu_ProcessSpeciesBans();
+        return;
+    }
+    if (sState->seedEditing)
+    {
+        RulesetMenu_ProcessSeedEditor();
+        return;
+    }
+    if (sState->restoreConfirm)
+    {
+        if (JOY_NEW(A_BUTTON))
+        {
+            PlaySE(RestoreRulesetAll() ? SE_SELECT : SE_FAILURE);
+            sState->restoreConfirm = FALSE;
+            RulesetMenu_BuildCategory(FALSE);
+        }
+        else if (JOY_NEW(B_BUTTON))
+        {
+            PlaySE(SE_SELECT);
+            sState->restoreConfirm = FALSE;
+            RulesetMenu_DrawDescription(RulesetMenu_CurrentRow());
+        }
+        return;
+    }
+
     if (JOY_NEW(B_BUTTON))
     {
         BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
@@ -337,16 +555,14 @@ static void Task_RulesetMenuProcessInput(u8 taskId)
 
     if (JOY_NEW(START_BUTTON))
     {
-        PlaySE(SE_SELECT);
-        NudgeRulesetSetting(SETTING_PRESET, 1);
+        PlaySE(NudgeRulesetSetting(SETTING_PRESET, 1) ? SE_SELECT : SE_FAILURE);
         RulesetMenu_BuildCategory(FALSE);
         return;
     }
 
     if (JOY_NEW(SELECT_BUTTON))
     {
-        PlaySE(SE_SELECT);
-        RestoreRulesetCategory(sState->category);
+        PlaySE(RestoreRulesetCategory(sState->category) ? SE_SELECT : SE_FAILURE);
         RulesetMenu_RefreshVisibleRows();
         return;
     }
@@ -361,18 +577,17 @@ static void Task_RulesetMenuProcessInput(u8 taskId)
         {
             // nothing to nudge; A rerolls
         }
-        else if (IsRulesetSettingEditable(settingId) || settingId == SETTING_PRESET)
+        else if (settingId == SETTING_SPECIES_BANS || settingId == SETTING_RESTORE_ALL)
         {
-            PlaySE(SE_SELECT);
-            NudgeRulesetSetting(settingId, delta);
+            // action rows do not have left/right values
+        }
+        else
+        {
+            PlaySE(NudgeRulesetSetting(settingId, delta) ? SE_SELECT : SE_FAILURE);
             if (settingId == SETTING_PRESET)
                 RulesetMenu_BuildCategory(FALSE);
             else
                 RulesetMenu_RefreshVisibleRows();
-        }
-        else
-        {
-            PlaySE(SE_FAILURE);
         }
         return;
     }
@@ -381,15 +596,39 @@ static void Task_RulesetMenuProcessInput(u8 taskId)
     {
         if (settingId == SETTING_RUN_SEED)
         {
-            PlaySE(SE_SELECT);
-            RerollRunSeed();
-            RulesetMenu_RefreshVisibleRows();
+            if (GetRulesetSetting(SETTING_SEED_MODE) == SEEDMODE_MANUAL)
+            {
+                if (IsRulesetSettingEditable(SETTING_RUN_SEED))
+                {
+                    PlaySE(SE_SELECT);
+                    sState->seedEditing = TRUE;
+                    sState->seedNibble = 0;
+                    sState->seedEditValue = GetRunSeed();
+                    RulesetMenu_DrawDescription(RulesetMenu_CurrentRow());
+                }
+                else
+                    PlaySE(SE_FAILURE);
+            }
+            else
+            {
+                PlaySE(RerollRunSeed() ? SE_SELECT : SE_FAILURE);
+                RulesetMenu_RefreshVisibleRows();
+            }
         }
         else if (settingId == SETTING_PRESET)
         {
-            PlaySE(SE_SELECT);
-            NudgeRulesetSetting(SETTING_PRESET, 1);
+            PlaySE(NudgeRulesetSetting(SETTING_PRESET, 1) ? SE_SELECT : SE_FAILURE);
             RulesetMenu_BuildCategory(FALSE);
+        }
+        else if (settingId == SETTING_SPECIES_BANS)
+        {
+            RulesetMenu_OpenSpeciesBans();
+        }
+        else if (settingId == SETTING_RESTORE_ALL)
+        {
+            PlaySE(SE_SELECT);
+            sState->restoreConfirm = TRUE;
+            RulesetMenu_DrawDescription(RulesetMenu_CurrentRow());
         }
         return;
     }

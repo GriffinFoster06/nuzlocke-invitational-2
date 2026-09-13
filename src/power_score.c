@@ -7,6 +7,7 @@
 #include "malloc.h"
 #include "pokemon.h"
 #include "power_score.h"
+#include "random_mon_generation.h"
 #include "ruleset.h"
 #include "constants/pokemon.h"
 #include "constants/ruleset.h"
@@ -55,8 +56,7 @@ static u8 CurrentSignature(void)
          | (GetRulesetSetting(SETTING_ALLOW_ULTRA_BEAST)    ? (1 << 3) : 0)
          | (GetRulesetSetting(SETTING_ALLOW_PARADOX)        ? (1 << 4) : 0)
          | (GetRulesetSetting(SETTING_ALLOW_REGIONAL_FORMS) ? (1 << 5) : 0)
-         | (GetRulesetSetting(SETTING_ALLOW_OTHER_FORMS)    ? (1 << 6) : 0)
-         | (GetRulesetSetting(SETTING_ABILITY_RANDOMIZATION)? (1 << 7) : 0);
+         | (GetRulesetSetting(SETTING_ALLOW_OTHER_FORMS)    ? (1 << 6) : 0);
 }
 
 // ---- helpers over gSpeciesInfo ---------------------------------------------
@@ -111,13 +111,11 @@ static u32 ClassMulQ8(const struct SpeciesInfo *si)
     return CLASSMUL_NONE;
 }
 
-// Applied only when ability randomization is OFF: the species keeps its
-// canonical, sometimes crippling, ability. Q8.
+// Canonical design restraints are intrinsic to species matching. The actual
+// generated ability is assigned only after species selection and never feeds
+// back into this score. Q8.
 static u32 AbilityAdjQ8(enum Species species)
 {
-    if (GetRulesetSetting(SETTING_ABILITY_RANDOMIZATION))
-        return Q8;
-
     switch (species)
     {
     case SPECIES_SLAKING:   return 159;  // 0.62  Truant
@@ -213,19 +211,15 @@ static u16 BestFinalRaw(enum Species species, u16 *rawTbl, u16 *memo, u32 depth)
     return memo[species];
 }
 
-static bool32 IsHardExcludedForm(const struct SpeciesInfo *si)
-{
-    return si->isMegaEvolution || si->isPrimalReversion || si->isGigantamax
-        || si->isTotem || si->isTeraForm || si->isUltraBurst || si->cannotBeTraded;
-}
-
 static bool32 ComputeEligible(enum Species species, const struct SpeciesInfo *si)
 {
     bool32 isRegional;
 
     if (!IsSpeciesEnabled(species) || species == SPECIES_EGG)
         return FALSE;
-    if (IsHardExcludedForm(si))
+    if (!IsRandomSpeciesFormSafe(species))
+        return FALSE;
+    if (Ruleset_IsSpeciesBanned(species))
         return FALSE;
 
     isRegional = si->isAlolanForm || si->isGalarianForm || si->isHisuianForm || si->isPaldeanForm;
@@ -400,5 +394,25 @@ bool32 IsSpeciesCategoryBanned(enum Species species)
 
 bool32 IsSpeciesPremiumTier(enum Species species)
 {
-    return GetSpeciesPowerScore(species) >= PREMIUM_TIER_FLOOR;
+    return IsSpeciesPremium(species) && GetSpeciesPowerScore(species) >= PREMIUM_TIER_FLOOR;
+}
+
+bool32 IsSpeciesPremium(enum Species species)
+{
+    static const enum Species sAdditionalPremiumSpecies[] = { SPECIES_NONE };
+    const struct SpeciesInfo *si;
+    u32 i;
+
+    if (species <= SPECIES_NONE || species >= NUM_SPECIES || !IsSpeciesEnabled(species))
+        return FALSE;
+    si = &gSpeciesInfo[species];
+    if (si->isRestrictedLegendary || si->isMythical || si->isSubLegendary
+     || si->isUltraBeast || si->isParadox)
+        return TRUE;
+    for (i = 0; i < ARRAY_COUNT(sAdditionalPremiumSpecies); i++)
+    {
+        if (sAdditionalPremiumSpecies[i] == species)
+            return TRUE;
+    }
+    return FALSE;
 }

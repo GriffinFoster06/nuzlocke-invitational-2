@@ -1,9 +1,11 @@
 #include "global.h"
+#include "caps.h"
 #include "event_data.h"
 #include "main.h"
 #include "mass_outbreak.h"
 #include "overworld.h"
 #include "random.h"
+#include "randomizer.h"
 #include "region_map.h"
 #include "script.h"
 #include "wild_encounter.h"
@@ -125,12 +127,17 @@ bool32 IsMassOutbreakActive(void)
 
 bool8 SetUpMassOutbreakEncounter(u8 flags)
 {
-    if (flags & WILD_CHECK_REPEL && !IsWildLevelAllowedByRepel(gSaveBlock1Ptr->outbreakPokemonLevel))
+    u8 level = Caps_ClampLevel(gSaveBlock1Ptr->outbreakPokemonLevel);
+
+    if (flags & WILD_CHECK_REPEL && !IsWildLevelAllowedByRepel(level))
         return FALSE;
 
-    CreateWildMon(gSaveBlock1Ptr->outbreakPokemonSpecies, gSaveBlock1Ptr->outbreakPokemonLevel);
-    for (u32 i = 0; i < MAX_MON_MOVES; i++)
-        SetMonMoveSlot(&gParties[B_TRAINER_OPPONENT_A][0], gSaveBlock1Ptr->outbreakPokemonMoves[i], i);
+    CreateWildMon(Randomizer_SpecialWildSpecies(gSaveBlock1Ptr->outbreakPokemonSpecies,
+        0x0B000000 | ((u32)gSaveBlock1Ptr->outbreakLocationMapGroup << 8)
+                   | gSaveBlock1Ptr->outbreakLocationMapNum,
+        ((u32)gSaveBlock1Ptr->outbreakLocationMapGroup << 8)
+                   | gSaveBlock1Ptr->outbreakLocationMapNum),
+        level);
 
     return TRUE;
 }
@@ -328,4 +335,3 @@ void ScrCmd_getmassoutbreakdata(struct ScriptContext *ctx)
     }
     VarSet(varId, value);
 }
-

@@ -86,7 +86,14 @@ void Nuzlocke_ResetState(void)
 
 void Nuzlocke_BeginRun(void)
 {
-    SetRulesetRunActive(TRUE);
+    bool32 strict = GetRulesetSetting(SETTING_PERMADEATH)
+                 || GetRulesetSetting(SETTING_ONE_ENCOUNTER_PER_LOCATION)
+                 || GetRulesetSetting(SETTING_WHITEOUT_BEHAVIOR) != WHITEOUT_VANILLA
+                 || GetRulesetSetting(SETTING_NO_BATTLE_ITEMS)
+                 || GetRulesetSetting(SETTING_FORCE_SET_BATTLE_STYLE)
+                 || GetRulesetSetting(SETTING_CAP_MODE) != CAPMODE_OFF;
+
+    SetRulesetRunActive(strict);
 }
 
 void Nuzlocke_BeginRetry(void)

@@ -142,7 +142,7 @@ bool8 TryAddRoamer(enum Species species, u8 level)
 {
     u8 index = GetFirstInactiveRoamerIndex();
 
-    species = Randomizer_RoamerSpecies(species, level);   // docs/SPEC.md "Static Pokemon"
+    species = Randomizer_RoamerSpecies(species, level, index); // docs/SPEC.md "Static Pokemon"
 
     if (index < ROAMER_COUNT)
     {

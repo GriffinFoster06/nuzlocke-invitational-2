@@ -9,8 +9,8 @@
 #include "constants/species.h"
 
 // ---------------------------------------------------------------------------
-// Phase 4 - generated 21-move 7/7/7 learnsets (docs/SPEC.md "Learnset size",
-// "7/7/7 learnset composition", "Move-power progression").
+// Generated learnsets: legacy 7/7/7 Custom behavior plus the Recommended
+// combined-pool weighted behavior and move-power timing.
 // ---------------------------------------------------------------------------
 
 static void UseDefaultLearnsetRuleset(void)
@@ -185,4 +185,19 @@ TEST("Randomization off falls back to the canonical learnset")
     EXPECT(!LearnsetGen_IsActive());
     EXPECT_EQ(GetSpeciesLevelUpLearnset(SPECIES_ZIGZAGOON),
               gSpeciesInfo[SPECIES_ZIGZAGOON].levelUpLearnset);
+}
+
+TEST("Weighted learnsets draw from the combined pool without replacement")
+{
+    const struct LevelUpMove *ls;
+
+    UseDefaultLearnsetRuleset();
+    SetRulesetSetting(SETTING_LEARNSET_COMPOSITION, LRNCOMP_WEIGHTED);
+    LearnsetGen_Invalidate();
+    ls = LearnsetGen_GetLearnset(SPECIES_MUDKIP);
+
+    EXPECT_EQ(LearnsetLength(ls), 21);
+    for (u32 i = 0; i < 21; i++)
+        for (u32 j = i + 1; j < 21; j++)
+            EXPECT_NE(ls[i].move, ls[j].move);
 }

@@ -1,12 +1,9 @@
 // ============================================================================
 // Nuzlocke-Randomizer ruleset: persistent settings model.
 //
-// Phase 1 scaffolding. This file owns the data model behind docs/SPEC.md's
-// "Settings behavior": a flat value store in SaveBlock3, a metadata table
-// (src/data/ruleset.h), the six presets, and the "any edit -> Custom" logic.
-//
-// NOTHING in gameplay reads these values yet. Phases 2+ add consumers that call
-// GetRulesetSetting(); until then this only feeds the debug settings screen.
+// This file owns the data model behind docs/SPEC.md's "Settings behavior": a
+// flat value store in SaveBlock3, metadata, the three named presets, explicit
+// Custom identity, protected-run locks, seeds, and exact-species bans.
 // ============================================================================
 
 #include "global.h"
@@ -28,8 +25,8 @@ STATIC_ASSERT(sizeof(struct RulesetSettings) < 400, RulesetSettingsUnexpectedlyL
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-// Expand a preset into a full NUM_SETTINGS value array: descriptor defaults
-// (== Invitational 2 Solo), then that preset's sparse overrides.
+// Expand a preset into a full NUM_SETTINGS value array: Recommended descriptor
+// defaults followed by that named preset's sparse overrides.
 static void ExpandPreset(u32 preset, u8 *out)
 {
     u32 i;
@@ -47,38 +44,6 @@ static void ExpandPreset(u32 preset, u8 *out)
     }
 }
 
-// Which named preset does the current config exactly match? RULESET_PRESET_CUSTOM
-// if none. Pure-display settings and the virtual preset/seed rows don't count.
-static u32 ComputeMatchingPreset(void)
-{
-    u8 expanded[NUM_SETTINGS];
-    u32 preset, i;
-
-    for (preset = 0; preset < RULESET_NAMED_PRESET_COUNT; preset++)
-    {
-        bool32 match = TRUE;
-
-        ExpandPreset(preset, expanded);
-        for (i = 0; i < NUM_SETTINGS; i++)
-        {
-            if (i == SETTING_PRESET || i == SETTING_RUN_SEED)
-                continue;
-            if (sSettingDescriptors[i].flags & SETTING_FLAG_NOT_RULESET)
-                continue;
-            if (gSaveBlock3Ptr->ruleset.values[i] != expanded[i])
-            {
-                match = FALSE;
-                break;
-            }
-        }
-
-        if (match)
-            return preset;
-    }
-
-    return RULESET_PRESET_CUSTOM;
-}
-
 // Overwrite the whole value store from a preset. Does NOT call EnsureInitialized
 // (it is itself part of initialization).
 static void ApplyPresetInternal(u32 preset)
@@ -90,6 +55,7 @@ static void ApplyPresetInternal(u32 preset)
     ExpandPreset(preset, expanded);
     for (i = 0; i < NUM_SETTINGS; i++)
         r->values[i] = expanded[i];
+    memset(r->speciesBans, 0, sizeof(r->speciesBans));
 
     PowerScore_Invalidate();
     LearnsetGen_Invalidate();
@@ -104,7 +70,8 @@ static void ApplyPresetInternal(u32 preset)
     }
     else
     {
-        r->displayedPreset = ComputeMatchingPreset();
+        r->displayedPreset = RULESET_PRESET_CUSTOM;
+        r->values[SETTING_PRESET] = RULESET_PRESET_CUSTOM;
     }
 }
 
@@ -116,7 +83,16 @@ static void RulesetSettings_EnsureInitialized(void)
     struct RulesetSettings *r = &gSaveBlock3Ptr->ruleset;
 
     if (r->rulesetVersion == RULESET_VERSION)
+    {
+        // Version 3 introduced an explicit initialization bit so seed zero is
+        // distinguishable from an old/uninitialized tail field.
+        if (!r->seedInitialized)
+        {
+            r->runSeed = Random32();
+            r->seedInitialized = TRUE;
+        }
         return;
+    }
 
     ApplyPresetInternal(RULESET_DEFAULT_PRESET);
     r->lastNamedPreset = RULESET_DEFAULT_PRESET;
@@ -124,8 +100,9 @@ static void RulesetSettings_EnsureInitialized(void)
     r->runActive = FALSE;
     // docs/SPEC.md "Infinite Repel": available and toggled on by default.
     r->infiniteRepelActive = (r->values[SETTING_INFINITE_REPEL] != 0);
-    if (r->runSeed == 0)
-        r->runSeed = Random32();
+    r->runSeed = Random32();
+    r->seedInitialized = TRUE;
+    r->randomizerVersion = RANDOMIZER_VERSION;
     r->rulesetVersion = RULESET_VERSION;
 }
 
@@ -160,7 +137,8 @@ u32 CountSettingsInCategory(u32 category)
 
     for (i = 0; i < NUM_SETTINGS; i++)
     {
-        if (sSettingDescriptors[i].category == category)
+        if (sSettingDescriptors[i].category == category
+         && !(sSettingDescriptors[i].flags & SETTING_FLAG_HIDDEN))
             count++;
     }
     return count;
@@ -212,22 +190,24 @@ u8 GetSettingDisplayValue(u32 settingId)
     return gSaveBlock3Ptr->ruleset.values[settingId];
 }
 
-void SetRulesetSetting(u32 settingId, u8 value)
+bool8 SetRulesetSetting(u32 settingId, u8 value)
 {
     const struct SettingDescriptor *d;
 
     RulesetSettings_EnsureInitialized();
     if (settingId >= NUM_SETTINGS)
-        return;
+        return FALSE;
 
     if (settingId == SETTING_PRESET)
     {
-        ApplyRulesetPreset(value);
-        return;
+        return ApplyRulesetPreset(value);
     }
 
     if (!IsRulesetSettingEditable(settingId))
-        return;
+        return FALSE;
+    if (settingId == SETTING_RUN_SEED || settingId == SETTING_SPECIES_BANS
+     || settingId == SETTING_RESTORE_ALL)
+        return FALSE;
 
     d = &sSettingDescriptors[settingId];
     if (value < d->minValue)
@@ -235,8 +215,12 @@ void SetRulesetSetting(u32 settingId, u8 value)
     if (value > d->maxValue)
         value = d->maxValue;
 
+    if (gSaveBlock3Ptr->ruleset.values[settingId] == value)
+        return TRUE;
+
     gSaveBlock3Ptr->ruleset.values[settingId] = value;
-    RulesetSettings_RecomputeDisplayedPreset();
+    gSaveBlock3Ptr->ruleset.displayedPreset = RULESET_PRESET_CUSTOM;
+    gSaveBlock3Ptr->ruleset.values[SETTING_PRESET] = RULESET_PRESET_CUSTOM;
     // A species-pool / ability / form toggle may have moved; the Phase 2 power
     // cache re-checks its signature on the next EnsureBuilt.
     PowerScore_Invalidate();
@@ -252,18 +236,19 @@ void SetRulesetSetting(u32 settingId, u8 value)
     // SELECT-registerable key item to match the new setting value.
     if (settingId == SETTING_PORTABLE_HEAL || settingId == SETTING_INFINITE_REPEL)
         Ruleset_GrantFieldKeyItems();
+    return TRUE;
 }
 
 // Menu helper: step one option in the direction of `delta` (sign only), wrapping
 // within the setting's range. Special-cased for the virtual preset/seed rows.
-void NudgeRulesetSetting(u32 settingId, s32 delta)
+bool8 NudgeRulesetSetting(u32 settingId, s32 delta)
 {
     const struct SettingDescriptor *d;
     s32 range, value;
 
     RulesetSettings_EnsureInitialized();
     if (settingId >= NUM_SETTINGS || delta == 0)
-        return;
+        return FALSE;
 
     if (settingId == SETTING_PRESET)
     {
@@ -278,20 +263,19 @@ void NudgeRulesetSetting(u32 settingId, s32 delta)
         else if (preset >= (s32)RULESET_NAMED_PRESET_COUNT)
             preset = 0;
 
-        ApplyRulesetPreset(preset);
-        return;
+        return ApplyRulesetPreset(preset);
     }
 
     if (settingId == SETTING_RUN_SEED)
-        return;
+        return FALSE;
 
     if (!IsRulesetSettingEditable(settingId))
-        return;
+        return FALSE;
 
     d = &sSettingDescriptors[settingId];
     range = (s32)d->maxValue - (s32)d->minValue + 1;
     if (range <= 1)
-        return;
+        return FALSE;
 
     value = (s32)gSaveBlock3Ptr->ruleset.values[settingId] - (s32)d->minValue;
     value += (delta > 0) ? 1 : -1;
@@ -299,28 +283,85 @@ void NudgeRulesetSetting(u32 settingId, s32 delta)
     if (value < 0)
         value += range;
 
-    SetRulesetSetting(settingId, (u8)(value + d->minValue));
+    return SetRulesetSetting(settingId, (u8)(value + d->minValue));
 }
 
 // ---------------------------------------------------------------------------
 // Presets
 // ---------------------------------------------------------------------------
 
-void ApplyRulesetPreset(u32 preset)
+static bool8 ValueChangeIsAllowed(u32 settingId, u8 newValue)
 {
-    RulesetSettings_EnsureInitialized();
-    if (preset >= RULESET_NAMED_PRESET_COUNT)
-        return;
-    ApplyPresetInternal(preset);
+    if (settingId == SETTING_PRESET || settingId == SETTING_RUN_SEED
+     || (sSettingDescriptors[settingId].flags & SETTING_FLAG_NOT_RULESET))
+        return TRUE;
+    if (gSaveBlock3Ptr->ruleset.values[settingId] == newValue)
+        return TRUE;
+    return IsRulesetSettingEditable(settingId);
 }
 
-void RestoreRulesetCategory(u32 category)
+static bool8 SpeciesBansCanBeCleared(void)
+{
+    u32 i;
+
+    for (i = 0; i < sizeof(gSaveBlock3Ptr->ruleset.speciesBans); i++)
+    {
+        if (gSaveBlock3Ptr->ruleset.speciesBans[i] != 0)
+            return !gSaveBlock3Ptr->ruleset.runStarted;
+    }
+    return TRUE;
+}
+
+bool8 ApplyRulesetPreset(u32 preset)
 {
     u8 expanded[NUM_SETTINGS];
     u32 i;
 
     RulesetSettings_EnsureInitialized();
+    if (preset >= RULESET_NAMED_PRESET_COUNT)
+        return FALSE;
+    // Presets and whole-configuration restores are aggregate mutations. Once
+    // either protected lifecycle has begun, do not permit them to clear bans,
+    // rewrite hidden slots, or merely relabel the live configuration.
+    if (gSaveBlock3Ptr->ruleset.runStarted || gSaveBlock3Ptr->ruleset.runActive)
+        return FALSE;
+    ExpandPreset(preset, expanded);
+    for (i = 0; i < NUM_SETTINGS; i++)
+    {
+        if (!ValueChangeIsAllowed(i, expanded[i]))
+            return FALSE;
+    }
+    if (!SpeciesBansCanBeCleared())
+        return FALSE;
+    ApplyPresetInternal(preset);
+    return TRUE;
+}
+
+bool8 RestoreRulesetCategory(u32 category)
+{
+    u8 expanded[NUM_SETTINGS];
+    u32 i;
+
+    RulesetSettings_EnsureInitialized();
+    if (category >= SETTING_CAT_COUNT)
+        return FALSE;
     ExpandPreset(gSaveBlock3Ptr->ruleset.lastNamedPreset, expanded);
+
+    for (i = 0; i < NUM_SETTINGS; i++)
+    {
+        if (sSettingDescriptors[i].category != category)
+            continue;
+        if (i == SETTING_PRESET || i == SETTING_RESTORE_ALL)
+            continue;
+        // A category restore is also aggregate: a protected row makes the
+        // entire action unavailable, even when that row already equals its
+        // preset value. This prevents a locked action from changing Custom
+        // identity or hidden values around the lock.
+        if (!IsRulesetSettingEditable(i))
+            return FALSE;
+    }
+    if (category == SETTING_CAT_SPECIES_POOL && !SpeciesBansCanBeCleared())
+        return FALSE;
 
     for (i = 0; i < NUM_SETTINGS; i++)
     {
@@ -330,20 +371,27 @@ void RestoreRulesetCategory(u32 category)
             continue;
         gSaveBlock3Ptr->ruleset.values[i] = expanded[i];
     }
+    if (category == SETTING_CAT_SPECIES_POOL)
+        memset(gSaveBlock3Ptr->ruleset.speciesBans, 0, sizeof(gSaveBlock3Ptr->ruleset.speciesBans));
 
-    RulesetSettings_RecomputeDisplayedPreset();
+    gSaveBlock3Ptr->ruleset.displayedPreset = RULESET_PRESET_CUSTOM;
+    gSaveBlock3Ptr->ruleset.values[SETTING_PRESET] = RULESET_PRESET_CUSTOM;
+    PowerScore_Invalidate();
+    LearnsetGen_Invalidate();
+    AbilityGen_Invalidate();
+    Randomizer_InvalidateTms();
+    return TRUE;
 }
 
-void RestoreRulesetAll(void)
+bool8 RestoreRulesetAll(void)
 {
     RulesetSettings_EnsureInitialized();
-    ApplyPresetInternal(gSaveBlock3Ptr->ruleset.lastNamedPreset);
+    return ApplyRulesetPreset(gSaveBlock3Ptr->ruleset.lastNamedPreset);
 }
 
 u32 RulesetSettings_RecomputeDisplayedPreset(void)
 {
     RulesetSettings_EnsureInitialized();
-    gSaveBlock3Ptr->ruleset.displayedPreset = ComputeMatchingPreset();
     return gSaveBlock3Ptr->ruleset.displayedPreset;
 }
 
@@ -397,17 +445,75 @@ u32 GetRunSeed(void)
     return gSaveBlock3Ptr->ruleset.runSeed;
 }
 
-void SetRunSeed(u32 seed)
+bool8 SetRunSeed(u32 seed)
 {
     RulesetSettings_EnsureInitialized();
+    if (gSaveBlock3Ptr->ruleset.runStarted)
+        return FALSE;
     gSaveBlock3Ptr->ruleset.runSeed = seed;
+    gSaveBlock3Ptr->ruleset.seedInitialized = TRUE;
+    LearnsetGen_Invalidate();
+    AbilityGen_Invalidate();
+    Randomizer_InvalidateTms();
+    return TRUE;
 }
 
-void RerollRunSeed(void)
+bool8 RerollRunSeed(void)
 {
     RulesetSettings_EnsureInitialized();
-    if (!gSaveBlock3Ptr->ruleset.runStarted)
-        gSaveBlock3Ptr->ruleset.runSeed = Random32();
+    if (gSaveBlock3Ptr->ruleset.runStarted)
+        return FALSE;
+    return SetRunSeed(Random32());
+}
+
+u16 GetSavedRulesetVersion(void)
+{
+    RulesetSettings_EnsureInitialized();
+    return gSaveBlock3Ptr->ruleset.rulesetVersion;
+}
+
+u16 GetSavedRandomizerVersion(void)
+{
+    RulesetSettings_EnsureInitialized();
+    return gSaveBlock3Ptr->ruleset.randomizerVersion;
+}
+
+bool8 Ruleset_IsSpeciesBanned(enum Species species)
+{
+    RulesetSettings_EnsureInitialized();
+    if (species <= SPECIES_NONE || species >= NUM_SPECIES)
+        return FALSE;
+    return (gSaveBlock3Ptr->ruleset.speciesBans[species >> 3] >> (species & 7)) & 1;
+}
+
+bool8 Ruleset_SetSpeciesBanned(enum Species species, bool8 banned)
+{
+    u8 mask;
+
+    RulesetSettings_EnsureInitialized();
+    if (species <= SPECIES_NONE || species >= NUM_SPECIES || gSaveBlock3Ptr->ruleset.runStarted)
+        return FALSE;
+    mask = 1 << (species & 7);
+    if (banned)
+        gSaveBlock3Ptr->ruleset.speciesBans[species >> 3] |= mask;
+    else
+        gSaveBlock3Ptr->ruleset.speciesBans[species >> 3] &= ~mask;
+    gSaveBlock3Ptr->ruleset.displayedPreset = RULESET_PRESET_CUSTOM;
+    gSaveBlock3Ptr->ruleset.values[SETTING_PRESET] = RULESET_PRESET_CUSTOM;
+    PowerScore_Invalidate();
+    return TRUE;
+}
+
+bool8 Ruleset_ClearSpeciesBans(void)
+{
+    RulesetSettings_EnsureInitialized();
+    if (gSaveBlock3Ptr->ruleset.runStarted)
+        return FALSE;
+    memset(gSaveBlock3Ptr->ruleset.speciesBans, 0, sizeof(gSaveBlock3Ptr->ruleset.speciesBans));
+    gSaveBlock3Ptr->ruleset.displayedPreset = RULESET_PRESET_CUSTOM;
+    gSaveBlock3Ptr->ruleset.values[SETTING_PRESET] = RULESET_PRESET_CUSTOM;
+    PowerScore_Invalidate();
+    return TRUE;
 }
 
 // ---------------------------------------------------------------------------
@@ -420,9 +526,6 @@ void ResetRulesetSettings(void)
 {
     struct RulesetSettings *r = &gSaveBlock3Ptr->ruleset;
 
-    r->rulesetVersion = 0;
-    r->runSeed = 0;
-    r->runStarted = FALSE;
-    r->runActive = FALSE;
+    memset(r, 0, sizeof(*r));
     RulesetSettings_EnsureInitialized();
 }

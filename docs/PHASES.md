@@ -6,31 +6,45 @@
 > an old prompt conflicts with [SPEC.md](SPEC.md)—including old Tournament,
 > Invitational-named preset, mandatory-nickname, or literal 7/7/7 references—
 > SPEC.md controls. Phase 10's completed grouped-arc record remains in
-> [PHASE10_PROMPTS.md](PHASE10_PROMPTS.md).
+> [PHASE10_PROMPTS.md](PHASE10_PROMPTS.md). **The authoritative runbook for
+> all remaining work (Phase 11C onward) is [`../PROMPTS.md`](../PROMPTS.md);
+> current volatile state is [CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md).**
 
 ## Current completion roadmap
 
 - **Phase 10 — Final initial feature implementation:** complete. This produced
   the initial feature-complete campaign and story-linearization implementation.
-- **Phase 11 — Ultra Review and correctness completion:** audit the complete
-  implementation against the final accepted specification and finish
-  correctness work. Specification consolidation is not Phase 11
-  implementation.
-- **Phase 12 — Fun, accessibility, UX, game feel, and polish:** improve the
-  intended solo replay experience. This phase may change defaults; simplify,
-  hide, reorganize, or remove redundant player-facing settings; improve
-  onboarding; reduce configuration overload and unnecessary button presses;
-  speed run restarts; and improve feedback, readability, pacing, and general
-  game feel. Supported underlying functionality should be preserved where
-  useful, but every historical option need not receive equal prominence. The
-  Recommended configuration should be the configuration the developers
-  genuinely believe is most enjoyable.
-- **Phase 13 — Documentation, release cleanup, and final product validation:**
-  complete documentation and release cleanup, then perform final product
-  validation. After Phase 13 the product is intended to be
-  development-complete.
+- **Phase 11A — Premium-static/Run-Report specification finalization:**
+  complete.
+- **Phase 11B — Nuzlocke enforcement and fair-AI correctness:** complete.
+- **Phase 11C — Generation architecture, performance, seed quality & pre-run
+  configuration:** next. See `../PROMPTS.md`.
+- **Phase 11D — World / Premium statics / missing core QoL:** see
+  `../PROMPTS.md`.
+- **Phase 11E — Victory + Wipe Run Reports / save architecture / JSON
+  export:** see `../PROMPTS.md`.
+- **Phase 11F — Final Phase-11 correctness gate:** see `../PROMPTS.md`.
+- **Phase 12A — Fun, accessibility, recommended defaults, settings
+  simplification, UX, game feel:** improve the intended solo replay
+  experience. This phase may change defaults; simplify, hide, reorganize, or
+  remove redundant player-facing settings; improve onboarding; reduce
+  configuration overload and unnecessary button presses; speed run restarts;
+  and improve feedback, readability, pacing, and general game feel.
+  Supported underlying functionality should be preserved where useful, but
+  every historical option need not receive equal prominence. The Recommended
+  configuration should be the configuration the developers genuinely believe
+  is most enjoyable. See `../PROMPTS.md`.
+- **Phase 12B — Final technical & presentation polish:** see
+  `../PROMPTS.md`.
+- **Phase 13A — Final documentation / repository cleanup:** complete
+  documentation and release cleanup. See `../PROMPTS.md`.
+- **Phase 13B — Final release gate:** perform final product validation.
+  After Phase 13B the product is intended to be PRODUCT COMPLETE. See
+  `../PROMPTS.md`.
 
-There is no Phase 14.
+There is no Phase 14. Full scope, prerequisites, acceptance criteria, and
+copy/paste session prompts for every phase from 11C onward live in
+[`../PROMPTS.md`](../PROMPTS.md), not here.
 
 The original phases were worked roughly in order, usually in one or a few
 focused sessions.
@@ -324,7 +338,7 @@ within the Premium Species pool only, while preserving its event/progression
 behavior; strict-run Victory and Wipe outcomes finalize comprehensive Run
 Reports; and report persistence, portable JSON export, and the optional mGBA
 companion flow are required as specified there. The report save architecture is
-deferred to Phase 11C2.
+deferred to Phase 11E (see `../PROMPTS.md`).
 
 Phase 11B (Nuzlocke enforcement, fair AI, and battle-rule correctness) closed
 every permadeath-revival bypass found by a targeted audit of every healing/
@@ -344,8 +358,8 @@ versions). Terminal Run Reports and the full premium-static contract (the
 Mew/Deoxys/Ho-Oh/Lugia event-island slots specifically) remain specified in
 SPEC.md but not yet implemented; the encounter/trainer-battle startup latency
 addressed here was limited to a local, non-redesigning fix in the wild dupe
-selector, with the full hot-path optimization still deferred to a future
-performance-focused phase.
+selector, with the full hot-path optimization still deferred to Phase 11C
+(see `../PROMPTS.md`).
 
 ---
 

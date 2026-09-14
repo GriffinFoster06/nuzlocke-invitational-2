@@ -1,5 +1,14 @@
 # Phase 10 grouped-arc workflow
 
+> **Historical status:** Phase 10 is complete — Arcs 0-8 are committed
+> (through `70eecae403`, "Phase 10 done"). This document is retained as the
+> historical workflow and exact arc-membership record, not as current
+> instructions. In particular, the Arc 0 "Emulator acceptance: Pending" row
+> and the closing "Arc 1 is unstarted" line below describe a past interim
+> state and are superseded by Phase 10's completion. The authoritative
+> runbook for all work after Phase 10 is [`../PROMPTS.md`](../PROMPTS.md);
+> current state is [CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md).
+
 `docs/SPEC.md` remains authoritative for gameplay behavior. This document
 defines Phase 10's work boundaries and acceptance workflow. The area names
 below are the corresponding entries under SPEC's "Map-by-map story cuts".
@@ -149,7 +158,7 @@ continuous mGBA traversal below.
 | Implementation | Present in commits `af88cb09ad`, `3c9de94ab9`, and `a86f2fa95c`. |
 | Build | Passed on 2026-09-09: direct scans of the Rustboro Gym script and aggregate `data/event_scripts.s` exited 0, and `make -j$(sysctl -n hw.ncpu)` exited 0 with the Rustboro diagnostic absent. The linker still emits its unrelated RWX-segment warning. |
 | Read-only review | Performed against the five Arc 0 SPEC entries; no additional gameplay edit was authorized or made. |
-| Emulator acceptance | Pending the full mGBA checks below. Arc 0 is not complete. |
+| Emulator acceptance | Pending the full mGBA checks below. Arc 0 is not complete. **(Superseded — Phase 10 subsequently completed in full; see the banner at the top of this document.)** |
 
 ### Required Arc 0 mGBA playtest
 
@@ -169,3 +178,7 @@ continuous mGBA traversal below.
 
 Arc 1 is unstarted and must not begin until the remaining Arc 0 acceptance
 gates pass.
+
+**Superseded:** the sentence above described a past interim state. Phase 10
+is now complete in full — Arcs 0-8 are all committed. See the banner at the
+top of this document and [`../PROMPTS.md`](../PROMPTS.md) for current work.

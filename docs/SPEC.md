@@ -929,7 +929,7 @@ opponent, cause, and progression checkpoint.
 Canonical finalized report state lives in save data. The latest finalized
 report remains recoverable long enough for manual export, including across
 practical run-reset/new-run handling; the exact save architecture is designed
-in Phase 11C2. A standalone repository tool must read an ordinary `.sav` and
+in Phase 11E. A standalone repository tool must read an ordinary `.sav` and
 export its finalized report without modifying that save. Its versioned JSON
 uses human-readable names for species, forms, moves, abilities, items,
 locations, and settings; preferred non-overwriting filenames are

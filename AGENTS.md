@@ -73,12 +73,21 @@ or compiler diagnostic.
 - `docs/PHASES.md` retains the completed Phase 0-9.5 prompts as project history.
   Do not rerun them or infer current implementation status from their wording.
 - `docs/PHASE10_PROMPTS.md` is authoritative for the Phase 10 grouped-arc
-  workflow and exact membership. For Arcs 1-8, a planning/review Codex session
+  workflow and exact membership; Phase 10 (Arcs 0-8) is now complete, so
+  treat that document as a historical workflow/membership record rather than
+  active instructions. For Arcs 1-8, a planning/review Codex session
   inspects the actual code and writes an approved `docs/PHASE10_ARC<N>_PLAN.md`;
   a fresh execution Codex session implements only that plan; then a fresh
   planning/review Codex session performs the read-only SPEC-and-plan review.
   Work only within the current approved arc. Do not begin a later arc without
   the required plan, execution, review, build, and user mGBA acceptance.
+- `PROMPTS.md` (repo root) is authoritative for every phase after Phase 10
+  (11C onward through PRODUCT COMPLETE) — full scope, prerequisites,
+  acceptance criteria, and copy/paste session prompts per phase.
+  `docs/CLAUDE_HANDOFF.md` carries current volatile state (branch, HEAD,
+  completed phases, known open items). Read both before starting new work.
+  The root-level `AI_HANDOFF.md` is untracked, gitignored, historical scratch
+  state and must never be treated as current status.
 - Map scripts and events cannot be accepted by code inspection alone. State
   exactly what still needs emulator playtesting and which path or flags to use.
 - When the spec lists factors without an exact formula, propose the formula
@@ -87,8 +96,10 @@ or compiler diagnostic.
 
 ## Codex session handoff
 
-`AGENTS.md`, `docs/SPEC.md`, and the current approved Phase 10 plan are the
-shared source of truth. A fresh Codex session must inspect `git status`, both
-staged and unstaged diffs, and relevant recent commits before editing. Preserve
-all unrelated uncommitted work and leave implementation, static verification,
-build verification, and emulator acceptance as separately recorded states.
+`AGENTS.md`, `docs/SPEC.md`, `PROMPTS.md`, and `docs/CLAUDE_HANDOFF.md` are
+the shared source of truth (plus the current approved Phase 10 arc plan for
+any residual Phase 10 review). A fresh Codex session must inspect
+`git status`, both staged and unstaged diffs, and relevant recent commits
+before editing. Preserve all unrelated uncommitted work and leave
+implementation, static verification, build verification, and emulator
+acceptance as separately recorded states.

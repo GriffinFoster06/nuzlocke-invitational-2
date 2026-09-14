@@ -313,6 +313,42 @@ review and emulator acceptance requirements are resolved.
 
 ---
 
+## Phase 11 status and finalized delta
+
+Phase 11A is complete. Do not rerun or review 11A as part of subsequent Phase
+11 work.
+
+The authoritative post-11A requirements are recorded in SPEC.md: every
+canonical premium static slot randomizes independently and deterministically
+within the Premium Species pool only, while preserving its event/progression
+behavior; strict-run Victory and Wipe outcomes finalize comprehensive Run
+Reports; and report persistence, portable JSON export, and the optional mGBA
+companion flow are required as specified there. The report save architecture is
+deferred to Phase 11C2.
+
+Phase 11B (Nuzlocke enforcement, fair AI, and battle-rule correctness) closed
+every permadeath-revival bypass found by a targeted audit of every healing/
+revival path (in-battle bag-item HP restore, the in-battle bag menu's item
+eligibility check, and Battle Pike's between-room heal all now respect
+permadeath; every other HP-restoring path was already correctly guarded from
+Phase 3 onward), reviewed the fair-AI hidden-information contract and the
+Dupes/Shiny/encounter semantics with no defects found, removed the two
+player-visible Dupes settings that had become dead code
+(`SETTING_DUPES_COUNT_FORMS`, `SETTING_DUPES_COUNT_DEAD` - evolutionary-family
+linking and permanent Dupes history are unconditional), fixed an actual rules
+violation where ordinary wild ("regular") encounter slots could roll a Premium
+species when a species-pool category toggle was enabled, and closed a save
+migration gap so a stale `RANDOMIZER_VERSION` now forces the same full reinit
+as a stale `RULESET_VERSION` (a run can never straddle two randomizer
+versions). Terminal Run Reports and the full premium-static contract (the
+Mew/Deoxys/Ho-Oh/Lugia event-island slots specifically) remain specified in
+SPEC.md but not yet implemented; the encounter/trainer-battle startup latency
+addressed here was limited to a local, non-redesigning fix in the wild dupe
+selector, with the full hot-path optimization still deferred to a future
+performance-focused phase.
+
+---
+
 ## General pattern for any phase not listed exactly as above
 
 > Read [the relevant SPEC.md section(s)] and docs/PHASES.md. This is Phase

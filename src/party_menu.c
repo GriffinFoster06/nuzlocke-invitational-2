@@ -47,6 +47,7 @@
 #include "menu_specialized.h"
 #include "metatile_behavior.h"
 #include "move_relearner.h"
+#include "nuzlocke.h"
 #include "overworld.h"
 #include "palette.h"
 #include "party_menu.h"
@@ -1588,8 +1589,13 @@ static void HandleChooseMonSelection(u8 taskId, s8 *slotPtr)
             SwitchSelectedMons(taskId);
             break;
         case PARTY_ACTION_CHOOSE_AND_CLOSE:
-            PlaySE(SE_SELECT);
-            Task_ClosePartyMenu(taskId);
+            if (!Nuzlocke_MonCanProvideGameplayBenefit(&gParties[B_TRAINER_PLAYER][*slotPtr]))
+                PlaySE(SE_FAILURE);
+            else
+            {
+                PlaySE(SE_SELECT);
+                Task_ClosePartyMenu(taskId);
+            }
             break;
         case PARTY_ACTION_MINIGAME:
             if (IsSelectedMonNotEgg((u8 *)slotPtr))
@@ -3040,7 +3046,7 @@ static u8 GetPartyMenuActionsType(struct Pokemon *mon)
         }
         break;
     case PARTY_MENU_TYPE_DAYCARE:
-        actionType = (GetMonData(mon, MON_DATA_IS_EGG)) ? ACTIONS_SUMMARY_ONLY : ACTIONS_STORE;
+        actionType = (GetMonData(mon, MON_DATA_IS_EGG) || !Nuzlocke_MonCanProvideGameplayBenefit(mon)) ? ACTIONS_SUMMARY_ONLY : ACTIONS_STORE;
         break;
     case PARTY_MENU_TYPE_UNION_ROOM_REGISTER:
         actionType = ACTIONS_REGISTER;
@@ -7429,7 +7435,8 @@ static bool8 GetBattleEntryEligibility(struct Pokemon *mon)
 {
     enum Species species;
 
-    if (GetMonData(mon, MON_DATA_IS_EGG)
+    if (!Nuzlocke_MonCanProvideGameplayBenefit(mon)
+        || GetMonData(mon, MON_DATA_IS_EGG)
         || GetMonData(mon, MON_DATA_LEVEL) > GetBattleEntryLevelCap()
         || (gSaveBlock1Ptr->location.mapGroup == MAP_GROUP(MAP_BATTLE_FRONTIER_BATTLE_PYRAMID_LOBBY)
             && gSaveBlock1Ptr->location.mapNum == MAP_NUM(MAP_BATTLE_FRONTIER_BATTLE_PYRAMID_LOBBY)

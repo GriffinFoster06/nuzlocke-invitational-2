@@ -226,7 +226,6 @@ bool32 FieldMove_IsHmFree(enum FieldMove fieldMove)
 u32 FieldMove_GetUserSlot(enum FieldMove fieldMove)
 {
     enum Move move = FieldMove_GetMoveId(fieldMove);
-    u32 firstNonEgg = PARTY_SIZE;
     u32 i;
 
     // Vanilla: the first mon that actually knows the move.
@@ -237,8 +236,8 @@ u32 FieldMove_GetUserSlot(enum FieldMove fieldMove)
             break;
         if (GetMonData(mon, MON_DATA_IS_EGG))
             continue;
-        if (firstNonEgg == PARTY_SIZE)
-            firstNonEgg = i;
+        if (!Nuzlocke_MonCanProvideGameplayBenefit(mon) || GetMonData(mon, MON_DATA_HP) == 0)
+            continue;
         if (MonKnowsMove(mon, move) == TRUE)
             return i;
     }
@@ -246,8 +245,7 @@ u32 FieldMove_GetUserSlot(enum FieldMove fieldMove)
     if (!FieldMove_IsHmFree(fieldMove))
         return PARTY_SIZE;
 
-    // HM-free: nobody needs to know the move. Prefer a healthy, living mon to
-    // stand in as the performer; fall back to any non-egg member.
+    // HM-free: nobody needs to know the move, but a living mon must perform it.
     for (i = 0; i < PARTY_SIZE; i++)
     {
         struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][i];
@@ -257,11 +255,11 @@ u32 FieldMove_GetUserSlot(enum FieldMove fieldMove)
             continue;
         if (GetMonData(mon, MON_DATA_HP) == 0)
             continue;
-        if (Nuzlocke_MonIsDead(mon))
+        if (!Nuzlocke_MonCanProvideGameplayBenefit(mon))
             continue;
         return i;
     }
-    return firstNonEgg;
+    return PARTY_SIZE;
 }
 
 bool32 FieldMove_PokeRiderEnabled(void)

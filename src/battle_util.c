@@ -22,6 +22,7 @@
 #include "util.h"
 #include "battle_scripts.h"
 #include "random.h"
+#include "ruleset.h"
 #include "text.h"
 #include "safari_zone.h"
 #include "sound.h"
@@ -3227,6 +3228,16 @@ u32 AbilityBattleEffects(enum AbilityEffect caseID, enum BattlerId battler, enum
                             move = gBattleMons[i].moves[j];
                             enum BattleMoveEffects moveEffect = GetMoveEffect(move);
                             moveType = GetBattleMoveType(move);
+                            // Since Gen 6, Anticipation uses Hidden Power's actual
+                            // IV-derived type. Other variable-type moves retain
+                            // their listed type for this ability.
+                            if (moveEffect == EFFECT_HIDDEN_POWER && GetConfig(B_UPDATED_ABILITY_DATA) >= GEN_6)
+                            {
+                                moveType = GetDynamicMoveType(GetBattlerMon(i), move, i,
+                                                              GetBattlerAbility(i),
+                                                              GetBattlerHoldEffect(i),
+                                                              MON_IN_BATTLE);
+                            }
 
                             ctx.battlerAtk = i;
                             ctx.battlerDef = battler;
@@ -3732,7 +3743,9 @@ u32 AbilityBattleEffects(enum AbilityEffect caseID, enum BattlerId battler, enum
                 }
                 break;
             case ABILITY_TRUANT:
-                gBattleMons[gBattlerAttacker].volatiles.truantCounter ^= 1;
+                // This end-turn event is evaluating `battler`; gBattlerAttacker
+                // may name an entirely different battler after the final action.
+                gBattleMons[battler].volatiles.truantCounter ^= 1;
                 break;
             case ABILITY_SLOW_START:
                 if (gBattleMons[battler].volatiles.slowStartTimer > 0 && --gBattleMons[battler].volatiles.slowStartTimer == 0)
@@ -4864,6 +4877,8 @@ u32 AbilityBattleEffects(enum AbilityEffect caseID, enum BattlerId battler, enum
 
 bool32 TryPrimalReversion(enum BattlerId battler)
 {
+    if (!Ruleset_AllowsPrimalReversion())
+        return FALSE;
     if (TryBattleFormChange(battler, FORM_CHANGE_BATTLE_PRIMAL_REVERSION, GetBattlerAbility(battler)))
     {
         gBattleScripting.battler = battler;
@@ -8562,8 +8577,12 @@ bool32 DoesSpeciesUseHoldItemToChangeForm(enum Species species, enum Item heldIt
 
 bool32 CanMegaEvolve(enum BattlerId battler)
 {
-    enum HoldEffect holdEffect = GetBattlerHoldEffectIgnoreNegation(battler);
+    enum HoldEffect holdEffect;
     enum BattlerPosition position = GetBattlerPosition(battler);
+
+    if (!Ruleset_AllowsBattleGimmick(GIMMICK_MEGA))
+        return FALSE;
+    holdEffect = GetBattlerHoldEffectIgnoreNegation(battler);
 
     // Check if Player has a Mega Ring.
     if (!TESTING
@@ -8603,6 +8622,8 @@ bool32 CanMegaEvolve(enum BattlerId battler)
 
 bool32 CanUltraBurst(enum BattlerId battler)
 {
+    if (!Ruleset_AllowsBattleGimmick(GIMMICK_ULTRA_BURST))
+        return FALSE;
     enum HoldEffect holdEffect = GetBattlerHoldEffectIgnoreNegation(battler);
     enum BattlerPosition position = GetBattlerPosition(battler);
 
@@ -8636,6 +8657,9 @@ bool32 CanUltraBurst(enum BattlerId battler)
 
 void ActivateMegaEvolution(enum BattlerId battler)
 {
+    if (!Ruleset_AllowsBattleGimmick(GIMMICK_MEGA))
+        return;
+
     enum Ability ability = GetBattlerAbility(battler);
     gLastUsedItem = gBattleMons[battler].item;
     SetActiveGimmick(battler, GIMMICK_MEGA);
@@ -8654,6 +8678,9 @@ void ActivateMegaEvolution(enum BattlerId battler)
 
 void ActivateUltraBurst(enum BattlerId battler)
 {
+    if (!Ruleset_AllowsBattleGimmick(GIMMICK_ULTRA_BURST))
+        return;
+
     enum Ability ability = GetBattlerAbility(battler);
     gLastUsedItem = gBattleMons[battler].item;
     SetActiveGimmick(battler, GIMMICK_ULTRA_BURST);

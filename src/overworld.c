@@ -1486,8 +1486,11 @@ void UpdateAmbientCry(s16 *state, u16 *delayCounter)
         monsCount = CalculatePlayerPartyCount();
         for (i = 0; i < monsCount; i++)
         {
-            if (!GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_SANITY_IS_EGG)
-                && GetMonAbility(&gParties[B_TRAINER_PLAYER][0]) == ABILITY_SWARM)
+            // "If the player has a Pokemon with the ability Swarm in their
+            // party" (see comment below) means any party slot, not just the
+            // lead - check the slot the loop is actually iterating.
+            if (Nuzlocke_MonCanProvideGameplayBenefit(&gParties[B_TRAINER_PLAYER][i])
+                && GetMonAbility(&gParties[B_TRAINER_PLAYER][i]) == ABILITY_SWARM)
             {
                 divBy = 2;
                 break;
@@ -1897,6 +1900,7 @@ void CB2_Overworld(void)
         SetFieldVBlankCallback();
         return;
     }
+    Nuzlocke_TryPromptMandatoryNickname();
 }
 
 void SetMainCallback1(MainCallback cb)

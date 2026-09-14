@@ -11,6 +11,7 @@
 #include "graphics.h"
 #include "item.h"
 #include "pokemon.h"
+#include "ruleset.h"
 #include "random.h"
 #include "sprite.h"
 #include "string_util.h"
@@ -72,8 +73,12 @@ static const struct GMaxMove sGMaxMoveTable[] =
 // Returns whether a battler can Dynamax.
 bool32 CanDynamax(enum BattlerId battler)
 {
-    enum Species species = GetBattlerVisualSpecies(battler);
+    enum Species species;
     enum HoldEffect holdEffect = GetBattlerHoldEffectIgnoreNegation(battler);
+
+    if (!Ruleset_AllowsBattleGimmick(GIMMICK_DYNAMAX))
+        return FALSE;
+    species = GetBattlerVisualSpecies(battler);
 
     // Prevents Zigzagoon from dynamaxing in vanilla.
     if (gBattleTypeFlags & BATTLE_TYPE_FIRST_BATTLE && !IsOnPlayerSide(battler))
@@ -168,6 +173,9 @@ u32 GetNonDynamaxMaxHP(enum BattlerId battler)
 // Sets flags used for Dynamaxing and checks Gigantamax forms.
 void ActivateDynamax(enum BattlerId battler)
 {
+    if (!Ruleset_AllowsBattleGimmick(GIMMICK_DYNAMAX))
+        return;
+
     // Set appropriate use flags.
     SetActiveGimmick(battler, GIMMICK_DYNAMAX);
     SetGimmickAsActivated(battler, GIMMICK_DYNAMAX);

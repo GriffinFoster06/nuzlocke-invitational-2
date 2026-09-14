@@ -15,13 +15,16 @@
 
 #include "global.h"
 #include "battle.h"
+#include "battle_controllers.h"
 #include "item.h"
 #include "main.h"
+#include "naming_screen.h"
 #include "overworld.h"
 #include "pokemon.h"
 #include "pokemon_storage_system.h"
 #include "random.h"
 #include "ruleset.h"
+#include "script.h"
 #include "string_util.h"
 #include "nuzlocke.h"
 #include "constants/battle.h"
@@ -30,8 +33,6 @@
 #include "constants/species.h"
 
 #define NUZLOCKE_GRAVEYARD_BOX      (TOTAL_BOXES_COUNT - 1)
-#define NUZLOCKE_DUPES_MAX_REROLLS  24
-
 // The graveyard PC box name. MUST fit boxNames[] (BOX_NAME_LENGTH + 1 bytes,
 // terminator included) - a longer string here overruns into boxWallpapers[0]
 // and corrupts the PC (see the box-open crash this replaced). The static
@@ -44,14 +45,39 @@ STATIC_ASSERT(sizeof(sGraveyardBoxName) <= BOX_NAME_LENGTH + 1, GraveyardBoxName
 #define BITARR_CLEAR(arr, i)  ((arr)[(i) >> 3] &= ~(1 << ((i) & 7)))
 
 // Battle types that are never governed by the one-per-location rule.
-#define NUZLOCKE_EXEMPT_BATTLE_FLAGS                                            \
-    (BATTLE_TYPE_TRAINER | BATTLE_TYPE_SAFARI | BATTLE_TYPE_ROAMER             \
-   | BATTLE_TYPE_FRONTIER | BATTLE_TYPE_LINK | BATTLE_TYPE_PYRAMID            \
+#define NUZLOCKE_EXEMPT_ENCOUNTER_FLAGS                                         \
+    (BATTLE_TYPE_TRAINER | BATTLE_TYPE_LINK | BATTLE_TYPE_RECORDED             \
    | BATTLE_TYPE_GHOST | BATTLE_TYPE_CATCH_TUTORIAL | BATTLE_TYPE_FIRST_BATTLE)
 
-// Latched when an encounter's battle is set up (opposing mon already created).
-static EWRAM_DATA bool8 sEncounterScripted = FALSE;
-static EWRAM_DATA bool8 sEncounterShiny = FALSE;
+struct NuzlockeEncounterTarget
+{
+    u8 present:1;
+    u8 shiny:1;
+    u8 duplicate:1;
+    u8 ordinaryValid:1;
+};
+
+struct NuzlockeEncounterState
+{
+    bool8 active;
+    bool8 ordinaryCaught;
+    u16 location;
+    struct NuzlockeEncounterTarget targets[2];
+};
+
+// Latched after the opposing party has been created and before battle setup.
+static EWRAM_DATA struct NuzlockeEncounterState sEncounter = {0};
+
+struct PendingNickname
+{
+    bool8 active;
+    bool8 naming;
+    bool8 inBox;
+    u8 boxId;
+    u8 position;
+};
+
+static EWRAM_DATA struct PendingNickname sPendingNickname = {0};
 
 // Set by Nuzlocke_BeginRetry(); consumed by Nuzlocke_ResetState() on the next
 // New Game so a fresh attempt keeps the same ruleset config.
@@ -65,6 +91,7 @@ static EWRAM_DATA struct RulesetSettings sRetrySettings = {0};
 void Nuzlocke_ResetState(void)
 {
     memset(&gSaveBlock3Ptr->nuzlocke, 0, sizeof(gSaveBlock3Ptr->nuzlocke));
+    memset(&sPendingNickname, 0, sizeof(sPendingNickname));
 
     if (sRetryPending)
     {
@@ -80,8 +107,7 @@ void Nuzlocke_ResetState(void)
         sRetryPending = FALSE;
     }
 
-    sEncounterScripted = FALSE;
-    sEncounterShiny = FALSE;
+    memset(&sEncounter, 0, sizeof(sEncounter));
 }
 
 void Nuzlocke_BeginRun(void)
@@ -91,6 +117,7 @@ void Nuzlocke_BeginRun(void)
                  || GetRulesetSetting(SETTING_WHITEOUT_BEHAVIOR) != WHITEOUT_VANILLA
                  || GetRulesetSetting(SETTING_NO_BATTLE_ITEMS)
                  || GetRulesetSetting(SETTING_FORCE_SET_BATTLE_STYLE)
+                 || GetRulesetSetting(SETTING_NICKNAME_MODE) != NICK_OPTIONAL
                  || GetRulesetSetting(SETTING_CAP_MODE) != CAPMODE_OFF;
 
     SetRulesetRunActive(strict);
@@ -185,7 +212,7 @@ bool32 Nuzlocke_ForcedNicknamesOn(void)
 
 bool32 Nuzlocke_StrictNicknamesOn(void)
 {
-    return GetRulesetSetting(SETTING_NICKNAME_MODE) == NICK_STRICT;
+    return Nuzlocke_ForcedNicknamesOn();
 }
 
 // Script-facing wrapper: the starter hand-off in Birch's lab is a plain
@@ -195,6 +222,98 @@ bool32 Nuzlocke_StrictNicknamesOn(void)
 bool16 AreNicknamesForced(void)
 {
     return Nuzlocke_ForcedNicknamesOn();
+}
+
+static struct BoxPokemon *GetPendingNicknameMon(void)
+{
+    if (!sPendingNickname.active)
+        return NULL;
+    if (sPendingNickname.inBox)
+        return GetBoxedMonPtr(sPendingNickname.boxId, sPendingNickname.position);
+    return &gParties[B_TRAINER_PLAYER][sPendingNickname.position].box;
+}
+
+static bool32 MonStillNeedsMandatoryNickname(struct BoxPokemon *boxMon)
+{
+    u8 nickname[POKEMON_NAME_LENGTH + 1];
+    enum Species species = GetBoxMonData(boxMon, MON_DATA_SPECIES);
+
+    if (species == SPECIES_NONE || GetBoxMonData(boxMon, MON_DATA_IS_EGG))
+        return FALSE;
+    GetBoxMonData(boxMon, MON_DATA_NICKNAME, nickname);
+    return StringCompare(nickname, GetSpeciesName(species)) == 0;
+}
+
+static void CommitMandatoryNickname(void)
+{
+    struct BoxPokemon *boxMon = GetPendingNicknameMon();
+
+    if (boxMon != NULL)
+        SetBoxMonData(boxMon, MON_DATA_NICKNAME, gStringVar2);
+    memset(&sPendingNickname, 0, sizeof(sPendingNickname));
+    SetMainCallback2(CB2_ReturnToField);
+}
+
+void Nuzlocke_QueueMandatoryNickname(struct Pokemon *mon)
+{
+    u32 personality;
+
+    if (!Nuzlocke_ForcedNicknamesOn() || GetMonData(mon, MON_DATA_IS_EGG))
+        return;
+    personality = GetMonData(mon, MON_DATA_PERSONALITY);
+
+    for (u32 i = 0; i < PARTY_SIZE; i++)
+    {
+        if (GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_SPECIES) != SPECIES_NONE
+         && GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_PERSONALITY) == personality)
+        {
+            sPendingNickname.active = TRUE;
+            sPendingNickname.inBox = FALSE;
+            sPendingNickname.position = i;
+            return;
+        }
+    }
+
+    for (u32 boxId = 0; boxId < TOTAL_BOXES_COUNT; boxId++)
+    {
+        for (u32 position = 0; position < IN_BOX_COUNT; position++)
+        {
+            struct BoxPokemon *boxMon = GetBoxedMonPtr(boxId, position);
+            if (GetBoxMonData(boxMon, MON_DATA_SPECIES) != SPECIES_NONE
+             && GetBoxMonData(boxMon, MON_DATA_PERSONALITY) == personality)
+            {
+                sPendingNickname.active = TRUE;
+                sPendingNickname.inBox = TRUE;
+                sPendingNickname.boxId = boxId;
+                sPendingNickname.position = position;
+                return;
+            }
+        }
+    }
+}
+
+void Nuzlocke_TryPromptMandatoryNickname(void)
+{
+    struct BoxPokemon *boxMon;
+    enum Species species;
+
+    if (!sPendingNickname.active || sPendingNickname.naming
+     || ScriptContext_IsEnabled() || ArePlayerFieldControlsLocked())
+        return;
+
+    boxMon = GetPendingNicknameMon();
+    if (boxMon == NULL || !MonStillNeedsMandatoryNickname(boxMon))
+    {
+        memset(&sPendingNickname, 0, sizeof(sPendingNickname));
+        return;
+    }
+
+    species = GetBoxMonData(boxMon, MON_DATA_SPECIES);
+    GetBoxMonData(boxMon, MON_DATA_NICKNAME, gStringVar2);
+    sPendingNickname.naming = TRUE;
+    DoNamingScreen(NAMING_SCREEN_NICKNAME, gStringVar2, species,
+                   GetBoxMonGender(boxMon), GetBoxMonData(boxMon, MON_DATA_PERSONALITY),
+                   CommitMandatoryNickname);
 }
 
 // ---------------------------------------------------------------------------
@@ -239,35 +358,77 @@ void Nuzlocke_ClearLocation(u32 tag)
 
 void Nuzlocke_NoteWildEncounterStart(bool32 scripted)
 {
-    sEncounterScripted = scripted;
-    sEncounterShiny = IsMonShiny(&gParties[B_TRAINER_OPPONENT_A][0]);
+    u32 i;
+    bool32 locationOpen;
+
+    (void)scripted;
+    memset(&sEncounter, 0, sizeof(sEncounter));
+    sEncounter.active = TRUE;
+    sEncounter.location = Nuzlocke_CurrentLocationTag();
+    locationOpen = Nuzlocke_OneEncounterPerLocationOn()
+                && !Nuzlocke_LocationIsUsed(sEncounter.location);
+
+    for (i = 0; i < ARRAY_COUNT(sEncounter.targets); i++)
+    {
+        struct Pokemon *mon = &gParties[B_TRAINER_OPPONENT_A][i];
+        enum Species species = GetMonData(mon, MON_DATA_SPECIES);
+        struct NuzlockeEncounterTarget *target = &sEncounter.targets[i];
+
+        if (species == SPECIES_NONE || GetMonData(mon, MON_DATA_SANITY_IS_EGG))
+            continue;
+
+        target->present = TRUE;
+        target->shiny = Nuzlocke_ShinyClauseOn() && IsMonShiny(mon);
+        target->duplicate = Nuzlocke_DupesClauseOn() && Nuzlocke_IsFamilyOwned(species);
+        target->ordinaryValid = locationOpen && !target->shiny && !target->duplicate;
+
+        // Encounter history is about the encounter, not the eventual outcome.
+        // Snapshot duplicate status first so this encounter does not disqualify itself.
+        if (target->ordinaryValid)
+            Nuzlocke_MarkFamilyOwned(species);
+    }
 }
 
 // Apply an encounter's outcome to its location.
-static void NuzlockeConsumeLocation(u32 tag, u32 outcome, bool32 allowShinySkip)
+static void NuzlockeConsumeLocation(u32 outcome)
 {
-    if (allowShinySkip && sEncounterShiny && Nuzlocke_ShinyClauseOn())
-        return; // a shiny is a free extra - it never touches the location
+    bool32 hasOrdinaryEncounter = FALSE;
+    u32 i;
 
-    if (outcome == B_OUTCOME_CAUGHT)
+    if (!sEncounter.active)
+        return;
+
+    for (i = 0; i < ARRAY_COUNT(sEncounter.targets); i++)
+        hasOrdinaryEncounter |= sEncounter.targets[i].ordinaryValid;
+
+    if (!hasOrdinaryEncounter)
+        return;
+
+    if (outcome == B_OUTCOME_CAUGHT && sEncounter.ordinaryCaught)
     {
-        Nuzlocke_MarkLocationUsed(tag, TRUE);
+        Nuzlocke_MarkLocationUsed(sEncounter.location, TRUE);
         return;
     }
 
     // Strict default: killing, fleeing or failing to catch also consumes.
     if (outcome != 0
      && GetRulesetSetting(SETTING_ENCOUNTER_CONSUMED_MODE) == ENCCONSUMED_STRICT)
-        Nuzlocke_MarkLocationUsed(tag, FALSE);
+        Nuzlocke_MarkLocationUsed(sEncounter.location, FALSE);
+}
+
+static void NuzlockeFinishEncounter(void)
+{
+    NuzlockeConsumeLocation(gBattleOutcome);
+    memset(&sEncounter, 0, sizeof(sEncounter));
 }
 
 void Nuzlocke_HandleWildBattleEnd(void)
 {
     if (!Nuzlocke_RunIsActive() || !Nuzlocke_OneEncounterPerLocationOn())
         return;
-    if (gBattleTypeFlags & NUZLOCKE_EXEMPT_BATTLE_FLAGS)
+    if (gBattleTypeFlags & NUZLOCKE_EXEMPT_ENCOUNTER_FLAGS)
         return;
-    NuzlockeConsumeLocation(Nuzlocke_CurrentLocationTag(), gBattleOutcome, TRUE);
+    NuzlockeFinishEncounter();
 }
 
 void Nuzlocke_HandleScriptedBattleEnd(void)
@@ -276,34 +437,58 @@ void Nuzlocke_HandleScriptedBattleEnd(void)
     // but the script - not this rule - decides whether they are catchable.
     if (!Nuzlocke_RunIsActive() || !Nuzlocke_OneEncounterPerLocationOn())
         return;
-    NuzlockeConsumeLocation(Nuzlocke_CurrentLocationTag(), gBattleOutcome, FALSE);
+    NuzlockeFinishEncounter();
 }
 
 void Nuzlocke_HandleSafariBattleEnd(void)
 {
     if (!Nuzlocke_RunIsActive() || !Nuzlocke_OneEncounterPerLocationOn())
         return;
-    NuzlockeConsumeLocation(Nuzlocke_CurrentLocationTag(), gBattleOutcome, TRUE);
+    NuzlockeFinishEncounter();
+}
+
+static u32 GetEncounterTargetIndex(enum BattlerId battler)
+{
+    u32 partyIndex;
+
+    if (battler >= MAX_BATTLERS_COUNT || IsOnPlayerSide(battler))
+        return ARRAY_COUNT(sEncounter.targets);
+    partyIndex = gBattlerPartyIndexes[battler];
+    if (partyIndex >= ARRAY_COUNT(sEncounter.targets))
+        return ARRAY_COUNT(sEncounter.targets);
+    return partyIndex;
+}
+
+bool32 Nuzlocke_CanCatchBattler(enum BattlerId battler)
+{
+    u32 index;
+
+    if (!Nuzlocke_RunIsActive() || !Nuzlocke_OneEncounterPerLocationOn())
+        return TRUE;
+    if (gBattleTypeFlags & NUZLOCKE_EXEMPT_ENCOUNTER_FLAGS)
+        return TRUE;
+
+    index = GetEncounterTargetIndex(battler);
+    if (!sEncounter.active || index >= ARRAY_COUNT(sEncounter.targets))
+        return FALSE;
+    return sEncounter.targets[index].shiny || sEncounter.targets[index].ordinaryValid;
 }
 
 bool32 Nuzlocke_CanCatchCurrentEncounter(void)
 {
-    u32 tag;
+    enum BattlerId battler = GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT);
 
-    if (!Nuzlocke_RunIsActive() || !Nuzlocke_OneEncounterPerLocationOn())
-        return TRUE;
-    if (sEncounterScripted)
-        return TRUE;
-    if (gBattleTypeFlags & NUZLOCKE_EXEMPT_BATTLE_FLAGS)
-        return TRUE;
+    if (!IsBattlerAlive(battler))
+        battler = GetBattlerAtPosition(B_POSITION_OPPONENT_RIGHT);
+    return Nuzlocke_CanCatchBattler(battler);
+}
 
-    tag = Nuzlocke_CurrentLocationTag();
-    if (!Nuzlocke_LocationIsUsed(tag))
-        return TRUE;
-    // Location already resolved: only a shiny may still be caught.
-    if (Nuzlocke_ShinyClauseOn() && IsMonShiny(&gParties[B_TRAINER_OPPONENT_A][0]))
-        return TRUE;
-    return FALSE;
+void Nuzlocke_NoteCaughtBattler(enum BattlerId battler)
+{
+    u32 index = GetEncounterTargetIndex(battler);
+
+    if (sEncounter.active && index < ARRAY_COUNT(sEncounter.targets))
+        sEncounter.ordinaryCaught = sEncounter.targets[index].ordinaryValid;
 }
 
 // ---------------------------------------------------------------------------
@@ -326,7 +511,7 @@ static bool32 SpeciesInRange(u32 s)
 // using only cheap forward reads (GetSpeciesEvolutions is an O(1) pointer
 // read). Walking the reverse edge for free is what makes GetSpeciesPreEvolution
 // - a full O(N*evos) reverse scan - unnecessary here.
-static void ExpandFamilyClosure(u8 *set, bool32 countForms)
+static void ExpandFamilyClosure(u8 *set)
 {
     bool32 changed = TRUE;
     u32 s, j;
@@ -368,28 +553,23 @@ static void ExpandFamilyClosure(u8 *set, bool32 countForms)
             }
         }
 
-        if (countForms)
+        // Pull in every species sharing a National Dex number with a current
+        // member. This links regional forms and their evolution branches.
+        for (s = 1; s < NUM_SPECIES; s++)
         {
-            // Pull in every species sharing a National Dex number with a
-            // current member. natDexNum already collapses regional forms, so
-            // this also links branches like Meowth <-> Meowth-Galar (and thus
-            // Persian / Perrserker) that no evolution row connects.
-            for (s = 1; s < NUM_SPECIES; s++)
-            {
-                enum NationalDexOrder dex;
+            enum NationalDexOrder dex;
 
-                if (!BITARR_GET(set, s))
+            if (!BITARR_GET(set, s))
+                continue;
+            dex = SpeciesToNationalPokedexNum(s);
+            for (j = 1; j < NUM_SPECIES; j++)
+            {
+                if (!IsSpeciesEnabled(j))
                     continue;
-                dex = SpeciesToNationalPokedexNum(s);
-                for (j = 1; j < NUM_SPECIES; j++)
+                if (!BITARR_GET(set, j) && SpeciesToNationalPokedexNum(j) == dex)
                 {
-                    if (!IsSpeciesEnabled(j))
-                        continue;
-                    if (!BITARR_GET(set, j) && SpeciesToNationalPokedexNum(j) == dex)
-                    {
-                        BITARR_SET(set, j);
-                        changed = TRUE;
-                    }
+                    BITARR_SET(set, j);
+                    changed = TRUE;
                 }
             }
         }
@@ -406,7 +586,7 @@ void Nuzlocke_MarkFamilyOwned(enum Species species)
 
     memset(set, 0, sizeof(set));
     BITARR_SET(set, species);
-    ExpandFamilyClosure(set, GetRulesetSetting(SETTING_DUPES_COUNT_FORMS) != 0);
+    ExpandFamilyClosure(set);
 
     for (i = 0; i < FAMILY_BITSET_BYTES; i++)
         gSaveBlock3Ptr->nuzlocke.familyOwned[i] |= set[i];
@@ -419,66 +599,14 @@ bool32 Nuzlocke_IsFamilyOwned(enum Species species)
     return BITARR_GET(gSaveBlock3Ptr->nuzlocke.familyOwned, species);
 }
 
-// Recompute familyOwned for one family from live party + PC membership. Only
-// needed when SETTING_DUPES_COUNT_DEAD is off (bits are otherwise set-only).
-static void RecheckFamilyOwnership(enum Species species)
-{
-    u8 set[FAMILY_BITSET_BYTES];
-    u32 i, boxId, pos;
-    bool32 aliveMember = FALSE;
-
-    if (!SpeciesInRange(species))
-        return;
-
-    memset(set, 0, sizeof(set));
-    BITARR_SET(set, species);
-    ExpandFamilyClosure(set, GetRulesetSetting(SETTING_DUPES_COUNT_FORMS) != 0);
-
-    for (i = 0; i < PARTY_SIZE && !aliveMember; i++)
-    {
-        struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][i];
-        u32 s = GetMonData(mon, MON_DATA_SPECIES);
-
-        if (s == SPECIES_NONE || GetMonData(mon, MON_DATA_SANITY_IS_EGG))
-            continue;
-        if (SpeciesInRange(s) && BITARR_GET(set, SanitizeSpeciesId(s))
-         && GetMonData(mon, MON_DATA_HP) != 0)
-            aliveMember = TRUE;
-    }
-    for (boxId = 0; boxId < TOTAL_BOXES_COUNT && !aliveMember; boxId++)
-    {
-        for (pos = 0; pos < IN_BOX_COUNT; pos++)
-        {
-            struct BoxPokemon *boxMon = GetBoxedMonPtr(boxId, pos);
-            u32 s = GetBoxMonData(boxMon, MON_DATA_SPECIES);
-
-            if (s == SPECIES_NONE || GetBoxMonData(boxMon, MON_DATA_SANITY_IS_EGG))
-                continue;
-            // A boxed mon has no live HP field; "dead" is the only disqualifier.
-            if (SpeciesInRange(s) && BITARR_GET(set, SanitizeSpeciesId(s))
-             && !GetBoxMonData(boxMon, MON_DATA_IS_DEAD))
-            {
-                aliveMember = TRUE;
-                break;
-            }
-        }
-    }
-
-    if (!aliveMember)
-    {
-        for (i = 1; i < NUM_SPECIES; i++)
-        {
-            if (BITARR_GET(set, i))
-                BITARR_CLEAR(gSaveBlock3Ptr->nuzlocke.familyOwned, i);
-        }
-    }
-}
-
 void Nuzlocke_OnMonObtained(struct Pokemon *mon, bool32 fromWildCatch)
 {
     enum Species species = GetMonData(mon, MON_DATA_SPECIES);
 
-    Nuzlocke_MarkFamilyOwned(species);
+    // A wild encounter was classified and recorded when it began. In
+    // particular, a bonus shiny must not enter ordinary Dupes history.
+    if (!fromWildCatch)
+        Nuzlocke_MarkFamilyOwned(species);
 
     // A wild catch's location is handled by the battle-end hook. Every other
     // acquisition (script gift, fossil revival, gift/daycare egg) consumes the
@@ -489,7 +617,7 @@ void Nuzlocke_OnMonObtained(struct Pokemon *mon, bool32 fromWildCatch)
 
 bool32 Nuzlocke_DupesRerollActiveHere(void)
 {
-    if (!Nuzlocke_RunIsActive() || !Nuzlocke_DupesClauseOn())
+    if (!Nuzlocke_RunIsActive() || !Nuzlocke_RulesGateOpen() || !Nuzlocke_DupesClauseOn())
         return FALSE;
     // No point avoiding dupes on a route whose encounter is already spent.
     if (Nuzlocke_OneEncounterPerLocationOn()
@@ -507,6 +635,19 @@ bool32 Nuzlocke_MonIsDead(struct Pokemon *mon)
     if (!Nuzlocke_PermadeathOn())
         return FALSE;
     return GetMonData(mon, MON_DATA_IS_DEAD) != 0;
+}
+
+bool32 Nuzlocke_MonCanBattle(struct Pokemon *mon)
+{
+    return !Nuzlocke_MonIsDead(mon);
+}
+
+bool32 Nuzlocke_MonCanProvideGameplayBenefit(struct Pokemon *mon)
+{
+    if (GetMonData(mon, MON_DATA_SPECIES) == SPECIES_NONE
+     || GetMonData(mon, MON_DATA_SANITY_IS_EGG))
+        return FALSE;
+    return !Nuzlocke_MonIsDead(mon);
 }
 
 static void MoveDeadMonToGraveyard(struct Pokemon *mon)
@@ -527,7 +668,7 @@ static void MoveDeadMonToGraveyard(struct Pokemon *mon)
     ZeroMonData(mon);
 }
 
-void Nuzlocke_MarkMonDead(struct Pokemon *mon)
+static void MarkMonDead(struct Pokemon *mon, bool32 moveToGraveyard)
 {
     bool8 dead = TRUE;
 
@@ -542,12 +683,26 @@ void Nuzlocke_MarkMonDead(struct Pokemon *mon)
     if (gSaveBlock3Ptr->nuzlocke.deathCount < 0xFFFF)
         gSaveBlock3Ptr->nuzlocke.deathCount++;
 
-    if (GetRulesetSetting(SETTING_DUPES_CLAUSE)
-     && !GetRulesetSetting(SETTING_DUPES_COUNT_DEAD))
-        RecheckFamilyOwnership(GetMonData(mon, MON_DATA_SPECIES));
-
-    if (GetRulesetSetting(SETTING_GRAVEYARD_BOX))
+    if (moveToGraveyard && GetRulesetSetting(SETTING_GRAVEYARD_BOX))
         MoveDeadMonToGraveyard(mon);
+}
+
+void Nuzlocke_MarkMonDead(struct Pokemon *mon)
+{
+    MarkMonDead(mon, TRUE);
+}
+
+void Nuzlocke_RecordBattleFaint(enum BattlerId battler)
+{
+    if (!Nuzlocke_PermadeathOn() || !Nuzlocke_RunIsActive())
+        return;
+    if (battler >= gBattlersCount || GetBattlerTrainer(battler) != B_TRAINER_PLAYER)
+        return;
+    if (gBattleTypeFlags & (BATTLE_TYPE_LINK | BATTLE_TYPE_RECORDED
+                          | BATTLE_TYPE_CATCH_TUTORIAL | BATTLE_TYPE_FIRST_BATTLE))
+        return;
+    if (gBattlerPartyIndexes[battler] < PARTY_SIZE)
+        MarkMonDead(&gParties[B_TRAINER_PLAYER][gBattlerPartyIndexes[battler]], FALSE);
 }
 
 void Nuzlocke_ProcessPostBattleDeaths(void)
@@ -556,10 +711,8 @@ void Nuzlocke_ProcessPostBattleDeaths(void)
 
     if (!Nuzlocke_PermadeathOn() || !Nuzlocke_RunIsActive())
         return;
-    if (gBattleTypeFlags & (BATTLE_TYPE_FRONTIER | BATTLE_TYPE_LINK | BATTLE_TYPE_SAFARI
-                          | BATTLE_TYPE_CATCH_TUTORIAL | BATTLE_TYPE_TRAINER_HILL
-                          | BATTLE_TYPE_EREADER_TRAINER | BATTLE_TYPE_RECORDED
-                          | BATTLE_TYPE_FIRST_BATTLE))
+    if (gBattleTypeFlags & (BATTLE_TYPE_LINK | BATTLE_TYPE_CATCH_TUTORIAL
+                          | BATTLE_TYPE_RECORDED | BATTLE_TYPE_FIRST_BATTLE))
         return;
 
     for (i = 0; i < PARTY_SIZE; i++)
@@ -571,7 +724,19 @@ void Nuzlocke_ProcessPostBattleDeaths(void)
         if (GetMonData(mon, MON_DATA_SANITY_IS_EGG))
             continue;
         if (GetMonData(mon, MON_DATA_HP) == 0)
-            Nuzlocke_MarkMonDead(mon);
+            MarkMonDead(mon, FALSE);
+    }
+
+    if (GetRulesetSetting(SETTING_GRAVEYARD_BOX))
+    {
+        for (i = 0; i < PARTY_SIZE; i++)
+        {
+            struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][i];
+
+            if (GetMonData(mon, MON_DATA_SPECIES) != SPECIES_NONE
+             && GetMonData(mon, MON_DATA_IS_DEAD))
+                MoveDeadMonToGraveyard(mon);
+        }
     }
 
     if (GetRulesetSetting(SETTING_GRAVEYARD_BOX))
@@ -649,6 +814,22 @@ static bool32 AnyLivingMonAnywhere(void)
                 return TRUE;
         }
     }
+
+    for (i = 0; i < DAYCARE_MON_COUNT; i++)
+    {
+        struct BoxPokemon *boxMon = &gSaveBlock1Ptr->daycare.mons[i].mon;
+
+        if (GetBoxMonData(boxMon, MON_DATA_SPECIES) != SPECIES_NONE
+         && !GetBoxMonData(boxMon, MON_DATA_SANITY_IS_EGG)
+         && !GetBoxMonData(boxMon, MON_DATA_IS_DEAD))
+            return TRUE;
+    }
+#if IS_FRLG
+    if (GetBoxMonData(&gSaveBlock1Ptr->route5DayCareMon.mon, MON_DATA_SPECIES) != SPECIES_NONE
+     && !GetBoxMonData(&gSaveBlock1Ptr->route5DayCareMon.mon, MON_DATA_SANITY_IS_EGG)
+     && !GetBoxMonData(&gSaveBlock1Ptr->route5DayCareMon.mon, MON_DATA_IS_DEAD))
+        return TRUE;
+#endif
     return FALSE;
 }
 

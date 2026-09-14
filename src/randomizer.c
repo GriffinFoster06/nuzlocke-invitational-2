@@ -234,7 +234,12 @@ enum Species Randomizer_WildSlotSpecies(const struct WildPokemonInfo *info, u32 
         st = SeedFor(SALT_WILD_SLOT, info->slotSeed, slot, 0);
         break;
     }
-    return PickReplacement(&st, vanilla, POOL_ORDINARY);
+    // Phase 11B: docs/SPEC.md "Premium encounter balancing" - ordinary wild
+    // encounter slots never generate Premium species. POOL_ORDINARY only
+    // excludes category-banned species, not Premium ones; POOL_STRICT_ORDINARY
+    // excludes both, so enabling a species-pool category toggle (e.g. Legendary)
+    // can no longer leak that category into ordinary wild slots.
+    return PickReplacement(&st, vanilla, POOL_STRICT_ORDINARY);
 }
 
 u32 Randomizer_WildRateSlot(const struct WildPokemonInfo *info, enum WildPokemonArea area,
@@ -287,7 +292,9 @@ enum Species Randomizer_SpecialWildSpecies(enum Species vanilla, u32 sourceKey, 
     case ENCMAP_SLOT:
     default:                   st = SeedFor(SALT_WILD_SPECIAL, sourceKey, 0, 0); break;
     }
-    return PickReplacement(&st, vanilla, POOL_ORDINARY);
+    // Phase 11B: same ordinary-wild-slot Premium exclusion as
+    // Randomizer_WildSlotSpecies (this covers Feebas/mass-outbreak special slots).
+    return PickReplacement(&st, vanilla, POOL_STRICT_ORDINARY);
 }
 
 // ---- starters --------------------------------------------------------------
@@ -914,6 +921,8 @@ static bool32 ItemIsPoolEligible(enum Item item)
     if (gItemsInfo[item].name == NULL)
         return FALSE;
     if (GetItemImportance(item) != 0)
+        return FALSE;
+    if (!Ruleset_ItemIsEnabled(item))
         return FALSE;
 
     switch (GetItemPocket(item))

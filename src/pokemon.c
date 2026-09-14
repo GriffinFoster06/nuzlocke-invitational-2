@@ -5449,7 +5449,7 @@ static s32 GetWildMonTableIdInAlteringCave(enum Species species)
 static inline bool32 CanFirstMonBoostHeldItemRarity(void)
 {
     enum Ability ability;
-    if (GetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_SANITY_IS_EGG))
+    if (!Nuzlocke_MonCanProvideGameplayBenefit(&gParties[B_TRAINER_PLAYER][0]))
         return FALSE;
 
     ability = GetMonAbility(&gParties[B_TRAINER_PLAYER][0]);

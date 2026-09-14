@@ -13,6 +13,7 @@
 #include "link_rfu.h"
 #include "main.h"
 #include "menu.h"
+#include "nuzlocke.h"
 #include "overworld.h"
 #include "ow_abilities.h"
 #include "palette.h"
@@ -23,6 +24,7 @@
 #include "random.h"
 #include "random_mon_generation.h"
 #include "randomizer.h"
+#include "ruleset.h"
 #include "script.h"
 #include "sprite.h"
 #include "string_util.h"
@@ -45,7 +47,8 @@ void HealPlayerParty(void)
         HealPlayerBoxes();
 
     // Recharge Tera Orb, if possible.
-    if (!IsTeraOrbCharged() && CheckBagHasItem(ITEM_TERA_ORB, 1))
+    if (Ruleset_AllowsBattleGimmick(GIMMICK_TERA)
+     && !IsTeraOrbCharged() && CheckBagHasItem(ITEM_TERA_ORB, 1))
         FlagSet(B_FLAG_TERA_ORB_CHARGED);
 }
 
@@ -380,11 +383,17 @@ void SetTeraType(struct ScriptContext *ctx)
 u32 ScriptGiveMonParameterized(u8 side, u8 slot, struct PokemonTemplate *monTemplate)
 {
     struct Pokemon mon;
+    u32 result;
 
     CreateMonFromTemplate(&mon, monTemplate);
 
     if (side == B_SIDE_PLAYER)
-        return GiveScriptedMonToPlayer(&mon, slot);
+    {
+        result = GiveScriptedMonToPlayer(&mon, slot);
+        if (result != MON_CANT_GIVE && !monTemplate->isEgg)
+            Nuzlocke_QueueMandatoryNickname(&mon);
+        return result;
+    }
 
     assertf(slot < PARTY_SIZE, "invalid slot: %d", slot)
     {

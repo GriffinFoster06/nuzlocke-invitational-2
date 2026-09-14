@@ -17,6 +17,7 @@
 #include "pokemon.h"
 #include "random.h"
 #include "recorded_battle.h"
+#include "ruleset.h"
 #include "util.h"
 #include "constants/abilities.h"
 #include "constants/battle_ai.h"
@@ -197,6 +198,11 @@ bool32 IsAiFlagPresent(u64 flag)
     return FALSE;
 }
 
+bool32 AI_UsesFairKnowledge(void)
+{
+    return GetRulesetSetting(SETTING_AI_DIFFICULTY) != AIDIFF_VANILLA;
+}
+
 bool32 IsAiBattlerAware(enum BattlerId battlerId)
 {
     if (IsAiFlagPresent(AI_FLAG_OMNISCIENT))
@@ -260,6 +266,21 @@ void SaveBattlerData(enum BattlerId battlerId)
         gAiThinkingStruct->saved[battlerId].ability = gBattleMons[battlerId].ability;
         gAiThinkingStruct->saved[battlerId].heldItem = gBattleMons[battlerId].item;
         gAiThinkingStruct->saved[battlerId].species = gBattleMons[battlerId].species;
+        gAiThinkingStruct->saved[battlerId].attack = gBattleMons[battlerId].attack;
+        gAiThinkingStruct->saved[battlerId].defense = gBattleMons[battlerId].defense;
+        gAiThinkingStruct->saved[battlerId].speed = gBattleMons[battlerId].speed;
+        gAiThinkingStruct->saved[battlerId].spAttack = gBattleMons[battlerId].spAttack;
+        gAiThinkingStruct->saved[battlerId].spDefense = gBattleMons[battlerId].spDefense;
+        gAiThinkingStruct->saved[battlerId].hp = gBattleMons[battlerId].hp;
+        gAiThinkingStruct->saved[battlerId].maxHP = gBattleMons[battlerId].maxHP;
+        gAiThinkingStruct->saved[battlerId].hpIV = gBattleMons[battlerId].hpIV;
+        gAiThinkingStruct->saved[battlerId].attackIV = gBattleMons[battlerId].attackIV;
+        gAiThinkingStruct->saved[battlerId].defenseIV = gBattleMons[battlerId].defenseIV;
+        gAiThinkingStruct->saved[battlerId].speedIV = gBattleMons[battlerId].speedIV;
+        gAiThinkingStruct->saved[battlerId].spAttackIV = gBattleMons[battlerId].spAttackIV;
+        gAiThinkingStruct->saved[battlerId].spDefenseIV = gBattleMons[battlerId].spDefenseIV;
+        gAiThinkingStruct->saved[battlerId].friendship = gBattleMons[battlerId].friendship;
+        gAiThinkingStruct->saved[battlerId].affectionHearts = gBattleMons[battlerId].affectionHearts;
         for (u32 moveIndex = 0; moveIndex < MAX_MON_MOVES; moveIndex++)
             gAiThinkingStruct->saved[battlerId].moves[moveIndex] = gBattleMons[battlerId].moves[moveIndex];
     }
@@ -336,6 +357,11 @@ static bool32 ShouldFailForIllusion(enum Species illusionSpecies, enum BattlerId
     if (gBattleHistory->abilities[battlerId] == ABILITY_ILLUSION)
         return FALSE;
 
+    // Generated learnsets are hidden run data. Fair modes cannot disprove an
+    // Illusion by asking whether the displayed species received this move.
+    if (AI_UsesFairKnowledge() && GetRulesetSetting(SETTING_MOVE_RANDOMIZATION))
+        return TRUE;
+
     // Don't fall for Illusion if the mon used a move it cannot know.
     for (u32 moveIndex = 0; moveIndex < MAX_MON_MOVES; moveIndex++)
     {
@@ -390,20 +416,63 @@ void SetBattlerData(enum BattlerId battlerId)
         if (gAiPartyData->mons[side][gBattlerPartyIndexes[battlerId]].ability != ABILITY_NONE)
             gBattleMons[battlerId].ability = gAiPartyData->mons[side][gBattlerPartyIndexes[battlerId]].ability;
         // Check if mon can only have one ability.
-        else if (GetSpeciesAbility(species, 1) == ABILITY_NONE
-                || GetSpeciesAbility(species, 1) == GetSpeciesAbility(species, 0))
+        else if (!(AI_UsesFairKnowledge() && GetRulesetSetting(SETTING_ABILITY_RANDOMIZATION))
+                && (GetSpeciesAbility(species, 1) == ABILITY_NONE
+                 || GetSpeciesAbility(species, 1) == GetSpeciesAbility(species, 0)))
             gBattleMons[battlerId].ability = GetSpeciesAbility(species, 0);
         // The ability is unknown.
         else
             gBattleMons[battlerId].ability = ABILITY_NONE;
 
-        if (gAiPartyData->mons[side][gBattlerPartyIndexes[battlerId]].heldEffect == 0)
-            gBattleMons[battlerId].item = ITEM_NONE;
+        // Retain the exact item only once battle memory recorded it.
+        gBattleMons[battlerId].item = gAiPartyData->mons[side][gBattlerPartyIndexes[battlerId]].item;
 
         for (u32 moveIndex = 0; moveIndex < MAX_MON_MOVES; moveIndex++)
         {
             if (gAiPartyData->mons[side][gBattlerPartyIndexes[battlerId]].moves[moveIndex] == 0)
                 gBattleMons[battlerId].moves[moveIndex] = MOVE_NONE;
+        }
+
+        if (AI_UsesFairKnowledge())
+        {
+            u32 level = gBattleMons[battlerId].level;
+            u32 hpPercent = GetHealthPercentage(battlerId);
+
+            for (u32 stat = STAT_ATK; stat < NUM_STATS; stat++)
+            {
+                u32 baseStat = GetSpeciesBaseStat(species, stat);
+                u32 minimum = ((((2 * baseStat) * level) / 100) + 5) * 90 / 100;
+                u32 maximum = ((((2 * baseStat + MAX_PER_STAT_IVS + MAX_PER_STAT_EVS / 4) * level) / 100) + 5) * 110 / 100;
+                if (B_FRIENDSHIP_BOOST == TRUE)
+                    maximum += maximum / 10;
+
+                switch (stat)
+                {
+                case STAT_ATK:   gBattleMons[battlerId].attack = (minimum + maximum) / 2; break;
+                case STAT_DEF:   gBattleMons[battlerId].defense = (minimum + maximum) / 2; break;
+                case STAT_SPEED: gBattleMons[battlerId].speed = (minimum + maximum) / 2; break;
+                case STAT_SPATK: gBattleMons[battlerId].spAttack = (minimum + maximum) / 2; break;
+                case STAT_SPDEF: gBattleMons[battlerId].spDefense = (minimum + maximum) / 2; break;
+                }
+            }
+
+            if (!HasShedinjaHPHandling(species))
+            {
+                u32 minimumHP = (((2 * GetSpeciesBaseHP(species)) * level) / 100) + level + 10;
+                u32 maximumHP = (((2 * GetSpeciesBaseHP(species) + MAX_PER_STAT_IVS + MAX_PER_STAT_EVS / 4) * level) / 100) + level + 10;
+                gBattleMons[battlerId].maxHP = (minimumHP + maximumHP) / 2;
+                gBattleMons[battlerId].hp = hpPercent == 0 ? 0 : max(1, (gBattleMons[battlerId].maxHP * hpPercent) / 100);
+            }
+
+            // IV-derived effects are hidden until their result is observed.
+            gBattleMons[battlerId].hpIV = 0;
+            gBattleMons[battlerId].attackIV = 0;
+            gBattleMons[battlerId].defenseIV = 0;
+            gBattleMons[battlerId].speedIV = 0;
+            gBattleMons[battlerId].spAttackIV = 0;
+            gBattleMons[battlerId].spDefenseIV = 0;
+            gBattleMons[battlerId].friendship = 0;
+            gBattleMons[battlerId].affectionHearts = 0;
         }
     }
 }
@@ -416,6 +485,21 @@ void RestoreBattlerData(enum BattlerId battlerId)
         gBattleMons[battlerId].ability = gAiThinkingStruct->saved[battlerId].ability;
         gBattleMons[battlerId].item = gAiThinkingStruct->saved[battlerId].heldItem;
         gBattleMons[battlerId].species = gAiThinkingStruct->saved[battlerId].species;
+        gBattleMons[battlerId].attack = gAiThinkingStruct->saved[battlerId].attack;
+        gBattleMons[battlerId].defense = gAiThinkingStruct->saved[battlerId].defense;
+        gBattleMons[battlerId].speed = gAiThinkingStruct->saved[battlerId].speed;
+        gBattleMons[battlerId].spAttack = gAiThinkingStruct->saved[battlerId].spAttack;
+        gBattleMons[battlerId].spDefense = gAiThinkingStruct->saved[battlerId].spDefense;
+        gBattleMons[battlerId].hp = gAiThinkingStruct->saved[battlerId].hp;
+        gBattleMons[battlerId].maxHP = gAiThinkingStruct->saved[battlerId].maxHP;
+        gBattleMons[battlerId].hpIV = gAiThinkingStruct->saved[battlerId].hpIV;
+        gBattleMons[battlerId].attackIV = gAiThinkingStruct->saved[battlerId].attackIV;
+        gBattleMons[battlerId].defenseIV = gAiThinkingStruct->saved[battlerId].defenseIV;
+        gBattleMons[battlerId].speedIV = gAiThinkingStruct->saved[battlerId].speedIV;
+        gBattleMons[battlerId].spAttackIV = gAiThinkingStruct->saved[battlerId].spAttackIV;
+        gBattleMons[battlerId].spDefenseIV = gAiThinkingStruct->saved[battlerId].spDefenseIV;
+        gBattleMons[battlerId].friendship = gAiThinkingStruct->saved[battlerId].friendship;
+        gBattleMons[battlerId].affectionHearts = gAiThinkingStruct->saved[battlerId].affectionHearts;
         for (u32 moveIndex = 0; moveIndex < MAX_MON_MOVES; moveIndex++)
             gBattleMons[battlerId].moves[moveIndex] = gAiThinkingStruct->saved[battlerId].moves[moveIndex];
     }
@@ -526,7 +610,10 @@ bool32 Ai_IsPriorityBlocked(enum BattlerId battlerAtk, enum BattlerId battlerDef
 
 bool32 AI_CanMoveBeBlockedByTarget(struct DamageContext *ctx)
 {
-    return CanMoveBeBlockedByTarget(ctx, GetBattleMovePriority(ctx->battlerAtk, ctx->abilities[ctx->battlerAtk], ctx->move));
+    s32 priority = GetBattleMovePriority(ctx->battlerAtk, ctx->abilities[ctx->battlerAtk], ctx->move);
+
+    return CanMoveBeBlockedByTarget(ctx, priority)
+        || CanPsychicTerrainProtectTarget(ctx, priority);
 }
 
 // To save computation time this function has 2 variants. One saves, sets and restores battlers, while the other doesn't.
@@ -1781,6 +1868,11 @@ enum Ability AI_DecideKnownAbilityForTurn(enum BattlerId battlerId)
     if (gAiPartyData->mons[GetBattlerSide(battlerId)][gBattlerPartyIndexes[battlerId]].ability != ABILITY_NONE)
         return gAiPartyData->mons[GetBattlerSide(battlerId)][gBattlerPartyIndexes[battlerId]].ability;
 
+    // With randomized abilities, the species' generated slots are hidden run
+    // data rather than public species information.
+    if (AI_UsesFairKnowledge() && GetRulesetSetting(SETTING_ABILITY_RANDOMIZATION))
+        return ABILITY_NONE;
+
     // Abilities that prevent fleeing - treat as always known
     if (knownAbility == ABILITY_SHADOW_TAG || knownAbility == ABILITY_MAGNET_PULL || knownAbility == ABILITY_ARENA_TRAP)
         return knownAbility;
@@ -2249,6 +2341,16 @@ static bool32 ShouldAvoidProtectingAgainstPartnerMove(enum BattlerId battler, en
     }
 
     partnerMove = gBattleMons[partner].moves[gAiBattleData->chosenMoveIndex[partner]];
+    if (GetMoveEffect(partnerMove) == EFFECT_BEAT_UP
+     && gAiBattleData->chosenTarget[partner] == battler
+     && gAiLogicData->abilities[battler] == ABILITY_JUSTIFIED
+     && !DoesBattlerIgnoreAbilityChecks(partner, gAiLogicData->abilities[partner], partnerMove))
+    {
+        // The ally deliberately selected this legal Justified activation.
+        // Protecting would defeat the already-coordinated doubles play.
+        return TRUE;
+    }
+
     if (partnerMove == MOVE_NONE
      || partnerMove == MOVE_UNAVAILABLE
      || MoveIgnoresProtect(partnerMove)

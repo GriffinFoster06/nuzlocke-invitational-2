@@ -16,8 +16,15 @@
 //   v2: SETTING_EVOLUTION_ASSISTANCE removed mid-enum (Phase 9.5), shifting the
 //       saved byte index of every later setting - old saves must re-init.
 //   v3: Phase 11A finalizes presets, seed/version persistence and species bans.
-#define RULESET_VERSION 3
-#define RANDOMIZER_VERSION 1
+//   v4: Phase 11B removes SETTING_DUPES_COUNT_FORMS and SETTING_DUPES_COUNT_DEAD
+//       mid-enum (both were dead - evolutionary-family Dupes linking is now
+//       unconditional and Dupes history is permanent), shifting the saved byte
+//       index of every later setting - old saves must re-init. Also: any
+//       RANDOMIZER_VERSION mismatch (not just RULESET_VERSION) now forces the
+//       same full reinit, so a run's generated world can never straddle two
+//       randomizer versions.
+#define RULESET_VERSION 4
+#define RANDOMIZER_VERSION 2
 
 // ----------------------------------------------------------------------------
 // Presets
@@ -221,8 +228,6 @@ enum SettingId
     SETTING_ONE_ENCOUNTER_PER_LOCATION,
     SETTING_ENCOUNTER_CONSUMED_MODE,
     SETTING_DUPES_CLAUSE,
-    SETTING_DUPES_COUNT_FORMS,
-    SETTING_DUPES_COUNT_DEAD,
     SETTING_SHINY_CLAUSE,
     SETTING_SHINY_ODDS,
     SETTING_NICKNAME_MODE,

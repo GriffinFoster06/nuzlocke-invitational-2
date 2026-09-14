@@ -1,6 +1,7 @@
 #include "global.h"
 #include "event_data.h"
 #include "config_changes.h"
+#include "nuzlocke.h"
 #include "pokemon.h"
 #include "pokerus.h"
 #include "random.h"
@@ -45,6 +46,8 @@ void RandomlyGivePartyPokerus(void)
             mon = &gParties[B_TRAINER_PLAYER][i];
             if (!GetMonData(mon, MON_DATA_SPECIES))
                 continue;
+            else if (!Nuzlocke_MonCanProvideGameplayBenefit(mon))
+                continue;
             else if (!GetConfig(POKERUS_INFECT_EGG) && GetMonData(mon, MON_DATA_IS_EGG))
                 continue;
             else if (!GetConfig(POKERUS_HERD_IMMUNITY) && CheckMonHasHadPokerus(mon))
@@ -78,6 +81,8 @@ bool32 IsPokerusInParty(void)
     for (u32 i = 0; i < PARTY_SIZE; i++)
     {
         if (!GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_SPECIES))
+            continue;
+        if (!Nuzlocke_MonCanProvideGameplayBenefit(&gParties[B_TRAINER_PLAYER][i]))
             continue;
 
         if (GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_POKERUS_DAYS_LEFT))
@@ -206,9 +211,13 @@ void PartySpreadPokerus(void)
                 else
                     spreadUp = FALSE;
             }
-            if (spreadDown && i != 0 && CanReceivePokerusFromSpread(&gParties[B_TRAINER_PLAYER][i - 1]))
+            if (spreadDown && i != 0
+             && Nuzlocke_MonCanProvideGameplayBenefit(&gParties[B_TRAINER_PLAYER][i - 1])
+             && CanReceivePokerusFromSpread(&gParties[B_TRAINER_PLAYER][i - 1]))
                 SpreadPokerusToSpecificMon(&gParties[B_TRAINER_PLAYER][i - 1], strain, daysLeft);
-            if (spreadUp && i != (PARTY_SIZE - 1) && CanReceivePokerusFromSpread(&gParties[B_TRAINER_PLAYER][i + 1]))
+            if (spreadUp && i != (PARTY_SIZE - 1)
+             && Nuzlocke_MonCanProvideGameplayBenefit(&gParties[B_TRAINER_PLAYER][i + 1])
+             && CanReceivePokerusFromSpread(&gParties[B_TRAINER_PLAYER][i + 1]))
             {
                 SpreadPokerusToSpecificMon(&gParties[B_TRAINER_PLAYER][i + 1], strain, daysLeft);
                 i++;

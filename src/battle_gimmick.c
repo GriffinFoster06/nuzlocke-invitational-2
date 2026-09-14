@@ -10,6 +10,7 @@
 #include "item.h"
 #include "palette.h"
 #include "pokemon.h"
+#include "ruleset.h"
 #include "sprite.h"
 #include "util.h"
 #include "test_runner.h"
@@ -36,7 +37,10 @@ void AssignUsableGimmicks(void)
 // Returns whether a battler is able to use a gimmick. Checks consumption and gimmick specific functions.
 bool32 CanActivateGimmick(enum BattlerId battler, enum Gimmick gimmick)
 {
-    return gGimmicksInfo[gimmick].CanActivate != NULL && gGimmicksInfo[gimmick].CanActivate(battler);
+    return gimmick < GIMMICKS_COUNT
+        && Ruleset_AllowsBattleGimmick(gimmick)
+        && gGimmicksInfo[gimmick].CanActivate != NULL
+        && gGimmicksInfo[gimmick].CanActivate(battler);
 }
 
 // Returns whether the player has a gimmick selected while in the move selection menu.

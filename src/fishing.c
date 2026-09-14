@@ -6,6 +6,7 @@
 #include "field_player_avatar.h"
 #include "menu.h"
 #include "metatile_behavior.h"
+#include "nuzlocke.h"
 #include "random.h"
 #include "script.h"
 #include "strings.h"
@@ -498,7 +499,7 @@ static bool32 Fishing_DoesFirstMonInPartyHaveSuctionCupsOrStickyHold(void)
 {
     enum Ability ability;
 
-    if (GetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_SANITY_IS_EGG))
+    if (!Nuzlocke_MonCanProvideGameplayBenefit(&gParties[B_TRAINER_PLAYER][0]))
         return FALSE;
 
     ability = GetMonAbility(&gParties[B_TRAINER_PLAYER][0]);

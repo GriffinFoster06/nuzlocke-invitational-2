@@ -260,6 +260,10 @@ static void StorePokemonInEmptyDaycareSlot(struct Pokemon *mon, struct DayCare *
 void StoreSelectedPokemonInDaycare(void)
 {
     struct Pokemon *mon;
+    struct BoxPokemon *selected = GetSelectedBoxMonFromPcOrParty();
+
+    if (Nuzlocke_PermadeathOn() && GetBoxMonData(selected, MON_DATA_IS_DEAD))
+        return;
     if (gSpecialVar_0x8004 == PC_MON_CHOSEN)
     {
         mon = Alloc(sizeof(struct Pokemon));

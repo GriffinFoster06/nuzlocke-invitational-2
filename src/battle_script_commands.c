@@ -1906,6 +1906,7 @@ static void Cmd_tryfaintmon(void)
             }
 
             SetValuesOnFaint(battler);
+            Nuzlocke_RecordBattleFaint(battler);
             BattleScriptPush(cmd->nextInstr);
             gBattlescriptCurrInstr = BattleScript_FaintBattler;
         }
@@ -5208,7 +5209,8 @@ static void Cmd_tryhealhalfhealth(void)
     if (cmd->battler == BS_ATTACKER)
         gBattlerTarget = gBattlerAttacker;
 
-    SetHealAmount(gBattlerTarget, GetNonDynamaxMaxHP(gBattlerTarget) / 2);
+    // Modern half-maximum-HP recovery rounds upward.
+    SetHealAmount(gBattlerTarget, (GetNonDynamaxMaxHP(gBattlerTarget) + 1) / 2);
     if (gBattleMons[gBattlerTarget].hp == gBattleMons[gBattlerTarget].maxHP)
         gBattlescriptCurrInstr = failInstr;
     else
@@ -7554,6 +7556,8 @@ static void Cmd_pickup(void)
         bool32 isInPyramid = CurrentBattlePyramidLocation() != PYRAMID_LOCATION_NONE;
         for (i = 0; i < PARTY_SIZE; i++)
         {
+            if (!Nuzlocke_MonCanProvideGameplayBenefit(&gParties[B_TRAINER_PLAYER][i]))
+                continue;
             species = GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_SPECIES_OR_EGG);
             heldItem = GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_HELD_ITEM);
             lvlDivBy10 = (GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_LEVEL)-1) / 10; //Moving this here makes it easier to add in abilities like Honey Gather.
@@ -7811,6 +7815,7 @@ static void FinalizeCapture(void)
     TryBattleFormChange(gBattlerTarget, FORM_CHANGE_END_BATTLE, GetBattlerAbility(gBattlerTarget));
     gBattlescriptCurrInstr = BattleScript_SuccessBallThrow;
     struct Pokemon *caughtMon = GetBattlerMon(gBattlerTarget);
+    Nuzlocke_NoteCaughtBattler(gBattlerTarget);
     SetMonData(caughtMon, MON_DATA_POKEBALL, &ballId);
 
     if (CalculatePlayerPartyCount() == PARTY_SIZE)
@@ -9315,7 +9320,10 @@ void BS_ItemRestoreHP(void)
     u16 maxHP = GetMonData(&party[gBattleStruct->itemPartyIndex[gBattlerAttacker]], MON_DATA_MAX_HP);
     gBattleCommunication[MULTIUSE_STATE] = 0;
 
-    if (hp == maxHP)
+    // Phase 3 Nuzlocke permadeath: a dead Pokemon cannot be revived or healed by an
+    // in-battle bag item either. PokemonUseItemEffects already guards the
+    // out-of-battle path; this native command applies HP directly and bypassed it.
+    if (Nuzlocke_MonIsDead(&party[gBattleStruct->itemPartyIndex[gBattlerAttacker]]) || hp == maxHP)
     {
         gBattlescriptCurrInstr = cmd->alreadyMaxHpInstr;
     }

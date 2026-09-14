@@ -398,7 +398,7 @@ static u8 ChooseWildMonLevelUnclamped(const struct WildPokemon *wildPokemon, u8 
         rand = Random() % range;
 
         // check ability for max level mon
-        if (!GetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_SANITY_IS_EGG))
+        if (Nuzlocke_MonCanProvideGameplayBenefit(&gParties[B_TRAINER_PLAYER][0]))
         {
             enum Ability ability = GetMonAbility(&gParties[B_TRAINER_PLAYER][0]);
             if (ability == ABILITY_HUSTLE || ability == ABILITY_VITAL_SPIRIT || ability == ABILITY_PRESSURE)
@@ -537,33 +537,109 @@ void CreateWildMon(enum Species species, u8 level)
 #define TRY_GET_ABILITY_INFLUENCED_WILD_MON_INDEX(wildMonInfo, type, ability, ptr, count) TryGetAbilityInfluencedWildMonIndex(wildMonInfo, type, ability, ptr)
 #endif
 
-// Phase 3 Dupes Clause (docs/SPEC.md "Dupes Clause"): if a fresh route
-// encounter's (seed-fixed) species belongs to a family the player already owns,
-// re-pick the SLOT - never the seed mapping - a bounded number of times using
-// the area's own weighted picker. If every roll is a dupe, the last one stands
-// and remains catchable.
-static u8 NuzlockeRerollDupeSlot(const struct WildPokemonInfo *info, enum WildPokemonArea area, u8 rod, u8 slot)
+static const u8 sLandSlotWeights[NUM_LAND_MONS_ENCOUNTER_SLOTS] =
 {
-    u32 tries;
+    20, 20, 10, 10, 10, 10, 5, 5, 4, 4, 1, 1,
+};
+
+static const u8 sWaterSlotWeights[NUM_WATER_MONS_ENCOUNTER_SLOTS] = {60, 30, 5, 4, 1};
+static const u8 sRockSlotWeights[NUM_ROCK_SMASH_MONS_ENCOUNTER_SLOTS] = {60, 30, 5, 4, 1};
+static const u8 sFishingSlotWeights[NUM_FISHING_MONS_ENCOUNTER_SLOTS] = {70, 30, 60, 20, 20, 40, 40, 15, 4, 1};
+
+static void GetEncounterSlotRange(enum WildPokemonArea area, u8 rod, u32 *first, u32 *count, const u8 **weights)
+{
+    *first = 0;
+    switch (area)
+    {
+    case WILD_AREA_LAND:
+        *count = ARRAY_COUNT(sLandSlotWeights);
+        *weights = sLandSlotWeights;
+        break;
+    case WILD_AREA_WATER:
+        *count = ARRAY_COUNT(sWaterSlotWeights);
+        *weights = sWaterSlotWeights;
+        break;
+    case WILD_AREA_ROCKS:
+        *count = ARRAY_COUNT(sRockSlotWeights);
+        *weights = sRockSlotWeights;
+        break;
+    case WILD_AREA_FISHING:
+        *weights = sFishingSlotWeights;
+        if (rod == OLD_ROD)
+            *count = 2;
+        else if (rod == GOOD_ROD)
+            *first = 2, *count = 3;
+        else
+            *first = 5, *count = 5;
+        break;
+    default:
+        *count = 0;
+        *weights = NULL;
+        break;
+    }
+}
+
+static u32 GetEffectiveSlotWeight(const u8 *weights, u32 first, u32 count, u32 rawSlot)
+{
+    u32 weight = weights[rawSlot];
+
+    // Lures reverse the selected slot 20% of the time. Folding both paths into
+    // the weight keeps the same distribution after conditioning out dupes.
+    if (LURE_STEP_COUNT != 0)
+    {
+        u32 reverseSlot = first + count - 1 - (rawSlot - first);
+        weight = weight * 8 + weights[reverseSlot] * 2;
+    }
+    return weight;
+}
+
+// Select directly from the original table conditioned on a non-duplicate
+// resolved species. This cannot loop; an exhausted table deliberately returns
+// the original duplicate so the encounter can be classified as safe/free.
+static u8 NuzlockeChooseNonDupeSlot(const struct WildPokemonInfo *info, enum WildPokemonArea area, u8 rod, u8 slot)
+{
+    const u8 *weights;
+    u32 first, count, i, totalWeight = 0, roll;
+    // Phase 11B: each slot's resolved species is expensive to compute
+    // (Randomizer_WildSlotSpecies runs the full replacement selector). Resolve
+    // every slot exactly once here and reuse the result for both the weight-sum
+    // pass and the weighted-draw pass below, instead of resolving twice.
+    // NUM_LAND_MONS_ENCOUNTER_SLOTS (12) is the largest possible `count`.
+    u8 resolvedSlots[NUM_LAND_MONS_ENCOUNTER_SLOTS];
+    bool8 nonDupe[NUM_LAND_MONS_ENCOUNTER_SLOTS];
 
     if (info == NULL || !Nuzlocke_DupesRerollActiveHere())
         return slot;
     if (!Nuzlocke_IsFamilyOwned(Randomizer_WildSlotSpecies(info, slot, info->wildPokemon[slot].species)))
         return slot;
 
-    for (tries = 0; tries < 24; tries++)
+    GetEncounterSlotRange(area, rod, &first, &count, &weights);
+    for (i = 0; i < count; i++)
     {
-        switch (area)
-        {
-        case WILD_AREA_WATER:   slot = ChooseWildMonIndex_Water(); break;
-        case WILD_AREA_ROCKS:   slot = ChooseWildMonIndex_Rocks(); break;
-        case WILD_AREA_FISHING: slot = ChooseWildMonIndex_Fishing(rod); break;
-        case WILD_AREA_LAND:
-        default:                slot = ChooseWildMonIndex_Land(); break;
-        }
-        slot = Randomizer_WildRateSlot(info, area, rod, slot);
-        if (!Nuzlocke_IsFamilyOwned(Randomizer_WildSlotSpecies(info, slot, info->wildPokemon[slot].species)))
-            break;
+        u32 rawSlot = first + i;
+        enum Species species;
+
+        resolvedSlots[i] = Randomizer_WildRateSlot(info, area, rod, rawSlot);
+        species = Randomizer_WildSlotSpecies(info, resolvedSlots[i], info->wildPokemon[resolvedSlots[i]].species);
+        nonDupe[i] = !Nuzlocke_IsFamilyOwned(species);
+        if (nonDupe[i])
+            totalWeight += GetEffectiveSlotWeight(weights, first, count, rawSlot);
+    }
+
+    if (totalWeight == 0)
+        return slot;
+
+    roll = Random() % totalWeight;
+    for (i = 0; i < count; i++)
+    {
+        u32 weight;
+
+        if (!nonDupe[i])
+            continue;
+        weight = GetEffectiveSlotWeight(weights, first, count, first + i);
+        if (roll < weight)
+            return resolvedSlots[i];
+        roll -= weight;
     }
     return slot;
 }
@@ -623,7 +699,7 @@ bool8 TryGenerateWildMon(const struct WildPokemonInfo *wildMonInfo, enum WildPok
     if (usedWeightedPicker)
         wildMonIndex = Randomizer_WildRateSlot(wildMonInfo, area, 0, wildMonIndex);
     if (area == WILD_AREA_LAND || area == WILD_AREA_WATER || area == WILD_AREA_ROCKS)
-        wildMonIndex = NuzlockeRerollDupeSlot(wildMonInfo, area, 0, wildMonIndex);
+        wildMonIndex = NuzlockeChooseNonDupeSlot(wildMonInfo, area, 0, wildMonIndex);
 
     level = ChooseWildMonLevel(wildMonInfo->wildPokemon, wildMonIndex, area);
     if (flags & WILD_CHECK_REPEL && !IsWildLevelAllowedByRepel(level))
@@ -643,7 +719,7 @@ static u16 GenerateFishingWildMon(const struct WildPokemonInfo *wildMonInfo, u8 
     u8 level;
 
     wildMonIndex = Randomizer_WildRateSlot(wildMonInfo, WILD_AREA_FISHING, rod, wildMonIndex);
-    wildMonIndex = NuzlockeRerollDupeSlot(wildMonInfo, WILD_AREA_FISHING, rod, wildMonIndex);
+    wildMonIndex = NuzlockeChooseNonDupeSlot(wildMonInfo, WILD_AREA_FISHING, rod, wildMonIndex);
     wildMonSpecies = Randomizer_WildSlotSpecies(wildMonInfo, wildMonIndex,
                          wildMonInfo->wildPokemon[wildMonIndex].species);
     level = ChooseWildMonLevel(wildMonInfo->wildPokemon, wildMonIndex, WILD_AREA_FISHING);
@@ -671,7 +747,7 @@ static bool8 WildEncounterCheck(u32 encounterRate, bool8 ignoreAbility)
     ApplyCleanseTagEncounterRateMod(&encounterRate);
     if (LURE_STEP_COUNT != 0)
         encounterRate *= 2;
-    if (!ignoreAbility && !GetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_SANITY_IS_EGG))
+    if (!ignoreAbility && Nuzlocke_MonCanProvideGameplayBenefit(&gParties[B_TRAINER_PLAYER][0]))
     {
         enum Ability ability = GetMonAbility(&gParties[B_TRAINER_PLAYER][0]);
 
@@ -1148,6 +1224,8 @@ bool8 IsWildLevelAllowedByRepel(u8 wildLevel)
 
     for (i = 0; i < PARTY_SIZE; i++)
     {
+        if (!Nuzlocke_MonCanProvideGameplayBenefit(&gParties[B_TRAINER_PLAYER][i]))
+            continue;
         if (I_REPEL_INCLUDE_FAINTED == GEN_1 || I_REPEL_INCLUDE_FAINTED >= GEN_6 || GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_HP))
         {
             if (!GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_IS_EGG))
@@ -1162,7 +1240,7 @@ bool8 IsAbilityAllowingEncounter(u8 level)
 {
     enum Ability ability;
 
-    if (GetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_SANITY_IS_EGG))
+    if (!Nuzlocke_MonCanProvideGameplayBenefit(&gParties[B_TRAINER_PLAYER][0]))
         return TRUE;
 
     ability = GetMonAbility(&gParties[B_TRAINER_PLAYER][0]);
@@ -1188,7 +1266,8 @@ static bool8 TryGetRandomWildMonIndexByType(const struct WildPokemonInfo *info, 
     {
         // Bias on the replacement species' type, not the vanilla slot's.
         enum Species species = Randomizer_WildSlotSpecies(info, i, info->wildPokemon[i].species);
-        if (GetSpeciesType(species, 0) == type || GetSpeciesType(species, 1) == type)
+        if ((GetSpeciesType(species, 0) == type || GetSpeciesType(species, 1) == type)
+         && (!Nuzlocke_DupesRerollActiveHere() || !Nuzlocke_IsFamilyOwned(species)))
             validIndexes[validMonCount++] = i;
     }
 
@@ -1237,7 +1316,7 @@ static bool8 TryGetAbilityInfluencedWildMonIndex(const struct WildPokemonInfo *i
 static bool8 TryGetAbilityInfluencedWildMonIndex(const struct WildPokemonInfo *info, enum Type type, enum Ability ability, u8 *monIndex)
 #endif
 {
-    if (GetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_SANITY_IS_EGG))
+    if (!Nuzlocke_MonCanProvideGameplayBenefit(&gParties[B_TRAINER_PLAYER][0]))
         return FALSE;
     else if (GetMonAbility(&gParties[B_TRAINER_PLAYER][0]) != ability)
         return FALSE;
@@ -1261,6 +1340,8 @@ static void ApplyFluteEncounterRateMod(u32 *encRate)
 
 static void ApplyCleanseTagEncounterRateMod(u32 *encRate)
 {
+    if (!Nuzlocke_MonCanProvideGameplayBenefit(&gParties[B_TRAINER_PLAYER][0]))
+        return;
     enum Item heldItem = GetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_HELD_ITEM);
     if (gItemsInfo[heldItem].holdEffect == HOLD_EFFECT_REPEL)
         *encRate = *encRate * 2 / 3;

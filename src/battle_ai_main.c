@@ -288,8 +288,17 @@ static bool32 IsSmartBattle(void)
                                    | AI_FLAG_SMART_TERA)
 
 #define AI_FLAGS_RULESET_PRO_FAIR   (AI_FLAGS_RULESET_EXPERT                    \
-                                   | AI_FLAG_PREDICTION                         \
-                                   | AI_FLAG_ASSUMPTIONS)
+                                   | AI_FLAG_PREDICT_MOVE)
+
+#define AI_FLAGS_HIDDEN_INFORMATION (AI_FLAG_OMNISCIENT                         \
+                                   | AI_FLAG_ABILITY_OMNISCIENCE                \
+                                   | AI_FLAG_ITEM_OMNISCIENCE                   \
+                                   | AI_FLAG_MOVE_OMNISCIENCE                   \
+                                   | AI_FLAG_KNOW_OPPONENT_PARTY                \
+                                   | AI_FLAG_ASSUME_STAB                        \
+                                   | AI_FLAG_ASSUME_STATUS_MOVES                \
+                                   | AI_FLAG_PREDICT_SWITCH                     \
+                                   | AI_FLAG_PREDICT_INCOMING_MON)
 
 static u64 GetRulesetAiFlags(void)
 {
@@ -350,6 +359,11 @@ static u64 GetAiFlags(u16 trainerId, enum BattlerId battler)
 
     if (sDynamicAiFunc != NULL)
         flags |= AI_FLAG_DYNAMIC_FUNC;
+
+    // All standard non-Vanilla difficulties use the fair-information
+    // contract. Authored flags and upstream compound modes cannot bypass it.
+    if (GetRulesetSetting(SETTING_AI_DIFFICULTY) != AIDIFF_VANILLA)
+        flags &= ~AI_FLAGS_HIDDEN_INFORMATION;
 
     return flags;
 }
@@ -443,11 +457,35 @@ void SetupAIPredictionData(enum BattlerId battler, enum SwitchType switchType)
     }
 
     // Move prediction
-    if (IsAiFlagPresent(AI_FLAG_PREDICT_MOVE))
+    if (gAiThinkingStruct->aiFlags[battler] & AI_FLAG_PREDICT_MOVE)
     {
-        gAiBattleData->chosenMoveIndex[battler] = BattleAI_ChooseMoveIndex(battler);
-        gAiLogicData->predictedMove[battler] = gBattleMons[battler].moves[gAiBattleData->chosenMoveIndex[battler]];
-        ModifySwitchAfterMoveScoring(battler);
+        if (AI_UsesFairKnowledge() && !BattlerHasAi(battler))
+        {
+            enum BattlerId target = GetOppositeBattler(battler);
+            u32 bestDamage = 0;
+
+            // Predict from revealed memory. Unknown slots stay unknown and the
+            // player's current input is never consulted.
+            for (u32 moveIndex = 0; moveIndex < MAX_MON_MOVES; moveIndex++)
+            {
+                enum Move move = gBattleHistory->usedMoves[battler][moveIndex];
+                if (move == MOVE_NONE)
+                    continue;
+
+                u32 damage = gAiLogicData->simulatedDmg[battler][target][moveIndex].median;
+                if (gAiLogicData->predictedMove[battler] == MOVE_NONE || damage > bestDamage)
+                {
+                    bestDamage = damage;
+                    gAiLogicData->predictedMove[battler] = move;
+                }
+            }
+        }
+        else
+        {
+            gAiBattleData->chosenMoveIndex[battler] = BattleAI_ChooseMoveIndex(battler);
+            gAiLogicData->predictedMove[battler] = gBattleMons[battler].moves[gAiBattleData->chosenMoveIndex[battler]];
+            ModifySwitchAfterMoveScoring(battler);
+        }
     }
 
     gAiLogicData->aiPredictionInProgress = FALSE;
@@ -699,7 +737,13 @@ void Ai_InitPartyStruct(void)
             mon = &gParties[trainer][monIndex];
             if (GetMonData(mon, MON_DATA_SPECIES) != SPECIES_NONE)
             {
-                if (GetMonData(mon, MON_DATA_HP) == 0)
+                bool32 ownAiParty = trainer == B_TRAINER_OPPONENT_A
+                                 || trainer == B_TRAINER_OPPONENT_B
+                                 || (trainer == B_TRAINER_PARTNER && (gBattleTypeFlags & BATTLE_TYPE_INGAME_PARTNER));
+                bool32 mayInspect = !AI_UsesFairKnowledge() || ownAiParty
+                                 || gAiPartyData->mons[trainer][monIndex].wasSentInBattle;
+
+                if (mayInspect && GetMonData(mon, MON_DATA_HP) == 0)
                     gAiPartyData->mons[trainer][monIndex].isFainted = TRUE;
 
                 if (isOmniscient || hasPartyKnowledge)
@@ -788,12 +832,31 @@ void SetBattlerAiData(enum BattlerId battler, struct AiLogicData *aiData)
     enum HoldEffect holdEffect;
 
     ability = aiData->abilities[battler] = AI_DecideKnownAbilityForTurn(battler);
-    aiData->items[battler] = gBattleMons[battler].item;
+    if (AI_UsesFairKnowledge() && !BattlerHasAi(battler) && gBattleMons[battler].item != ITEM_NONE)
+        aiData->items[battler] = gAiPartyData->mons[GetBattlerSide(battler)][gBattlerPartyIndexes[battler]].item;
+    else
+        aiData->items[battler] = gBattleMons[battler].item;
     holdEffect = aiData->holdEffects[battler] = AI_DecideHoldEffectForTurn(battler);
     aiData->lastUsedMove[battler] = (gLastMoves[battler] == MOVE_UNAVAILABLE) ? MOVE_NONE : gLastMoves[battler];
     aiData->hpPercents[battler] = GetHealthPercentage(battler);
     aiData->moveLimitations[battler] = CheckMoveLimitations(battler, 0, ~(MOVE_LIMITATION_UNUSABLE));
-    aiData->speedStats[battler] = GetBattlerTotalSpeedStat(battler, ability, holdEffect);
+    if (AI_UsesFairKnowledge() && !BattlerHasAi(battler))
+    {
+        u16 savedSpeed = gBattleMons[battler].speed;
+        u32 baseSpeed = GetSpeciesBaseSpeed(gBattleMons[battler].species);
+        u32 level = gBattleMons[battler].level;
+        u32 minimum = ((((2 * baseSpeed) * level) / 100) + 5) * 90 / 100;
+        u32 maximum = ((((2 * baseSpeed + MAX_PER_STAT_IVS + MAX_PER_STAT_EVS / 4) * level) / 100) + 5) * 110 / 100;
+        if (B_FRIENDSHIP_BOOST == TRUE)
+            maximum += maximum / 10;
+        gBattleMons[battler].speed = (minimum + maximum) / 2;
+        aiData->speedStats[battler] = GetBattlerTotalSpeedStat(battler, ability, holdEffect);
+        gBattleMons[battler].speed = savedSpeed;
+    }
+    else
+    {
+        aiData->speedStats[battler] = GetBattlerTotalSpeedStat(battler, ability, holdEffect);
+    }
     aiData->dragonDartsHitsBothTarget = 0;
 
     if (IsAiBattlerAssumingStab(battler))
@@ -891,7 +954,7 @@ static void SetBattlerAiMovesData(struct AiLogicData *aiData, enum BattlerId bat
 
         SaveBattlerData(battlerDef);
         SetBattlerData(battlerDef);
-        CalcBattlerAiMovesData(aiData, battlerAtk, battlerDef, weather, gFieldStatuses);
+        CalcBattlerAiMovesData(aiData, battlerAtk, battlerDef, weather, gFieldTimers.terrain);
         RestoreBattlerData(battlerDef);
     }
     RestoreBattlerData(battlerAtk);
@@ -948,7 +1011,11 @@ void SetAiLogicDataForTurn(struct AiLogicData *aiData)
 
 static u32 PpStallReduction(enum Move move, enum BattlerId battlerAtk, enum BattlerId battlerDef)
 {
-    if (move == MOVE_NONE)
+    // This upstream heuristic materializes benched player Pokemon as battle
+    // mons, exposing their unrevealed stats, item, and ability. Fair modes do
+    // not use it until the same inference can be made from recorded public
+    // information alone.
+    if (move == MOVE_NONE || AI_UsesFairKnowledge())
         return 0;
     u32 tempBattleMonIndex = 0;
     u32 totalStallValue = 0;
@@ -3192,6 +3259,20 @@ static s32 AI_DoubleBattle(enum BattlerId battlerAtk, enum BattlerId battlerDef,
     SetTypeBeforeUsingMove(move, battlerAtk, aiData->abilities[battlerAtk], aiData->holdEffects[battlerAtk]);
     enum Type moveType = GetBattleMoveType(move);
 
+    // A predicted Protect from the not-yet-scored partner must not prevent the
+    // first battler from proposing the intentional Beat Up + Justified play.
+    // Once selected, ProtectChecks sees that concrete ally choice and rejects
+    // Protect, so this is coordination rather than action reading.
+    if (partnerProtecting
+     && battlerDef == battlerAtkPartner
+     && effect == EFFECT_BEAT_UP
+     && moveType == TYPE_DARK
+     && atkPartnerAbility == ABILITY_JUSTIFIED
+     && HasMoveWithCategory(battlerAtkPartner, DAMAGE_CATEGORY_PHYSICAL)
+     && BattlerStatCanRise(battlerAtkPartner, atkPartnerAbility, STAT_ATK)
+     && !DoesBattlerIgnoreAbilityChecks(battlerAtk, aiData->abilities[battlerAtk], move))
+        partnerProtecting = FALSE;
+
     bool32 hasTwoOpponents = HasTwoOpponents(battlerAtk);
     bool32 hasPartner = HasPartner(battlerAtk);
     u32 friendlyFireThreshold = GetFriendlyFireKOThreshold(battlerAtk);
@@ -3280,6 +3361,20 @@ static s32 AI_DoubleBattle(enum BattlerId battlerAtk, enum BattlerId battlerDef,
             u32 partnerHitsToKOFoe1 = GetBestNoOfHitsToKO(battlerAtkPartner, GetBattlerLeftFoe(battlerAtk), AI_ATTACKING);
             u32 ownHitsToKOFoe2 = GetBestNoOfHitsToKO(battlerAtk, GetBattlerRightFoe(battlerAtk), AI_ATTACKING);
             u32 partnerHitsToKOFoe2 = GetBestNoOfHitsToKO(battlerAtkPartner, GetBattlerRightFoe(battlerAtk), AI_ATTACKING);
+            u32 ownDamage = GetBestDmgFromBattler(battlerAtk, GetBattlerLeftFoe(battlerAtk), AI_ATTACKING);
+            u32 partnerDamage = GetBestDmgFromBattler(battlerAtkPartner, GetBattlerLeftFoe(battlerAtk), AI_ATTACKING);
+
+            if (hasTwoOpponents)
+            {
+                ownDamage += GetBestDmgFromBattler(battlerAtk, GetBattlerRightFoe(battlerAtk), AI_ATTACKING);
+                partnerDamage += GetBestDmgFromBattler(battlerAtkPartner, GetBattlerRightFoe(battlerAtk), AI_ATTACKING);
+            }
+
+            // Helping Hand is worthwhile when the ally's immediate pressure is
+            // substantially greater, even when HP thresholds put both attacks
+            // in the same coarse hits-to-KO bucket.
+            if (partnerDamage > ownDamage + ownDamage / 2)
+                ADJUST_SCORE(GOOD_EFFECT);
 
             if (hasTwoOpponents)
             {

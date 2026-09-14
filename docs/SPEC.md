@@ -167,11 +167,19 @@ IVs for ordinary gift Pokémon, separately configurable from starter IVs.
 ## Static Pokémon
 Default: randomized. Static encounters retain their fixed locations; species
 generated once per run. Ordinary static encounters use appropriate power
-matching; legendary/static premium encounters use the separate high-power
-pool. If a generated static encounter level would be above the active legal
-cap, it is clamped to that cap. The over-cap/ineligible system remains useful
-defensive infrastructure, but normal randomizer generation must not routinely
-create unusable wild or static encounters.
+matching. Every canonical premium/legendary static encounter slot exposed by
+the ROM uses the Premium Species pool exclusively, including Rayquaza,
+Groudon, Kyogre, the Regis, Latios/Latias premium encounters, Mew, Deoxys,
+Ho-Oh, Lugia, and every other exposed event or premium static slot. Each slot
+selects its replacement deterministically and independently from the run seed;
+only an eligible Premium species is valid, its original species remains
+eligible, and duplicate Premium species across separate slots are allowed.
+The replacement changes only the encountered species: the slot's location,
+event, and progression behavior remain intact. Ordinary wild encounter slots
+never generate Premium species. If a generated static encounter level would be
+above the active legal cap, it is clamped to that cap. The over-cap/ineligible
+system remains useful defensive infrastructure, but normal randomizer
+generation must not routinely create unusable wild or static encounters.
 
 ## Trainer Pokémon
 Default: randomized. Applies to regular trainers, rival, Wally, Team
@@ -650,11 +658,12 @@ substitute. No Link Cable / second game necessary.
   Sootopolis progression flag is.
 
 ## Premium encounter balancing
-Static Premium locations use the curated Premium species pool and do not
-necessarily contain the original species; they should yield powerful species
-comparable to the intended encounter tier. Ordinary low-level route slots do
-not draw from this restricted pool. Duplicate Premium encounters are allowed
-unless another explicit rule in this specification says otherwise.
+Premium static slots use the project's eligible Premium Species pool, not
+ordinary power matching or a mixed high-power pool. A slot may remain its
+original species, but may never become an ordinary non-Premium Pokémon.
+Ordinary wild encounter slots do not draw from this restricted pool. Duplicate
+Premium encounters are allowed unless another explicit rule in this
+specification says otherwise.
 
 ## Generation 9 mechanics
 Required modern battle baseline; ON in Recommended. Includes the modern
@@ -879,13 +888,60 @@ Phase 10.)*
   gauntlet remains; Portable Heal remains legal outside battle; no battle
   items once combat starts; Champion is the endpoint.
 
-## Hall of Fame
-The Hall of Fame is an informational and celebratory archive of completed solo
-runs. Where practical it records the final team, species, nicknames, moves,
-abilities, held items, IVs, EVs, Natures, seed, ruleset, deaths, encounters,
-and other useful completion statistics. It does not lock a competitive final
-team, ban species, change later randomization pools, or otherwise affect
-future fresh runs.
+## Terminal Run Reports
+Every strict run finalizes one comprehensive, informational-only Run Report at
+either terminal outcome: **Victory** (Champion defeated / Hall of Fame
+reached) or **Wipe** (no usable Pokémon remain and the run is lost). Reports
+never affect later runs, randomization pools, or species eligibility.
+
+Both outcomes record a report/schema version, project/ROM version,
+randomizer/ruleset version, run seed, preset/ruleset, relevant generation
+settings, player name where useful, terminal result, play time, progression
+state, and a unique run/report identifier.
+
+Victory reports contain the complete Hall-of-Fame team. Wipe reports capture
+the complete final party immediately before run-loss cleanup destroys relevant
+state. For each Pokémon, reports preserve every reasonably available,
+player-relevant persistent attribute needed to faithfully describe or
+reconstruct it: party slot; species and form; nickname; gender; shiny state;
+level and useful experience; types; Nature; ability; held item; moves with
+current/max PP and useful PP bonuses; IVs; EVs; calculated stats; meaningful
+current HP, status, friendship, and Poké Ball; met/caught level and location;
+Nuzlocke encounter location and encounter metadata; alive/dead/legal state;
+and other stable useful attributes. The external representation may include
+both stable IDs and human-readable names.
+
+Wipe reports capture, where practical, the wipe location/map, badge count,
+active cap, story/progression checkpoint, last major boss defeated, opponent
+type, trainer/boss identity, reliably available opponent team, final
+knockout/cause, and play time before cleanup occurs.
+
+Reports track useful, inexpensive run statistics that cannot reliably be
+reconstructed later, rather than meaningless counters. This includes where
+practical encounters obtained; successful catches; failed, killed, fled, and
+player-run-from encounters; Dupes Clause and shiny encounters; shiny catches;
+total deaths, death order, and individual death details; trainer and wild
+battles; Gym Leaders and major bosses defeated; Balls thrown and capture
+attempts; evolutions; Level to Cap uses; badge progression; final cap; and
+play time. Individual death records may include the Pokémon, level, location,
+opponent, cause, and progression checkpoint.
+
+Canonical finalized report state lives in save data. The latest finalized
+report remains recoverable long enough for manual export, including across
+practical run-reset/new-run handling; the exact save architecture is designed
+in Phase 11C2. A standalone repository tool must read an ordinary `.sav` and
+export its finalized report without modifying that save. Its versioned JSON
+uses human-readable names for species, forms, moves, abilities, items,
+locations, and settings; preferred non-overwriting filenames are
+`run_<seed>_victory.json` and `run_<seed>_wipe.json`.
+
+For the preferred supported-mGBA experience, an optional companion integration
+automatically exports the finalized JSON exactly once when a Victory or Wipe
+report finalizes. Core ROM gameplay never depends on mGBA, and manual
+`.sav`-to-JSON export remains the portable fallback. A unique report ID and
+ready state prevent repeated save events from exporting the same report more
+than once. The ROM must not claim that an external JSON file was created until
+host-side tooling confirms it.
 
 ## Postgame
 Nuzlocke run formally ends at Champion by default. Player can optionally

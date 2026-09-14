@@ -2,6 +2,7 @@
 #define GUARD_RULESET_H
 
 #include "constants/ruleset.h"
+#include "battle_gimmick.h"
 
 // Metadata for one setting. One row per SettingId, in enum order, in
 // src/data/ruleset.h. `defaultValue` is the Recommended value; the other named
@@ -64,6 +65,10 @@ u16 GetSavedRandomizerVersion(void);
 bool8 Ruleset_IsSpeciesBanned(enum Species species);
 bool8 Ruleset_SetSpeciesBanned(enum Species species, bool8 banned);
 bool8 Ruleset_ClearSpeciesBans(void);
+
+bool32 Ruleset_AllowsBattleGimmick(enum Gimmick gimmick);
+bool32 Ruleset_AllowsPrimalReversion(void);
+bool32 Ruleset_ItemIsEnabled(enum Item item);
 
 // ---- lifecycle ----
 void ResetRulesetSettings(void);                  // New Game: re-apply the default preset

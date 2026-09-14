@@ -3,6 +3,7 @@
 #include "battle_setup.h"
 #include "battle_controllers.h"
 #include "battle_factory.h"
+#include "item.h"
 #include "constants/abilities.h"
 #include "constants/hold_effects.h"
 #include "constants/battle_ai.h"
@@ -46,7 +47,16 @@ void RecordAbilityBattle(enum BattlerId battlerId, enum Ability abilityId)
 
 void RecordItemEffectBattle(enum BattlerId battlerId, enum HoldEffect itemEffect)
 {
+    enum Item item = gBattleMons[battlerId].item;
+
+    // Consumed or stolen items are commonly cleared before the reveal is
+    // recorded. gLastUsedItem is public battle information in that case.
+    if (item == ITEM_NONE && GetItemHoldEffect(gLastUsedItem) == itemEffect)
+        item = gLastUsedItem;
+
     gBattleHistory->itemEffects[battlerId] = itemEffect;
+    gBattleHistory->heldItems[battlerId] = item;
+    gAiPartyData->mons[GetBattlerSide(battlerId)][gBattlerPartyIndexes[battlerId]].item = item;
     gAiPartyData->mons[GetBattlerSide(battlerId)][gBattlerPartyIndexes[battlerId]].heldEffect = itemEffect;
 }
 
@@ -65,4 +75,6 @@ void ClearBattlerMoveHistory(enum BattlerId battlerId)
 void ClearBattlerItemEffectHistory(enum BattlerId battlerId)
 {
     gBattleHistory->itemEffects[battlerId] = HOLD_EFFECT_NONE;
+    gBattleHistory->heldItems[battlerId] = ITEM_NONE;
+    gAiPartyData->mons[GetBattlerSide(battlerId)][gBattlerPartyIndexes[battlerId]].item = ITEM_NONE;
 }

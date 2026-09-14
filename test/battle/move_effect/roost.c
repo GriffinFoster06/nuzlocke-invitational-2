@@ -65,7 +65,6 @@ SINGLE_BATTLE_TEST("Roost recovers 50% of the user's Max HP")
 {
     u16 hp;
 
-    KNOWN_FAILING; // All healing is currently rounded down
     GIVEN {
         PLAYER(SPECIES_WOBBUFFET) { HP(1); MaxHP(99); }
         OPPONENT(SPECIES_WOBBUFFET);

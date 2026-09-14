@@ -1329,13 +1329,19 @@ bool32 CannotUseItemsInBattle(enum Item itemId, struct Pokemon *mon)
             cannotUse = TRUE;
         break;
     case EFFECT_ITEM_HEAL_AND_CURE_STATUS:
-        if ((hp == 0 || hp == GetMonData(mon, MON_DATA_MAX_HP))
+        // A dead Pokemon's status cannot be cured either - PokemonUseItemEffects
+        // refuses the whole item (ITEM4_HEAL_HP is always set for this effect), so
+        // the menu must not offer it as usable just because it still has a status.
+        if (Nuzlocke_MonIsDead(mon)
+            || ((hp == 0 || hp == GetMonData(mon, MON_DATA_MAX_HP))
             && !((GetMonData(mon, MON_DATA_STATUS) & GetItemStatus1Mask(itemId))
-            || SelectedMonHasVolatile(itemId)))
+            || SelectedMonHasVolatile(itemId))))
             cannotUse = TRUE;
         break;
     case EFFECT_ITEM_REVIVE:
-        if (hp != 0)
+        // Nuzlocke permadeath: a dead Pokemon can never be revived. hp == 0 alone
+        // is also true for a merely-fainted living Pokemon, which remains revivable.
+        if (hp != 0 || Nuzlocke_MonIsDead(mon))
             cannotUse = TRUE;
         break;
     case EFFECT_ITEM_RESTORE_PP:

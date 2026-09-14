@@ -10,6 +10,7 @@
 #include "battle_tower.h"
 #include "party_menu.h"
 #include "malloc.h"
+#include "nuzlocke.h"
 #include "palette.h"
 #include "script.h"
 #include "battle_setup.h"
@@ -1267,6 +1268,13 @@ static void TryHealMons(u8 healCount)
         struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][indices[i]];
         u16 curr = GetMonData(mon, MON_DATA_HP);
         u16 max = GetMonData(mon, MON_DATA_MAX_HP);
+
+        // Nuzlocke permadeath: a dead Pokemon is never a candidate for the pike's
+        // between-room heal. Frontier battles are no longer exempt from permadeath,
+        // so its 0 HP must not look like an ordinary "needs healing" candidate.
+        if (Nuzlocke_MonIsDead(mon))
+            continue;
+
         if (curr < max)
         {
             canBeHealed = TRUE;
@@ -1607,7 +1615,7 @@ static void InitPikeChallenge(void)
 
 static bool8 CanEncounterWildMon(u8 enemyMonLevel)
 {
-    if (!GetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_SANITY_IS_EGG))
+    if (Nuzlocke_MonCanProvideGameplayBenefit(&gParties[B_TRAINER_PLAYER][0]))
     {
         enum Ability monAbility = GetMonAbility(&gParties[B_TRAINER_PLAYER][0]);
         if (monAbility == ABILITY_KEEN_EYE || monAbility == ABILITY_INTIMIDATE)

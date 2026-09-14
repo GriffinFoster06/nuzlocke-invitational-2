@@ -10,6 +10,7 @@
 #include "item.h"
 #include "palette.h"
 #include "pokemon.h"
+#include "ruleset.h"
 #include "safari_zone.h"
 #include "sprite.h"
 #include "util.h"
@@ -19,6 +20,9 @@
 // Sets flags and variables upon a battler's Terastallization.
 void ActivateTera(enum BattlerId battler)
 {
+    if (!Ruleset_AllowsBattleGimmick(GIMMICK_TERA))
+        return;
+
     // Set appropriate flags.
     SetActiveGimmick(battler, GIMMICK_TERA);
     SetGimmickAsActivated(battler, GIMMICK_TERA);
@@ -68,7 +72,11 @@ bool32 IsTeraOrbCharged(void)
 // Returns whether a battler can Terastallize.
 bool32 CanTerastallize(enum BattlerId battler)
 {
-    enum HoldEffect holdEffect = GetBattlerHoldEffectIgnoreNegation(battler);
+    enum HoldEffect holdEffect;
+
+    if (!Ruleset_AllowsBattleGimmick(GIMMICK_TERA))
+        return FALSE;
+    holdEffect = GetBattlerHoldEffectIgnoreNegation(battler);
 
     if (gBattleMons[battler].volatiles.transformed && GET_BASE_SPECIES_ID(gBattleMons[battler].species) == SPECIES_TERAPAGOS)
         return FALSE;

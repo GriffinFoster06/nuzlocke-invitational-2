@@ -8,6 +8,7 @@
 
 #include "global.h"
 #include "ability_gen.h"
+#include "item.h"
 #include "learnset_gen.h"
 #include "power_score.h"
 #include "randomizer.h"
@@ -15,11 +16,59 @@
 #include "ruleset.h"
 #include "ruleset_field.h"
 #include "ruleset_qol.h"
+#include "constants/hold_effects.h"
+#include "constants/items.h"
 
 #include "data/ruleset.h"
 
 STATIC_ASSERT(NUM_SETTINGS <= 255, RulesetTooManySettings);
 STATIC_ASSERT(sizeof(struct RulesetSettings) < 400, RulesetSettingsUnexpectedlyLarge);
+
+bool32 Ruleset_AllowsBattleGimmick(enum Gimmick gimmick)
+{
+    switch (gimmick)
+    {
+    case GIMMICK_MEGA:
+        return GetRulesetSetting(SETTING_ALLOW_MEGA) != 0;
+    case GIMMICK_ULTRA_BURST:
+    case GIMMICK_Z_MOVE:
+        return GetRulesetSetting(SETTING_ALLOW_Z_MOVES) != 0;
+    case GIMMICK_DYNAMAX:
+        return GetRulesetSetting(SETTING_ALLOW_DYNAMAX) != 0;
+    case GIMMICK_TERA:
+        return GetRulesetSetting(SETTING_ALLOW_TERASTAL) != 0;
+    default:
+        return FALSE;
+    }
+}
+
+bool32 Ruleset_AllowsPrimalReversion(void)
+{
+    return GetRulesetSetting(SETTING_ALLOW_PRIMAL) != 0;
+}
+
+bool32 Ruleset_ItemIsEnabled(enum Item item)
+{
+    enum HoldEffect effect;
+
+    if (item <= ITEM_NONE || item >= ITEMS_COUNT || gItemsInfo[item].name == NULL)
+        return FALSE;
+
+    effect = GetItemHoldEffect(item);
+    if (effect == HOLD_EFFECT_MEGA_STONE && !Ruleset_AllowsBattleGimmick(GIMMICK_MEGA))
+        return FALSE;
+    if (effect == HOLD_EFFECT_PRIMAL_ORB && !Ruleset_AllowsPrimalReversion())
+        return FALSE;
+    if (effect == HOLD_EFFECT_Z_CRYSTAL && !Ruleset_AllowsBattleGimmick(GIMMICK_Z_MOVE))
+        return FALSE;
+    if (!Ruleset_AllowsBattleGimmick(GIMMICK_DYNAMAX)
+     && (item == ITEM_DYNAMAX_CANDY || item == ITEM_MAX_MUSHROOMS || item == ITEM_MAX_HONEY))
+        return FALSE;
+    if (!Ruleset_AllowsBattleGimmick(GIMMICK_TERA)
+     && gItemsInfo[item].sortType == ITEM_TYPE_TERA_SHARD)
+        return FALSE;
+    return TRUE;
+}
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -82,7 +131,13 @@ static void RulesetSettings_EnsureInitialized(void)
 {
     struct RulesetSettings *r = &gSaveBlock3Ptr->ruleset;
 
-    if (r->rulesetVersion == RULESET_VERSION)
+    // Phase 11B: randomizerVersion is folded into every RunRng_Seed() stream, so a
+    // stale randomizerVersion must force the same full reinit as a stale
+    // rulesetVersion - otherwise a save could keep old (self-consistent) RNG
+    // streams while new randomizer-affecting code (e.g. item-pool gimmick
+    // gating) runs unconditionally on top of them. Never let a run straddle two
+    // randomizer versions; a fresh seed is preferred over a mixed state.
+    if (r->rulesetVersion == RULESET_VERSION && r->randomizerVersion == RANDOMIZER_VERSION)
     {
         // Version 3 introduced an explicit initialization bit so seed zero is
         // distinguishable from an old/uninitialized tail field.

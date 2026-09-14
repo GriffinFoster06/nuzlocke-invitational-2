@@ -18,6 +18,7 @@
 #include "link.h"
 #include "link_rfu.h"
 #include "m4a.h"
+#include "nuzlocke.h"
 #include "overworld.h"
 #include "palette.h"
 #include "party_menu.h"
@@ -395,7 +396,8 @@ bool32 IsValidForBattle(struct Pokemon *mon)
     return (species != SPECIES_NONE
          && species != SPECIES_EGG
          && GetMonData(mon, MON_DATA_HP) != 0
-         && GetMonData(mon, MON_DATA_IS_EGG) == FALSE);
+         && GetMonData(mon, MON_DATA_IS_EGG) == FALSE
+         && Nuzlocke_MonCanBattle(mon));
 }
 
 bool32 IsValidForBattleButDead(struct Pokemon *mon)

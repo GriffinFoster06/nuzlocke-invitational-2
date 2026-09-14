@@ -2,6 +2,7 @@
 #include "malloc.h"
 #include "battle.h"
 #include "pokemon.h"
+#include "ruleset.h"
 #include "battle_ai_record.h"
 #include "battle_controllers.h"
 #include "battle_interface.h"
@@ -112,8 +113,12 @@ bool32 IsZMove(enum Move move)
 
 bool32 CanUseZMove(enum BattlerId battler)
 {
-    enum HoldEffect holdEffect = GetBattlerHoldEffectIgnoreNegation(battler);
+    enum HoldEffect holdEffect;
     enum BattlerPosition position = GetBattlerPosition(battler);
+
+    if (!Ruleset_AllowsBattleGimmick(GIMMICK_Z_MOVE))
+        return FALSE;
+    holdEffect = GetBattlerHoldEffectIgnoreNegation(battler);
 
     // Check if Player has Z-Power Ring.
     if (!TESTING && (position == B_POSITION_PLAYER_LEFT
@@ -161,6 +166,9 @@ enum Move GetUsableZMove(enum BattlerId battler, enum Move move)
 
 void ActivateZMove(enum BattlerId battler)
 {
+    if (!Ruleset_AllowsBattleGimmick(GIMMICK_Z_MOVE))
+        return;
+
     SetActiveGimmick(battler, GIMMICK_Z_MOVE);
 }
 

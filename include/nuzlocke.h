@@ -36,8 +36,10 @@ bool32 Nuzlocke_OneEncounterPerLocationOn(void);
 bool32 Nuzlocke_DupesClauseOn(void);
 bool32 Nuzlocke_ShinyClauseOn(void);
 bool32 Nuzlocke_ForcedNicknamesOn(void);   // NICK_MANDATORY or NICK_STRICT
-bool32 Nuzlocke_StrictNicknamesOn(void);   // NICK_STRICT: the prompt cannot be escaped
+bool32 Nuzlocke_StrictNicknamesOn(void);   // any mandatory mode: prompt cannot be escaped
 bool16 AreNicknamesForced(void);           // script special wrapper for Nuzlocke_ForcedNicknamesOn
+void Nuzlocke_QueueMandatoryNickname(struct Pokemon *mon);
+void Nuzlocke_TryPromptMandatoryNickname(void);
 
 // ---- location tags (docs/SPEC.md "One encounter per location") ----
 u32 Nuzlocke_CurrentLocationTag(void);
@@ -55,6 +57,8 @@ void Nuzlocke_HandleScriptedBattleEnd(void);
 void Nuzlocke_HandleSafariBattleEnd(void);
 // TRUE if the player may throw a ball at the current wild encounter.
 bool32 Nuzlocke_CanCatchCurrentEncounter(void);
+bool32 Nuzlocke_CanCatchBattler(enum BattlerId battler);
+void Nuzlocke_NoteCaughtBattler(enum BattlerId battler);
 
 // ---- Dupes Clause (docs/SPEC.md "Dupes Clause") ----
 void Nuzlocke_MarkFamilyOwned(enum Species species);
@@ -68,7 +72,10 @@ bool32 Nuzlocke_DupesRerollActiveHere(void);
 
 // ---- permadeath (docs/SPEC.md "Nuzlocke permadeath") ----
 bool32 Nuzlocke_MonIsDead(struct Pokemon *mon);
+bool32 Nuzlocke_MonCanBattle(struct Pokemon *mon);
+bool32 Nuzlocke_MonCanProvideGameplayBenefit(struct Pokemon *mon);
 void Nuzlocke_MarkMonDead(struct Pokemon *mon);       // field poison, debug
+void Nuzlocke_RecordBattleFaint(enum BattlerId battler);
 void Nuzlocke_ProcessPostBattleDeaths(void);          // ReturnFromBattleToOverworld
 u32 Nuzlocke_GetDeathCount(void);
 u32 Nuzlocke_CountLocationsCaught(void);

@@ -288,8 +288,7 @@ struct NuzlockeState
     u8 locationUsed[ROUND_BITS_TO_BYTES(MAPSEC_COUNT)];
     u8 locationCaught[ROUND_BITS_TO_BYTES(MAPSEC_COUNT)];
     // One bit per species id: this species' whole evolutionary family is
-    // already owned (Dupes Clause). Set-only unless SETTING_DUPES_COUNT_DEAD
-    // is off. See Nuzlocke_MarkFamilyOwned / Nuzlocke_IsFamilyOwned.
+    // already encountered (Dupes Clause). This history is permanently set-only.
     u8 familyOwned[ROUND_BITS_TO_BYTES(NUM_SPECIES)];
     u16 deathCount;
     u8 graveyardBoxNamed:1; // the graveyard PC box has been renamed once

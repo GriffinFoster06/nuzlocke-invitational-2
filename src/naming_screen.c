@@ -1575,13 +1575,12 @@ static bool8 KeyboardKeyHandler_Backspace(u8 input)
     return FALSE;
 }
 
-// docs/SPEC.md "Nicknames": NICK_STRICT means the forced naming prompt truly
-// cannot be escaped - confirming an empty entry (which would leave the bare
-// species name) is refused. NICK_MANDATORY is unchanged; it only forces the
-// screen open.
-static bool8 StrictNicknameBlocksEmptyEntry(void)
+// docs/SPEC.md "Nicknames": both mandatory modes require an actual nickname.
+// Refuse an empty entry and the unchanged default species name.
+static bool8 MandatoryNicknameBlocksEntry(void)
 {
     u32 i;
+    bool32 empty = TRUE;
 
     if (!Nuzlocke_StrictNicknamesOn())
         return FALSE;
@@ -1592,9 +1591,15 @@ static bool8 StrictNicknameBlocksEmptyEntry(void)
     for (i = 0; i < sNamingScreen->template->maxChars; i++)
     {
         if (sNamingScreen->textBuffer[i] != CHAR_SPACE && sNamingScreen->textBuffer[i] != EOS)
-            return FALSE;
+        {
+            empty = FALSE;
+            break;
+        }
     }
-    return TRUE;
+    if (empty)
+        return TRUE;
+
+    return StringCompare(sNamingScreen->textBuffer, GetSpeciesName(sNamingScreen->monSpecies)) == 0;
 }
 
 static bool8 KeyboardKeyHandler_OK(u8 input)
@@ -1602,7 +1607,7 @@ static bool8 KeyboardKeyHandler_OK(u8 input)
     TryStartButtonFlash(BUTTON_OK, TRUE, FALSE);
     if (input == INPUT_A_BUTTON)
     {
-        if (StrictNicknameBlocksEmptyEntry())
+        if (MandatoryNicknameBlocksEntry())
         {
             PlaySE(SE_FAILURE);
             return FALSE;

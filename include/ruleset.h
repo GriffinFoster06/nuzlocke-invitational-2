@@ -73,4 +73,17 @@ bool32 Ruleset_ItemIsEnabled(enum Item item);
 // ---- lifecycle ----
 void ResetRulesetSettings(void);                  // New Game: re-apply the default preset
 
+// Phase 11A.6: hand-off between the New-Game-only settings wizard
+// (src/ruleset_menu.c) and NewGameInitData() (src/new_game.c). The wizard
+// calls ResetRulesetSettings() itself when it opens (so it has a fresh
+// default config + auto-rolled seed to show/edit); NewGameInitData()'s own
+// unconditional ResetRulesetSettings() call would otherwise immediately
+// wipe whatever the player just configured. Marking "preconfigured" tells
+// NewGameInitData() to skip its reset this one time; consuming the flag
+// (resetting it to FALSE) means it never leaks into a later, unrelated New
+// Game (e.g. after a whiteout-triggered retry, which does not go through
+// the wizard).
+void RulesetSettings_MarkPreconfigured(void);
+bool8 RulesetSettings_ConsumePreconfigured(void);
+
 #endif // GUARD_RULESET_H

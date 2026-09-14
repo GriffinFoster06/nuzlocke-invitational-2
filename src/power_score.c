@@ -9,6 +9,7 @@
 #include "power_score.h"
 #include "random_mon_generation.h"
 #include "ruleset.h"
+#include "species_generation.h"
 #include "constants/pokemon.h"
 #include "constants/ruleset.h"
 #include "constants/species.h"
@@ -44,19 +45,39 @@
 
 static EWRAM_DATA u16 sScoreCache[NUM_SPECIES] = {0};
 static EWRAM_DATA bool8 sBuilt = FALSE;         // gates the very first build; sSignature is only trusted once set
-static EWRAM_DATA u8 sSignature = 0;            // ruleset-toggle snapshot the cache was built for
+static EWRAM_DATA u16 sSignature = 0;           // ruleset-toggle snapshot the cache was built for
+
+// Phase 11A.6: SETTING_GEN_1_ENABLED..SETTING_GEN_9_ENABLED are consecutive
+// ids (see include/constants/ruleset.h), so generation `gen` (1-9) maps to
+// SETTING_GEN_1_ENABLED + gen - 1.
+static bool32 IsGenerationEnabled(u8 gen)
+{
+    if (gen == 0)
+        return TRUE; // SPECIES_NONE / unrecognized: never itself a candidate anyway
+    return GetRulesetSetting(SETTING_GEN_1_ENABLED + (gen - 1)) != 0;
+}
 
 // Snapshot of the species-pool toggles that affect eligibility / bans, so
-// EnsureBuilt can detect a stale cache after a menu change.
-static u8 CurrentSignature(void)
+// EnsureBuilt can detect a stale cache after a menu change. Widened to u16
+// (Phase 11A.6) to fit the nine generation-mask bits alongside the original
+// seven species-pool bits.
+static u16 CurrentSignature(void)
 {
-    return (GetRulesetSetting(SETTING_ALLOW_LEGENDARY)      ? (1 << 0) : 0)
-         | (GetRulesetSetting(SETTING_ALLOW_MYTHICAL)       ? (1 << 1) : 0)
-         | (GetRulesetSetting(SETTING_ALLOW_SUB_LEGENDARY)  ? (1 << 2) : 0)
-         | (GetRulesetSetting(SETTING_ALLOW_ULTRA_BEAST)    ? (1 << 3) : 0)
-         | (GetRulesetSetting(SETTING_ALLOW_PARADOX)        ? (1 << 4) : 0)
-         | (GetRulesetSetting(SETTING_ALLOW_REGIONAL_FORMS) ? (1 << 5) : 0)
-         | (GetRulesetSetting(SETTING_ALLOW_OTHER_FORMS)    ? (1 << 6) : 0);
+    u16 sig = (GetRulesetSetting(SETTING_ALLOW_LEGENDARY)      ? (1 << 0) : 0)
+            | (GetRulesetSetting(SETTING_ALLOW_MYTHICAL)       ? (1 << 1) : 0)
+            | (GetRulesetSetting(SETTING_ALLOW_SUB_LEGENDARY)  ? (1 << 2) : 0)
+            | (GetRulesetSetting(SETTING_ALLOW_ULTRA_BEAST)    ? (1 << 3) : 0)
+            | (GetRulesetSetting(SETTING_ALLOW_PARADOX)        ? (1 << 4) : 0)
+            | (GetRulesetSetting(SETTING_ALLOW_REGIONAL_FORMS) ? (1 << 5) : 0)
+            | (GetRulesetSetting(SETTING_ALLOW_OTHER_FORMS)    ? (1 << 6) : 0);
+    u32 gen;
+
+    for (gen = 1; gen <= 9; gen++)
+    {
+        if (IsGenerationEnabled(gen))
+            sig |= (u16)(1 << (6 + gen)); // bits 7..15
+    }
+    return sig;
 }
 
 // ---- helpers over gSpeciesInfo ---------------------------------------------
@@ -220,6 +241,13 @@ static bool32 ComputeEligible(enum Species species, const struct SpeciesInfo *si
     if (!IsRandomSpeciesFormSafe(species))
         return FALSE;
     if (Ruleset_IsSpeciesBanned(species))
+        return FALSE;
+    // Phase 11A.6: docs/SPEC.md "Generation filters" - a disabled generation
+    // removes its species/forms from every randomized pool. Checked here
+    // (the one eligibility chokepoint every pool already consults through
+    // sScoreCache) so this applies uniformly to wild/trainer/starter/gift/
+    // static/premium-static without a separate check per category.
+    if (!IsGenerationEnabled(GetSpeciesGeneration(species)))
         return FALSE;
 
     isRegional = si->isAlolanForm || si->isGalarianForm || si->isHisuianForm || si->isPaldeanForm;
@@ -412,6 +440,23 @@ bool32 IsSpeciesPremium(enum Species species)
     for (i = 0; i < ARRAY_COUNT(sAdditionalPremiumSpecies); i++)
     {
         if (sAdditionalPremiumSpecies[i] == species)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+bool32 IsSpeciesGenerationEnabled(enum Species species)
+{
+    return IsGenerationEnabled(GetSpeciesGeneration(species));
+}
+
+bool32 PowerScore_AnyGenerationDisabled(void)
+{
+    u32 gen;
+
+    for (gen = 1; gen <= 9; gen++)
+    {
+        if (!IsGenerationEnabled(gen))
             return TRUE;
     }
     return FALSE;

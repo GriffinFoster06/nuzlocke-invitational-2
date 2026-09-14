@@ -361,6 +361,37 @@ addressed here was limited to a local, non-redesigning fix in the wild dupe
 selector, with the full hot-path optimization still deferred to Phase 11C
 (see `../PROMPTS.md`).
 
+Phase 11A.6 (== Phase 11C in `../PROMPTS.md`'s taxonomy) — Generation
+Architecture, Seed Quality, Pre-Run Settings, and Performance — is
+implemented and build-verified. The remaining encounter/trainer-battle
+startup latency was root-caused to several stacking `O(NUM_SPECIES)`
+redundant scans (the wild-dupe selector calling the species-replacement
+selector repeatedly, per-party-slot trainer selection, per-iteration
+learnset-cache re-derivation, and an `O(N²)`-ish Nuzlocke family-closure
+fixpoint) and fixed by reservoir sampling, a small wild-slot memoization
+cache, hoisting a cache-signature check out of a hot loop, and sharing one
+evolution-family-root table between `ability_gen.c` and `nuzlocke.c`
+instead of computing it twice. The automatic run seed now mixes four
+independent sources through the existing `Crc32B` primitive instead of a
+bare hardware-timer-seeded `Random32()` call; the run seed stays 32-bit by
+design, justified in SPEC.md ("Run seed"), since every derived per-category
+stream is already capped at 32 bits of digest entropy regardless of stored
+seed width. A new Generation 1-9 filter (default all on) classifies each
+species/form by the generation that introduced that specific form (not its
+family root), gates the existing species-eligibility cache, and filters
+`GetSpeciesEvolutions()`'s output so evolution can never bypass a disabled
+generation; every pool's existing empty-candidate fallback to vanilla
+already fails safe, and the new New Game settings wizard adds a UI-level
+guard against confirming a run with zero generations enabled. Per explicit
+user direction, pre-run/generation-locked settings (preset, seed,
+generation mask) are now configured through a dedicated screen reachable
+only from the New Game flow, separate from the in-run RULES menu, which
+continues to host every runtime/rules-locked setting unchanged. `RULESET_VERSION`
+4→5 and `RANDOMIZER_VERSION` 2→3 absorb, respectively, the new settings and
+the RNG-draw-order/evolution-filtering changes. See
+[CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md) for exactly which parts of this
+still need mGBA acceptance testing.
+
 ---
 
 ## General pattern for any phase not listed exactly as above

@@ -14,6 +14,7 @@
 // ============================================================================
 
 #include "global.h"
+#include "ability_gen.h"
 #include "battle.h"
 #include "battle_controllers.h"
 #include "item.h"
@@ -495,8 +496,6 @@ void Nuzlocke_NoteCaughtBattler(enum BattlerId battler)
 // Dupes Clause
 // ---------------------------------------------------------------------------
 
-#define FAMILY_BITSET_BYTES  ROUND_BITS_TO_BYTES(NUM_SPECIES)
-
 // Invariant: any species ID that did not come off a live struct Pokemon must
 // pass IsSpeciesEnabled() before it reaches a gSpeciesInfo accessor. The
 // sanitizing accessors (GetSpeciesEvolutions, SpeciesToNationalPokedexNum, ...)
@@ -507,89 +506,28 @@ static bool32 SpeciesInRange(u32 s)
     return s != SPECIES_NONE && s < NUM_SPECIES && IsSpeciesEnabled(s);
 }
 
-// Grow `set` to the full evolutionary family closure of its current members
-// using only cheap forward reads (GetSpeciesEvolutions is an O(1) pointer
-// read). Walking the reverse edge for free is what makes GetSpeciesPreEvolution
-// - a full O(N*evos) reverse scan - unnecessary here.
-static void ExpandFamilyClosure(u8 *set)
-{
-    bool32 changed = TRUE;
-    u32 s, j;
-
-    while (changed)
-    {
-        changed = FALSE;
-
-        for (s = 1; s < NUM_SPECIES; s++)
-        {
-            const struct Evolution *evos;
-            bool32 sIn;
-
-            if (!IsSpeciesEnabled(s))
-                continue;
-
-            evos = GetSpeciesEvolutions(s);
-            sIn = BITARR_GET(set, s);
-
-            if (evos == NULL)
-                continue;
-            for (j = 0; evos[j].method != EVOLUTIONS_END; j++)
-            {
-                u32 tgt = evos[j].targetSpecies;
-
-                if (!SpeciesInRange(tgt))
-                    continue;
-                if (sIn && !BITARR_GET(set, tgt))
-                {
-                    BITARR_SET(set, tgt);
-                    changed = TRUE;
-                }
-                else if (!sIn && BITARR_GET(set, tgt))
-                {
-                    BITARR_SET(set, s);
-                    sIn = TRUE;
-                    changed = TRUE;
-                }
-            }
-        }
-
-        // Pull in every species sharing a National Dex number with a current
-        // member. This links regional forms and their evolution branches.
-        for (s = 1; s < NUM_SPECIES; s++)
-        {
-            enum NationalDexOrder dex;
-
-            if (!BITARR_GET(set, s))
-                continue;
-            dex = SpeciesToNationalPokedexNum(s);
-            for (j = 1; j < NUM_SPECIES; j++)
-            {
-                if (!IsSpeciesEnabled(j))
-                    continue;
-                if (!BITARR_GET(set, j) && SpeciesToNationalPokedexNum(j) == dex)
-                {
-                    BITARR_SET(set, j);
-                    changed = TRUE;
-                }
-            }
-        }
-    }
-}
-
+// Phase 11A.6: family membership used to be recomputed per encounter via a
+// fixpoint closure (evolution edges + National-Dex-number linking) over the
+// whole species range - an O(NUM_SPECIES^2)-ish cost on nearly every
+// ordinary wild encounter. src/ability_gen.c already builds exactly this
+// partition once per run for its own ability-family keying, extended there
+// with the same dex-number linking this used to do locally - so membership
+// is now a single O(NUM_SPECIES) pass of O(1) lookups against that shared,
+// already-built table.
 void Nuzlocke_MarkFamilyOwned(enum Species species)
 {
-    u8 set[FAMILY_BITSET_BYTES];
-    u32 i;
+    enum Species root;
+    u32 s;
 
     if (!SpeciesInRange(species))
         return;
 
-    memset(set, 0, sizeof(set));
-    BITARR_SET(set, species);
-    ExpandFamilyClosure(set);
-
-    for (i = 0; i < FAMILY_BITSET_BYTES; i++)
-        gSaveBlock3Ptr->nuzlocke.familyOwned[i] |= set[i];
+    root = AbilityGen_FamilyRoot(species);
+    for (s = 1; s < NUM_SPECIES; s++)
+    {
+        if (IsSpeciesEnabled(s) && AbilityGen_FamilyRoot(s) == root)
+            BITARR_SET(gSaveBlock3Ptr->nuzlocke.familyOwned, s);
+    }
 }
 
 bool32 Nuzlocke_IsFamilyOwned(enum Species species)

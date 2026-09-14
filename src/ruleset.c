@@ -10,9 +10,11 @@
 #include "ability_gen.h"
 #include "item.h"
 #include "learnset_gen.h"
+#include "main.h"
 #include "power_score.h"
 #include "randomizer.h"
 #include "random.h"
+#include "rtc.h"
 #include "ruleset.h"
 #include "ruleset_field.h"
 #include "ruleset_qol.h"
@@ -110,6 +112,7 @@ static void ApplyPresetInternal(u32 preset)
     LearnsetGen_Invalidate();
     AbilityGen_Invalidate();
     Randomizer_InvalidateTms();
+    Randomizer_InvalidateWildSlotCache();
 
     if (preset < RULESET_NAMED_PRESET_COUNT)
     {
@@ -122,6 +125,43 @@ static void ApplyPresetInternal(u32 preset)
         r->displayedPreset = RULESET_PRESET_CUSTOM;
         r->values[SETTING_PRESET] = RULESET_PRESET_CUSTOM;
     }
+}
+
+// ---------------------------------------------------------------------------
+// Automatic run-seed generation (docs/SPEC.md "Run seed")
+// ---------------------------------------------------------------------------
+//
+// Phase 11A.6: the automatic seed used to be a bare Random32() draw. That is
+// the ordinary battle-RNG stream, itself last (re)seeded from a single
+// hardware-timer sample at the naming screen (SeedRngAndSetTrainerId(),
+// src/main.c) - one moderately-noisy source, easily aliased by two similarly
+// timed play sessions. Mix several genuinely independent, already-available
+// values through Crc32B (the same primitive RunRng_Seed already uses, see
+// include/run_rng.h) instead of trusting any single one of them:
+//   - Random32(): the current, timer-seeded SFC32 stream state.
+//   - gMain.vblankCounter1: frames elapsed since boot - keeps advancing
+//     independently of the (already-consumed) naming-screen timer sample.
+//   - raw RTC info, when available: harmless even on hardware/emulators
+//     without a working RTC (an all-zero read still mixes in cleanly).
+//   - newRunCounter: a persistent monotonic counter in SaveBlock2 (survives
+//     ResetRulesetSettings(), which only touches SaveBlock3, and survives
+//     New Game itself) - guarantees two runs can never collide even if every
+//     physical entropy source above happens to repeat.
+// The stored run seed stays a plain u32 (see docs/SPEC.md's "Run seed"
+// justification): RunRng_Seed's Crc32B step already caps every derived
+// per-category stream at 32 bits of digest entropy regardless of how wide
+// the stored seed is, so widening it would not improve output diversity.
+static u32 GenerateAutomaticRunSeed(void)
+{
+    struct SiiRtcInfo rtc = {0};
+    u32 pieces[4];
+
+    RtcGetInfo(&rtc);
+    pieces[0] = Random32();
+    pieces[1] = gMain.vblankCounter1;
+    pieces[2] = ((u32)rtc.day << 24) | ((u32)rtc.hour << 16) | ((u32)rtc.minute << 8) | rtc.second;
+    pieces[3] = ++gSaveBlock2Ptr->newRunCounter;
+    return Crc32B((const u8 *)pieces, sizeof(pieces));
 }
 
 // There is no save-migration system in this fork (see docs/PHASES.md notes), so
@@ -143,7 +183,7 @@ static void RulesetSettings_EnsureInitialized(void)
         // distinguishable from an old/uninitialized tail field.
         if (!r->seedInitialized)
         {
-            r->runSeed = Random32();
+            r->runSeed = GenerateAutomaticRunSeed();
             r->seedInitialized = TRUE;
         }
         return;
@@ -155,7 +195,7 @@ static void RulesetSettings_EnsureInitialized(void)
     r->runActive = FALSE;
     // docs/SPEC.md "Infinite Repel": available and toggled on by default.
     r->infiniteRepelActive = (r->values[SETTING_INFINITE_REPEL] != 0);
-    r->runSeed = Random32();
+    r->runSeed = GenerateAutomaticRunSeed();
     r->seedInitialized = TRUE;
     r->randomizerVersion = RANDOMIZER_VERSION;
     r->rulesetVersion = RULESET_VERSION;
@@ -282,6 +322,7 @@ bool8 SetRulesetSetting(u32 settingId, u8 value)
     LearnsetGen_Invalidate();
     AbilityGen_Invalidate();
     Randomizer_InvalidateTms();
+    Randomizer_InvalidateWildSlotCache();
 
     // docs/SPEC.md "Unlimited money": switching it on mid-run tops the wallet up.
     if (settingId == SETTING_UNLIMITED_MONEY && value != 0)
@@ -435,6 +476,7 @@ bool8 RestoreRulesetCategory(u32 category)
     LearnsetGen_Invalidate();
     AbilityGen_Invalidate();
     Randomizer_InvalidateTms();
+    Randomizer_InvalidateWildSlotCache();
     return TRUE;
 }
 
@@ -510,6 +552,7 @@ bool8 SetRunSeed(u32 seed)
     LearnsetGen_Invalidate();
     AbilityGen_Invalidate();
     Randomizer_InvalidateTms();
+    Randomizer_InvalidateWildSlotCache();
     return TRUE;
 }
 
@@ -518,7 +561,7 @@ bool8 RerollRunSeed(void)
     RulesetSettings_EnsureInitialized();
     if (gSaveBlock3Ptr->ruleset.runStarted)
         return FALSE;
-    return SetRunSeed(Random32());
+    return SetRunSeed(GenerateAutomaticRunSeed());
 }
 
 u16 GetSavedRulesetVersion(void)
@@ -556,6 +599,7 @@ bool8 Ruleset_SetSpeciesBanned(enum Species species, bool8 banned)
     gSaveBlock3Ptr->ruleset.displayedPreset = RULESET_PRESET_CUSTOM;
     gSaveBlock3Ptr->ruleset.values[SETTING_PRESET] = RULESET_PRESET_CUSTOM;
     PowerScore_Invalidate();
+    Randomizer_InvalidateWildSlotCache();
     return TRUE;
 }
 
@@ -568,6 +612,7 @@ bool8 Ruleset_ClearSpeciesBans(void)
     gSaveBlock3Ptr->ruleset.displayedPreset = RULESET_PRESET_CUSTOM;
     gSaveBlock3Ptr->ruleset.values[SETTING_PRESET] = RULESET_PRESET_CUSTOM;
     PowerScore_Invalidate();
+    Randomizer_InvalidateWildSlotCache();
     return TRUE;
 }
 
@@ -583,4 +628,22 @@ void ResetRulesetSettings(void)
 
     memset(r, 0, sizeof(*r));
     RulesetSettings_EnsureInitialized();
+}
+
+// Phase 11A.6: see the declaration comment in include/ruleset.h. A plain
+// static is enough - this only needs to survive from the wizard's "Start
+// Game" action to the very next NewGameInitData() call within the same
+// boot, never across a save/load.
+static bool8 sPreconfigured = FALSE;
+
+void RulesetSettings_MarkPreconfigured(void)
+{
+    sPreconfigured = TRUE;
+}
+
+bool8 RulesetSettings_ConsumePreconfigured(void)
+{
+    bool8 was = sPreconfigured;
+    sPreconfigured = FALSE;
+    return was;
 }

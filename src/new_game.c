@@ -314,7 +314,15 @@ void NewGameInitData(void)
     ResetItemFlags();
     ResetDexNav();
     ClearFollowerNPCData();
-    ResetRulesetSettings();
+    // Phase 11A.6: the New-Game-only settings wizard (src/ruleset_menu.c)
+    // already called ResetRulesetSettings() itself when it opened and then
+    // let the player configure generation-locked settings on top of that
+    // fresh default; doing it again here would immediately wipe those
+    // choices. Skip it exactly once when the wizard marked itself done -
+    // the Nuzlocke retry path (src/nuzlocke_run_over.c) never sets this
+    // flag, so it keeps resetting here exactly as before.
+    if (!RulesetSettings_ConsumePreconfigured())
+        ResetRulesetSettings();
     Nuzlocke_ResetState();
     Ruleset_ApplyUnlimitedMoneyGrant(); // docs/SPEC.md "Unlimited money"
     Ruleset_ApplyForcedBattleStyle();   // docs/SPEC.md "Set battle style"

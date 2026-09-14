@@ -30,4 +30,13 @@ enum Ability AbilityGen_Get(enum Species species, u8 slot);
 void AbilityGen_EnsureBuilt(void); // rebuild family map / pool if settings moved
 void AbilityGen_Invalidate(void);  // force the above on next call
 
+// Phase 11A.6: the evolution-family-root map this module already builds
+// (extended with National-Dex-number linking, so a regional form and its
+// counterpart share a root) is also exactly what Nuzlocke's Dupes Clause
+// needs to answer "is this species' whole family already owned" - one
+// shared table instead of two computations. Safe to call regardless of
+// SETTING_ABILITY_RANDOMIZATION; builds the table on first use either way.
+// Returns `species` itself if the table could not be built (out of heap).
+enum Species AbilityGen_FamilyRoot(enum Species species);
+
 #endif // GUARD_ABILITY_GEN_H

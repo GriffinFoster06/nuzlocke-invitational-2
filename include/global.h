@@ -652,7 +652,14 @@ struct SaveBlock2
              //u16 padding1:4;
              //u16 padding2;
     /*0x18*/ struct Pokedex pokedex;
-    /*0x90*/ u8 filler_90[0x8];
+    // Phase 11A.6: persistent monotonic counter, mixed into the automatic
+    // run seed (see GenerateAutomaticRunSeed(), src/ruleset.c) so that two
+    // New Games can never land on an identical automatic seed even if every
+    // other entropy source happens to repeat. Survives ResetRulesetSettings()
+    // (which only touches SaveBlock3) and New Game itself. Carved out of the
+    // existing filler_90 padding, so this does not move any later field.
+    /*0x90*/ u32 newRunCounter;
+    /*0x94*/ u8 filler_94[0x4];
     /*0x98*/ struct Time localTimeOffset;
     /*0xA0*/ struct Time lastBerryTreeUpdate;
     /*0xA8*/ u32 gcnLinkFlags; // Read by Pokémon Colosseum/XD

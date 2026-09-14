@@ -57,8 +57,12 @@ informational and celebratory solo-run archive only.
 ## Settings behavior
 - Settings that determine the generated world are chosen before starting the
   save (species randomization, learnset generation, ability randomization,
-  item randomization, seed, encounter mapping method). Generation settings
-  become locked once the run starts.
+  item randomization, seed, encounter mapping method, the Generation 1-9
+  filter mask). Generation-locked settings become locked once the run starts
+  and are edited exclusively through the New Game settings wizard (see
+  "New Game settings wizard" below) - they never appear as editable in the
+  in-run RULES menu, which shows them read-only with the same "(L)" locked
+  marker as any other generation-locked setting.
 - QoL/display settings can generally remain changeable during the run.
 - Nuzlocke rule settings are locked during an active strict run so the player
   cannot disable permadeath after losing something.
@@ -76,6 +80,86 @@ informational and celebratory solo-run archive only.
   ROM/randomizer-version + seed + settings should generate the same world.
   Previous completed runs and Hall-of-Fame records never influence generation
   for a fresh run.
+- **Automatic seed quality.** The automatic seed is not a bare hardware-timer
+  read. It mixes four independent sources through the project's existing
+  `Crc32B` primitive: the current (timer-seeded) global RNG state, the
+  vblank-frame counter since boot, raw RTC day/hour/minute/second fields, and
+  a persistent monotonic `newRunCounter` stored in the save block that
+  increments on every New Game and survives resets. This keeps two
+  similarly-timed play sessions (e.g. two players starting at the same
+  moment on identical hardware) from landing on the same or a nearby seed,
+  without depending on FakeRTC or any single hardware source alone.
+- **Seed width: 32-bit, by design, not by omission.** `RunRng_Seed` (the
+  function every deterministic category derives its stream from) always
+  funnels its inputs through `Crc32B`, which returns a `u32` regardless of
+  how wide its input is. Storing a wider (e.g. 64-bit) run seed would not
+  increase any individual category's output entropy - it would only add a
+  16-nibble manual-seed editor and a larger save field for no measurable
+  benefit. The run seed therefore stays a 32-bit value; seed *quality* is
+  addressed by the automatic-seed mixing above, not by seed width.
+- A `TESTING`-gated golden-value test (`test/run_rng.c`) pins `RunRng_Seed`'s
+  output for a fixed (seed, version, salt) tuple, so an accidental future
+  change to the mixing/CRC/PRNG stepping is caught immediately rather than
+  silently reshuffling every existing save's world.
+
+## Generation filtering
+- Nine independent toggles, Generation 1 through Generation 9, default ALL
+  ON. Configured once, before the seed rolls, through the New Game settings
+  wizard (see below); generation-locked like every other world-generation
+  setting.
+- A species/form is classified by the generation that introduced that
+  *specific* form, not its evolution family's root: Eevee is Generation 1,
+  Sylveon is Generation 6; a regional form (Alolan/Galarian/Hisuian/Paldean)
+  is classified by the generation that introduced that regional variant, not
+  the generation of the base species; Paradox Pokémon are Generation 9.
+  Evolving a Pokémon never bypasses the mask - an evolution target whose
+  generation is disabled is filtered out of that species' evolution options
+  everywhere (level-up, evolution stones, the Evolve command, Level to Cap,
+  and every internal system that queries evolutions), so a disabled
+  generation cannot be reached indirectly through evolution.
+- The mask interacts with every existing pool (wild, trainer, starter, gift,
+  static, Premium) the same way an existing species ban does: a
+  generation-disabled species is simply ineligible, exactly like a
+  category-banned or individually-banned species.
+- **Fail-safe by construction.** Every species-replacement selector already
+  falls back to the original vanilla species when its candidate pool is
+  empty for any reason (an existing, pre-Phase-11A.6 behavior, not new for
+  this feature) - so even a maximally restrictive or degenerate mask
+  degrades to "no randomization happens for that pick," never a hang or a
+  crash. The New Game wizard adds a UI-level guard on top of that runtime
+  fallback, refusing to start a run with every generation disabled, so a
+  player can never accidentally launch a run with an empty pool.
+
+## New Game settings wizard
+- Starting a genuinely new save (not a Nuzlocke whiteout retry) routes
+  through a dedicated settings screen reachable *only* from the New Game
+  flow, after the naming screen and before gameplay begins. It is a distinct
+  screen from the in-run Start Menu → RULES menu, not an extension of it.
+- The wizard shows exactly the settings that must be locked in before the
+  seed rolls and the world generates: the active preset, the run seed
+  (auto-rolled or manually entered), and the Generation 1-9 mask. Every
+  other setting (species-pool details, power matching, caps, Nuzlocke
+  rules, AI, QoL, display, etc.) stays exactly where it already lived, in
+  the ordinary in-run RULES menu, changeable there according to its own
+  lock class.
+- Target flow: New Game → naming screen → wizard (preset → seed →
+  Generation 1-9 mask → confirmation summary showing preset/seed/mask) →
+  lock in → deterministic world initialization → gameplay. A player who
+  wants the Recommended defaults reaches gameplay with minimal interaction;
+  a player who wants a custom generation mask or a specific seed configures
+  it in the same screen before confirming.
+- The Nuzlocke whiteout-retry flow does not go through this wizard - it
+  reaches the same underlying New Game initialization directly and silently
+  reuses its already-stashed settings, exactly as before this feature.
+
+## Run identity
+- A run's reproducible identity is the tuple (ROM/randomizer version, run
+  seed, every generation-locked setting including the Generation 1-9 mask).
+  Given the same identity, the same world generates - same starters, same
+  wild-slot mapping, same trainer parties, same learnsets/abilities/items.
+  This identity is what a future Run Report records and compares runs by; it
+  is fixed the moment the New Game settings wizard confirms and does not
+  change for the lifetime of that save.
 
 ## Separate deterministic randomization systems
 Species replacements, trainer replacements, abilities, learnsets, TMs,

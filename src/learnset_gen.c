@@ -230,16 +230,26 @@ u32 LearnsetGen_PoolCount(void)
     return (u32)sDmgCount + (LG_POOL_CAP - sStatusStart);
 }
 
-// Flat index over the pool: [0, sDmgCount) are damaging, the rest are status.
-enum Move LearnsetGen_PoolMove(u32 index)
+// Phase 11A.6: unchecked variant for callers that already know the pool is
+// built (GenerateWeighted's own caller chain always calls EnsureBuilt first -
+// see LearnsetGen_GetLearnset). Re-deriving the cache signature on every one
+// of GenerateWeighted's ~2 x pool-size x checkpoint-count element visits was
+// the single largest redundant cost on the trainer/wild battle-start path.
+static enum Move PoolMoveRaw(u32 index)
 {
-    LearnsetGen_EnsureBuilt();
     if (index < sDmgCount)
         return sPool[index];
     index += sStatusStart - sDmgCount;
     if (index < LG_POOL_CAP)
         return sPool[index];
     return MOVE_NONE;
+}
+
+// Flat index over the pool: [0, sDmgCount) are damaging, the rest are status.
+enum Move LearnsetGen_PoolMove(u32 index)
+{
+    LearnsetGen_EnsureBuilt();
+    return PoolMoveRaw(index);
 }
 
 // ---- generation --------------------------------------------------------
@@ -389,11 +399,20 @@ static u32 MovePotency(enum Move move)
 // Phase 11A approved weighted formula: one combined pool, no quotas, sampled
 // without replacement. STAB damage receives composition weight 2; timing is
 // the exact checkpoint/potency interpolation from the approved plan.
+//
+// Phase 11A.6: single-pass weighted reservoir sampling replaces the old
+// weight-sum pass followed by a separate pick pass. Accepting candidate i
+// (weight w_i) as the running choice with probability w_i / (running total)
+// reproduces exactly the same w_k / totalWeight selection distribution as
+// the two-pass version, in one scan. Combined with PoolMoveRaw() (skips the
+// redundant per-element EnsureBuilt() the public accessor used to pay), this
+// removes the single largest redundant cost on the randomized-learnset path.
 static u32 GenerateWeighted(enum Species species, struct LevelUpMove *out, u32 n,
                             u32 compositionMode, u32 order, rng_value_t *st)
 {
     u8 t0 = GetSpeciesType(species, 0);
     u8 t1 = GetSpeciesType(species, 1);
+    u32 poolCount = (u32)sDmgCount + (LG_POOL_CAP - sStatusStart);
     u32 checkpoint, count = 0;
 
     PickedClear();
@@ -401,12 +420,13 @@ static u32 GenerateWeighted(enum Species species, struct LevelUpMove *out, u32 n
     {
         u32 p = (n <= 1) ? 0 : checkpoint * 20 / (n - 1);
         u32 totalWeight = 0;
-        u32 i, choice;
+        enum Move chosen = MOVE_NONE;
+        u32 i;
 
-        for (i = 0; i < (u32)sDmgCount + (LG_POOL_CAP - sStatusStart); i++)
+        for (i = 0; i < poolCount; i++)
         {
-            enum Move move = LearnsetGen_PoolMove(i);
-            u32 q, timing, composition;
+            enum Move move = PoolMoveRaw(i);
+            u32 q, timing, composition, weight;
 
             if (PickedGet(move))
                 continue;
@@ -417,36 +437,18 @@ static u32 GenerateWeighted(enum Species species, struct LevelUpMove *out, u32 n
             composition = (compositionMode == LRNCOMP_WEIGHTED
                         && GetMoveCategory(move) != DAMAGE_CATEGORY_STATUS
                         && IsStab(move, t0, t1)) ? 2 : 1;
-            totalWeight += composition * timing;
+            weight = composition * timing;
+            totalWeight += weight;
+            if (LocalRandom32(st) % totalWeight < weight)
+                chosen = move;
         }
         if (totalWeight == 0)
             break;
 
-        choice = LocalRandom32(st) % totalWeight;
-        for (i = 0; i < (u32)sDmgCount + (LG_POOL_CAP - sStatusStart); i++)
-        {
-            enum Move move = LearnsetGen_PoolMove(i);
-            u32 q, timing, weight;
-
-            if (PickedGet(move))
-                continue;
-            q = MovePotency(move);
-            timing = (order == MVORDER_FULLY_RANDOM)
-                   ? 256
-                   : 64 + (((20 - p) * (255 - q) + p * q) * 192) / (20 * 255);
-            weight = ((compositionMode == LRNCOMP_WEIGHTED
-                    && GetMoveCategory(move) != DAMAGE_CATEGORY_STATUS
-                    && IsStab(move, t0, t1)) ? 2 : 1) * timing;
-            if (choice < weight)
-            {
-                out[count].move = move;
-                out[count].level = CheckpointLevel(checkpoint, n);
-                count++;
-                PickedSet(move);
-                break;
-            }
-            choice -= weight;
-        }
+        out[count].move = chosen;
+        out[count].level = CheckpointLevel(checkpoint, n);
+        count++;
+        PickedSet(chosen);
     }
 
     out[count].move = LEVEL_UP_MOVE_END;

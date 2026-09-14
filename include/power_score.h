@@ -55,4 +55,13 @@ bool32 IsSpeciesCategoryBanned(enum Species species);  // legendary/mythical/sub
 bool32 IsSpeciesPremium(enum Species species);         // immutable upstream traits + project designations
 bool32 IsSpeciesPremiumTier(enum Species species);     // curated premium membership (Premium && power >= floor)
 
+// Phase 11A.6 (docs/SPEC.md "Generation filters"): is `species`' introducing
+// generation currently enabled? Exposed (beyond ComputeEligible's internal
+// use) for GetSpeciesEvolutions' evolution-mask filter in src/pokemon.c.
+bool32 IsSpeciesGenerationEnabled(enum Species species);
+// True once any of the nine generation toggles is off - lets a caller (the
+// evolution-mask filter) skip its own work entirely in the common
+// all-enabled case without needing to know the SETTING_GEN_* ids itself.
+bool32 PowerScore_AnyGenerationDisabled(void);
+
 #endif // GUARD_POWER_SCORE_H

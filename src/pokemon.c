@@ -18,6 +18,7 @@
 #include "event_data.h"
 #include "event_object_movement.h"
 #include "evolution_fixes.h"
+#include "power_score.h"
 #include "evolution_scene.h"
 #include "field_player_avatar.h"
 #include "field_specials.h"
@@ -3374,6 +3375,53 @@ bool32 SpeciesHasEggMove(enum Species species, enum Move move)
     return FALSE;
 }
 
+// Phase 11A.6 (docs/SPEC.md "Generation filters"): "evolution never bypasses
+// the mask" - when a target species' generation is disabled, drop that
+// branch so the latest enabled stage becomes the line's run-long endpoint.
+// Fast-pathed away entirely while every generation is enabled (the default),
+// so the common case costs nothing extra.
+//
+// A small ring of scratch buffers, not one shared buffer: several callers
+// (power_score.c's BestFinalRaw, ability_gen.c's BuildFamilyRoots) hold a
+// GetSpeciesEvolutions() result while iterating it and call
+// GetSpeciesEvolutions() again for each target species in that same loop
+// (BestFinalRaw recurses up to 5 levels deep) - a single shared buffer would
+// have the inner call silently overwrite the outer call's still-in-use
+// array. The ring is sized past that worst case with a spare level of
+// margin.
+#define EVO_FILTER_MAX  8 // Eevee's 8 stone branches are the widest case in this dataset
+#define EVO_FILTER_RING 6 // > BestFinalRaw's 5 simultaneously-open recursion levels
+
+static const struct Evolution *FilterEvolutionsByGeneration(const struct Evolution *evolutions)
+{
+    static EWRAM_DATA struct Evolution sFilterRing[EVO_FILTER_RING][EVO_FILTER_MAX + 1];
+    static EWRAM_DATA u32 sFilterRingNext = 0;
+    struct Evolution *out;
+    u32 i, count = 0;
+
+    if (evolutions == NULL || !PowerScore_AnyGenerationDisabled())
+        return evolutions;
+
+    out = sFilterRing[sFilterRingNext];
+    sFilterRingNext = (sFilterRingNext + 1) % EVO_FILTER_RING;
+
+    for (i = 0; evolutions[i].method != EVOLUTIONS_END && count < EVO_FILTER_MAX; i++)
+    {
+        enum Species t = evolutions[i].targetSpecies;
+        // Guard before touching gSpeciesInfo, same as every other reader of
+        // an evolution's target in this codebase: a disabled id (the
+        // dataless SPECIES_LUGIA_SHADOW) has no data to classify.
+        bool32 targetGenDisabled = evolutions[i].method != EVO_NONE && t != SPECIES_NONE
+                                 && t < NUM_SPECIES && IsSpeciesEnabled(t)
+                                 && !IsSpeciesGenerationEnabled(t);
+        if (targetGenDisabled)
+            continue;
+        out[count++] = evolutions[i];
+    }
+    out[count].method = EVOLUTIONS_END;
+    return out;
+}
+
 const struct Evolution *GetSpeciesEvolutions(enum Species species)
 {
     const struct Evolution *evolutions;
@@ -3384,13 +3432,13 @@ const struct Evolution *GetSpeciesEvolutions(enum Species species)
     // a small override table replaces the stock evolutions for species that
     // can't otherwise reach their final form in single-player.
     evolutions = EvoFix_GetOverride(species);
-    if (evolutions != NULL)
-        return evolutions;
-
-    evolutions = gSpeciesInfo[species].evolutions;
     if (evolutions == NULL)
-        return gSpeciesInfo[SPECIES_NONE].evolutions;
-    return evolutions;
+    {
+        evolutions = gSpeciesInfo[species].evolutions;
+        if (evolutions == NULL)
+            evolutions = gSpeciesInfo[SPECIES_NONE].evolutions;
+    }
+    return FilterEvolutionsByGeneration(evolutions);
 }
 
 const u16 *GetSpeciesFormTable(enum Species species)

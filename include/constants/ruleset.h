@@ -23,8 +23,20 @@
 //       RANDOMIZER_VERSION mismatch (not just RULESET_VERSION) now forces the
 //       same full reinit, so a run's generated world can never straddle two
 //       randomizer versions.
-#define RULESET_VERSION 4
-#define RANDOMIZER_VERSION 2
+//   v5: Phase 11A.6 appends the nine SETTING_GEN_N_ENABLED rows (Gen 1-9
+//       filter, all default ON) after NUM_SETTINGS's previous end - an
+//       append, so this alone would not need a version bump, but
+//       RANDOMIZER_VERSION's bump (below) already forces the same reinit.
+#define RULESET_VERSION 5
+// Phase 11A.6: PickReplacementCoreExcluding (src/randomizer.c) and
+// GenerateWeighted (src/learnset_gen.c) moved from a two-pass count+pick
+// selection to single-pass reservoir sampling - same selection
+// distribution, different RNG draw sequence for a given seed. The new
+// generation mask and evolution-mask filtering also change what a given
+// seed generates. A save from RANDOMIZER_VERSION 2 must not mix old and new
+// generation logic, so this bump forces the same full reinit as a
+// RULESET_VERSION change.
+#define RANDOMIZER_VERSION 3
 
 // ----------------------------------------------------------------------------
 // Presets
@@ -50,6 +62,7 @@ enum RulesetPreset
 enum SettingCategory
 {
     SETTING_CAT_PRESET_SEED,
+    SETTING_CAT_GENERATIONS,
     SETTING_CAT_SPECIES_POOL,
     SETTING_CAT_WILD,
     SETTING_CAT_STARTERS,
@@ -266,6 +279,18 @@ enum SettingId
     // Phase 11A virtual action rows. Existing stored ids above remain stable.
     SETTING_SPECIES_BANS,
     SETTING_RESTORE_ALL,
+
+    // -- Generations -- (Phase 11A.6, generation-locked; append-only, ids
+    // above remain stable)
+    SETTING_GEN_1_ENABLED,
+    SETTING_GEN_2_ENABLED,
+    SETTING_GEN_3_ENABLED,
+    SETTING_GEN_4_ENABLED,
+    SETTING_GEN_5_ENABLED,
+    SETTING_GEN_6_ENABLED,
+    SETTING_GEN_7_ENABLED,
+    SETTING_GEN_8_ENABLED,
+    SETTING_GEN_9_ENABLED,
 
     NUM_SETTINGS,
 };

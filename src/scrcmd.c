@@ -2465,7 +2465,14 @@ bool8 ScrCmd_cleartrainerflag(struct ScriptContext *ctx)
 
 bool8 ScrCmd_setwildbattle(struct ScriptContext *ctx)
 {
-    u32 sourceKey = (u32)ctx->scriptPtr - ROM_START;
+    // Phase 11A.6: a raw ROM address shifts whenever unrelated script code
+    // elsewhere is edited, silently reshuffling every setwildbattle result in
+    // the game even though nothing about this call site changed. Use a
+    // stable map+last-talked key instead, matching CreateEnemyEventMon's
+    // static-encounter key (src/pokemon.c).
+    u32 sourceKey = ((u32)gSaveBlock1Ptr->location.mapGroup << 24)
+                  | ((u32)gSaveBlock1Ptr->location.mapNum << 16)
+                  | gSpecialVar_LastTalked;
     enum Species species = ScriptReadHalfword(ctx);
     u8 level = ScriptReadByte(ctx);
     enum Item item = ScriptReadHalfword(ctx);

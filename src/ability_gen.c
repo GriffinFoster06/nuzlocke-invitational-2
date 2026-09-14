@@ -14,12 +14,14 @@
 
 #include "global.h"
 #include "ability_gen.h"
+#include "malloc.h"
 #include "pokemon.h"
 #include "random.h"
 #include "run_rng.h"
 #include "ruleset.h"
 #include "constants/abilities.h"
 #include "constants/characters.h"
+#include "constants/pokedex.h"
 #include "constants/pokemon.h"
 #include "constants/ruleset.h"
 #include "constants/species.h"
@@ -41,9 +43,22 @@ static EWRAM_DATA bool8 sBuilding = FALSE; // re-entrancy guard: the build walks
 
 static u32 CurrentSignature(void)
 {
+    // Phase 11A.6: BuildFamilyRoots() walks GetSpeciesEvolutions(), which is
+    // now generation-mask-filtered, so a mask change must invalidate this
+    // cache exactly like a ruleset-toggle change does.
+    u32 genMask = 0;
+    u32 gen;
+
+    for (gen = 0; gen < 9; gen++)
+    {
+        if (GetRulesetSetting(SETTING_GEN_1_ENABLED + gen))
+            genMask |= (1u << gen);
+    }
+
     return ((u32)GetRulesetSetting(SETTING_ABILITY_RANDOMIZATION))
          ^ ((u32)GetRulesetSetting(SETTING_ABILITY_EVO_CONSISTENCY) << 4)
          ^ ((u32)GetRulesetSetting(SETTING_WONDER_GUARD_MODE) << 8)
+         ^ (genMask << 12)
          ^ GetRunSeed();
 }
 
@@ -69,12 +84,28 @@ static bool32 AbilityEligible(enum Ability ability)
 
 // ---- build ---------------------------------------------------------------
 
+// Repoint every species currently rooted at `from` to `to` (a small,
+// bounded-count union - see the National-Dex-linking pass below).
+static void UnionFamilyRoots(u16 from, u16 to)
+{
+    enum Species u;
+
+    if (from == to)
+        return;
+    for (u = 1; u < NUM_SPECIES; u++)
+    {
+        if (IsSpeciesEnabled(u) && sFamilyRoot[u] == from)
+            sFamilyRoot[u] = to;
+    }
+}
+
 // Forward pass: for every species, record it as the parent of each of its
 // evolution targets, then walk each species up to its root.
 static void BuildFamilyRoots(void)
 {
     enum Species s;
     u32 i, depth;
+    u16 *dexRoot;
 
     for (s = 0; s < NUM_SPECIES; s++)
         sFamilyRoot[s] = s;   // a species with no pre-evolution is its own root
@@ -107,6 +138,35 @@ static void BuildFamilyRoots(void)
             root = sFamilyRoot[root];
 
         sFamilyRoot[s] = root;
+    }
+
+    // Phase 11A.6: union any two evolution families that share a National
+    // Dex number (regional forms and other alternate forms sharing a base
+    // species' dex entry) into one family. This is what lets
+    // AbilityGen_FamilyRoot() also answer Nuzlocke's Dupes Clause "same
+    // species" question without nuzlocke.c re-deriving it per encounter.
+    // One O(NUM_SPECIES) scan with an O(NATIONAL_DEX_COUNT) scratch table to
+    // find same-dex pairs, plus a small, bounded number of O(NUM_SPECIES)
+    // unions (regional/alternate forms are a few dozen species, not
+    // thousands) - a one-time run-start cost, never repeated per encounter.
+    dexRoot = AllocZeroed(sizeof(u16) * (NATIONAL_DEX_COUNT + 1));
+    if (dexRoot != NULL)
+    {
+        for (s = 1; s < NUM_SPECIES; s++)
+        {
+            enum NationalDexOrder dex;
+
+            if (!IsSpeciesEnabled(s))
+                continue;
+            dex = SpeciesToNationalPokedexNum(s);
+            if (dex == NATIONAL_DEX_NONE || dex > NATIONAL_DEX_COUNT)
+                continue;
+            if (dexRoot[dex] == 0)
+                dexRoot[dex] = sFamilyRoot[s] + 1; // +1: 0 means "unseen"
+            else if (sFamilyRoot[s] != dexRoot[dex] - 1)
+                UnionFamilyRoots(sFamilyRoot[s], dexRoot[dex] - 1);
+        }
+        Free(dexRoot);
     }
 }
 
@@ -142,6 +202,20 @@ void AbilityGen_EnsureBuilt(void)
 void AbilityGen_Invalidate(void)
 {
     sBuilt = FALSE;
+}
+
+// Phase 11A.6: exposes the family-root map (see include/ability_gen.h) for
+// callers other than this module's own ability selection - currently
+// src/nuzlocke.c's Dupes Clause. Safe regardless of SETTING_ABILITY_RANDOMIZATION;
+// triggers the build itself.
+enum Species AbilityGen_FamilyRoot(enum Species species)
+{
+    if (species == SPECIES_NONE || species >= NUM_SPECIES || !IsSpeciesEnabled(species))
+        return species;
+    AbilityGen_EnsureBuilt();
+    if (!sBuilt)
+        return species; // build failed (out of heap); no family linking this call
+    return sFamilyRoot[species];
 }
 
 // ---- queries -------------------------------------------------------------

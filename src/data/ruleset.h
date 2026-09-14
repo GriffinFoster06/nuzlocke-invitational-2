@@ -142,6 +142,7 @@ static const u8 *const sLbl_BattleSpeed[] =
 static const u8 *const sSettingCategoryNames[SETTING_CAT_COUNT] =
 {
     [SETTING_CAT_PRESET_SEED]  = COMPOUND_STRING("Preset & Seed"),
+    [SETTING_CAT_GENERATIONS]  = COMPOUND_STRING("Generations"),
     [SETTING_CAT_SPECIES_POOL] = COMPOUND_STRING("Species Pool"),
     [SETTING_CAT_WILD]         = COMPOUND_STRING("Wild & Encounters"),
     [SETTING_CAT_STARTERS]     = COMPOUND_STRING("Starters, Gifts & Statics"),
@@ -489,6 +490,27 @@ static const struct SettingDescriptor sSettingDescriptors[NUM_SETTINGS] =
     [SETTING_RESTORE_ALL] = DESC_BOOL(SETTING_CAT_PRESET_SEED, FREE, 0, SETTING_FLAG_NOT_RULESET,
         "Restore All",
         "Restore the entire configuration to the selected preset."),
+
+    // -- Generations -- (default ALL ON; disabling one removes its
+    // species/forms from every randomized pool and evolution path)
+    [SETTING_GEN_1_ENABLED] = DESC_BOOL(SETTING_CAT_GENERATIONS, GEN, 1, SETTING_FLAG_NONE,
+        "Generation 1", "Allow Generation 1 species and forms."),
+    [SETTING_GEN_2_ENABLED] = DESC_BOOL(SETTING_CAT_GENERATIONS, GEN, 1, SETTING_FLAG_NONE,
+        "Generation 2", "Allow Generation 2 species and forms."),
+    [SETTING_GEN_3_ENABLED] = DESC_BOOL(SETTING_CAT_GENERATIONS, GEN, 1, SETTING_FLAG_NONE,
+        "Generation 3", "Allow Generation 3 species and forms."),
+    [SETTING_GEN_4_ENABLED] = DESC_BOOL(SETTING_CAT_GENERATIONS, GEN, 1, SETTING_FLAG_NONE,
+        "Generation 4", "Allow Generation 4 species and forms."),
+    [SETTING_GEN_5_ENABLED] = DESC_BOOL(SETTING_CAT_GENERATIONS, GEN, 1, SETTING_FLAG_NONE,
+        "Generation 5", "Allow Generation 5 species and forms."),
+    [SETTING_GEN_6_ENABLED] = DESC_BOOL(SETTING_CAT_GENERATIONS, GEN, 1, SETTING_FLAG_NONE,
+        "Generation 6", "Allow Generation 6 species and forms."),
+    [SETTING_GEN_7_ENABLED] = DESC_BOOL(SETTING_CAT_GENERATIONS, GEN, 1, SETTING_FLAG_NONE,
+        "Generation 7", "Allow Generation 7 species and forms."),
+    [SETTING_GEN_8_ENABLED] = DESC_BOOL(SETTING_CAT_GENERATIONS, GEN, 1, SETTING_FLAG_NONE,
+        "Generation 8", "Allow Generation 8 species and forms."),
+    [SETTING_GEN_9_ENABLED] = DESC_BOOL(SETTING_CAT_GENERATIONS, GEN, 1, SETTING_FLAG_NONE,
+        "Generation 9", "Allow Generation 9 species and forms."),
 };
 
 #undef DESC_BOOL

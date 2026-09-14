@@ -21,6 +21,7 @@
 #include "main.h"
 #include "malloc.h"
 #include "menu.h"
+#include "overworld.h"
 #include "palette.h"
 #include "pokedex.h"
 #include "pokemon.h"
@@ -35,6 +36,7 @@
 #include "window.h"
 #include "ruleset.h"
 #include "ruleset_menu.h"
+#include "constants/characters.h"
 #include "constants/rgb.h"
 #include "constants/songs.h"
 
@@ -68,13 +70,24 @@ struct RulesetMenuState
     bool8 speciesBansOpen;
     u16 banSpecies;
     bool8 restoreConfirm;
+    // Phase 11A.6: New-Game-only pre-run wizard mode (see
+    // RulesetMenu_EnterNewGameWizard). Restricts the visible rows to
+    // generation-locked settings and adds the Start-Game confirmation
+    // overlay below; the in-run Start Menu -> RULES path never sets this.
+    bool8 wizardMode;
+    bool8 wizardConfirmOpen;
 };
 
 static EWRAM_DATA struct RulesetMenuState *sState = NULL;
+// Set by RulesetMenu_EnterNewGameWizard() just before switching into
+// CB2_InitRulesetMenu; consumed once at state-4 allocation so a later,
+// ordinary Start Menu -> RULES open is never accidentally in wizard mode.
+static bool8 sPendingWizardMode = FALSE;
 
 static void Task_RulesetMenuFadeInReal(u8 taskId);
 static void Task_RulesetMenuProcessInput(u8 taskId);
 static void Task_RulesetMenuFadeOut(u8 taskId);
+static void Task_RulesetMenuFadeOutToNewGame(u8 taskId);
 
 // docs/SPEC.md "Run seed": Run Information shows the active ruleset, its stored
 // format versions (so a seed stays reproducible across ROM updates), and the
@@ -89,6 +102,13 @@ static const u8 sText_Confirm[]       = _("Confirm");
 static const u8 sText_SeedEdit[]      = _("Edit 0x{STR_VAR_1} nibble {STR_VAR_2}\n{DPAD_LEFTRIGHT} select {DPAD_UPDOWN} change A save B cancel");
 static const u8 sText_BanControls[]   = _("National Dex order\nA toggle  START clear all  B return");
 static const u8 sText_RestoreConfirm[] = _("Press A again to restore every setting; B cancels.");
+
+// Phase 11A.6: New-Game-only wizard confirmation overlay (see
+// RulesetMenu_EnterNewGameWizard / RulesetMenu_DrawWizardConfirm below).
+static const u8 sText_WizardConfirmFmt[] = _("Preset: {STR_VAR_1}\nSeed: 0x{STR_VAR_2}\nGenerations: {STR_VAR_3}");
+static const u8 sText_WizardControls[]  = _("A start game   B back");
+static const u8 sText_WizardBlocked[]   = _("Enable at least one generation to start.");
+static const u8 sText_WizardNone[]      = _("none");
 
 static const struct BgTemplate sRulesetMenuBgTemplates[] =
 {
@@ -253,6 +273,31 @@ static void RulesetMenu_MoveCursor(s32 itemIndex, bool8 onInit, struct ListMenu 
     RulesetMenu_DrawDescription(itemIndex);
 }
 
+// Phase 11A.6: true when `category` has at least one row the wizard would
+// show (a SETTING_LOCK_GENERATION setting, or SETTING_PRESET) - used both by
+// the row filter below and by the wizard's L/R category-skip logic, so the
+// two never disagree about which categories are non-empty.
+static bool32 RulesetMenu_RowVisibleInWizard(u32 settingId)
+{
+    return settingId == SETTING_PRESET
+        || GetSettingDescriptor(settingId)->lockClass == SETTING_LOCK_GENERATION;
+}
+
+static bool32 CategoryHasWizardRows(u32 category)
+{
+    u32 i;
+
+    for (i = 0; i < NUM_SETTINGS; i++)
+    {
+        if (GetSettingDescriptor(i)->category != category
+         || (GetSettingDescriptor(i)->flags & SETTING_FLAG_HIDDEN))
+            continue;
+        if (RulesetMenu_RowVisibleInWizard(i))
+            return TRUE;
+    }
+    return FALSE;
+}
+
 // Populate rowSettingIds/listItems/rowText for the current category and (re)init
 // the list-menu task.
 static void RulesetMenu_BuildCategory(bool8 firstBuild)
@@ -265,6 +310,14 @@ static void RulesetMenu_BuildCategory(bool8 firstBuild)
     {
         if (GetSettingDescriptor(i)->category != sState->category
          || (GetSettingDescriptor(i)->flags & SETTING_FLAG_HIDDEN))
+            continue;
+        // Phase 11A.6: the New-Game-only wizard (see
+        // RulesetMenu_EnterNewGameWizard) shows only settings that must be
+        // locked before the seed rolls, plus SETTING_PRESET itself (its own
+        // lockClass is SETTING_LOCK_NONE, since it stays nudgeable mid-run
+        // via the ordinary RULES menu, but choosing a preset is still part
+        // of the pre-run flow, so the wizard always shows that one row).
+        if (sState->wizardMode && !RulesetMenu_RowVisibleInWizard(i))
             continue;
         sState->rowSettingIds[count] = i;
         count++;
@@ -484,6 +537,86 @@ static void RulesetMenu_ProcessSeedEditor(void)
     RulesetMenu_DrawDescription(RulesetMenu_CurrentRow());
 }
 
+// Phase 11A.6: New-Game-only wizard confirmation overlay. Modeled on the
+// species-ban sub-screen above: draws directly into RSWIN_LIST/RSWIN_DESC
+// (no ListMenu) and is dispatched from Task_RulesetMenuProcessInput before
+// any other input path, exactly like sState->speciesBansOpen.
+static bool32 RulesetMenu_AnyGenerationEnabled(void)
+{
+    u32 gen;
+
+    for (gen = 0; gen < 9; gen++)
+    {
+        if (GetRulesetSetting(SETTING_GEN_1_ENABLED + gen))
+            return TRUE;
+    }
+    return FALSE;
+}
+
+static void RulesetMenu_BuildEnabledGenString(u8 *dst)
+{
+    u32 gen;
+    u32 n = 0;
+
+    for (gen = 0; gen < 9; gen++)
+    {
+        if (GetRulesetSetting(SETTING_GEN_1_ENABLED + gen))
+        {
+            if (n > 0)
+                dst[n++] = CHAR_COMMA;
+            dst[n++] = CHAR_0 + (gen + 1); // gens are 1-9: always a single digit
+        }
+    }
+    dst[n] = EOS;
+    if (n == 0)
+        StringCopy(dst, sText_WizardNone);
+}
+
+static void RulesetMenu_DrawWizardConfirm(void)
+{
+    u8 genBuf[32];
+
+    FillWindowPixelBuffer(sState->windowIds[RSWIN_LIST], PIXEL_FILL(1));
+    StringCopy(gStringVar1, GetRulesetPresetName(GetDisplayedRulesetPreset()));
+    ConvertIntToHexStringN(gStringVar2, GetRunSeed(), STR_CONV_MODE_LEADING_ZEROS, 8);
+    RulesetMenu_BuildEnabledGenString(genBuf);
+    StringCopy(gStringVar3, genBuf);
+    StringExpandPlaceholders(gStringVar4, sText_WizardConfirmFmt);
+    AddTextPrinterParameterized(sState->windowIds[RSWIN_LIST], FONT_NARROW, gStringVar4, 0, 0, TEXT_SKIP_DRAW, NULL);
+    CopyWindowToVram(sState->windowIds[RSWIN_LIST], COPYWIN_FULL);
+
+    FillWindowPixelBuffer(sState->windowIds[RSWIN_DESC], PIXEL_FILL(1));
+    AddTextPrinterParameterized(sState->windowIds[RSWIN_DESC], FONT_SMALL,
+        RulesetMenu_AnyGenerationEnabled() ? sText_WizardControls : sText_WizardBlocked,
+        0, 0, TEXT_SKIP_DRAW, NULL);
+    CopyWindowToVram(sState->windowIds[RSWIN_DESC], COPYWIN_FULL);
+}
+
+static void RulesetMenu_ProcessWizardConfirm(u8 taskId)
+{
+    if (JOY_NEW(B_BUTTON))
+    {
+        PlaySE(SE_SELECT);
+        sState->wizardConfirmOpen = FALSE;
+        RulesetMenu_BuildCategory(FALSE);
+    }
+    else if (JOY_NEW(A_BUTTON))
+    {
+        // Fail-safe UI guard (docs/SPEC.md): a fully-empty generation mask
+        // must never reach gameplay, even though every randomizer pool
+        // already falls back to vanilla on its own if it somehow did.
+        if (!RulesetMenu_AnyGenerationEnabled())
+        {
+            PlaySE(SE_FAILURE);
+            return;
+        }
+        PlaySE(SE_SELECT);
+        RulesetSettings_MarkPreconfigured();
+        BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
+        gTasks[taskId].func = Task_RulesetMenuFadeOutToNewGame;
+    }
+}
+
 // ---------------------------------------------------------------------------
 
 static void Task_RulesetMenuFadeInReal(u8 taskId)
@@ -504,10 +637,31 @@ static void Task_RulesetMenuFadeOut(u8 taskId)
     }
 }
 
+// Phase 11A.6: wizard "Start Game" exit path. Unlike Task_RulesetMenuFadeOut
+// (which returns to whatever screen opened the ordinary RULES menu), this
+// always proceeds into CB2_NewGame - the wizard is only ever entered from
+// the New-Game chain (see RulesetMenu_EnterNewGameWizard), never mid-run.
+static void Task_RulesetMenuFadeOutToNewGame(u8 taskId)
+{
+    if (!gPaletteFade.active)
+    {
+        DestroyListMenuTask(sState->listTaskId, NULL, NULL);
+        DestroyTask(taskId);
+        FreeAllWindowBuffers();
+        TRY_FREE_AND_SET_NULL(sState);
+        SetMainCallback2(CB2_NewGame);
+    }
+}
+
 static void Task_RulesetMenuProcessInput(u8 taskId)
 {
     s32 settingId;
 
+    if (sState->wizardConfirmOpen)
+    {
+        RulesetMenu_ProcessWizardConfirm(taskId);
+        return;
+    }
     if (sState->speciesBansOpen)
     {
         RulesetMenu_ProcessSpeciesBans();
@@ -535,7 +689,7 @@ static void Task_RulesetMenuProcessInput(u8 taskId)
         return;
     }
 
-    if (JOY_NEW(B_BUTTON))
+    if (!sState->wizardMode && JOY_NEW(B_BUTTON))
     {
         BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
         gTasks[taskId].func = Task_RulesetMenuFadeOut;
@@ -544,19 +698,40 @@ static void Task_RulesetMenuProcessInput(u8 taskId)
 
     if (JOY_NEW(L_BUTTON) || JOY_NEW(R_BUTTON))
     {
+        bool8 forward = JOY_NEW(R_BUTTON) ? TRUE : FALSE;
+        u32 tries;
+
         PlaySE(SE_SELECT);
-        if (JOY_NEW(L_BUTTON))
-            sState->category = (sState->category == 0) ? SETTING_CAT_COUNT - 1 : sState->category - 1;
-        else
-            sState->category = (sState->category + 1 == SETTING_CAT_COUNT) ? 0 : sState->category + 1;
+        // Phase 11A.6: in wizard mode, skip any category that has nothing the
+        // wizard would show, instead of landing on a visibly empty page.
+        // Bounded by SETTING_CAT_COUNT so a fully-empty config (should not
+        // happen; SETTING_PRESET's own category always qualifies) cannot loop.
+        for (tries = 0; tries < SETTING_CAT_COUNT; tries++)
+        {
+            if (forward)
+                sState->category = (sState->category + 1 == SETTING_CAT_COUNT) ? 0 : sState->category + 1;
+            else
+                sState->category = (sState->category == 0) ? SETTING_CAT_COUNT - 1 : sState->category - 1;
+            if (!sState->wizardMode || CategoryHasWizardRows(sState->category))
+                break;
+        }
         RulesetMenu_BuildCategory(FALSE);
         return;
     }
 
     if (JOY_NEW(START_BUTTON))
     {
-        PlaySE(NudgeRulesetSetting(SETTING_PRESET, 1) ? SE_SELECT : SE_FAILURE);
-        RulesetMenu_BuildCategory(FALSE);
+        if (sState->wizardMode)
+        {
+            PlaySE(SE_SELECT);
+            sState->wizardConfirmOpen = TRUE;
+            RulesetMenu_DrawWizardConfirm();
+        }
+        else
+        {
+            PlaySE(NudgeRulesetSetting(SETTING_PRESET, 1) ? SE_SELECT : SE_FAILURE);
+            RulesetMenu_BuildCategory(FALSE);
+        }
         return;
     }
 
@@ -681,6 +856,12 @@ void CB2_InitRulesetMenu(void)
         break;
     case 4:
         sState = AllocZeroed(sizeof(*sState));
+        // Phase 11A.6: consumed once here, never left set for a later,
+        // ordinary Start Menu -> RULES open. Category 0 (SETTING_CAT_PRESET_SEED)
+        // always has at least one wizard-visible row (SETTING_PRESET itself),
+        // so no extra "find a non-empty starting category" search is needed.
+        sState->wizardMode = sPendingWizardMode;
+        sPendingWizardMode = FALSE;
         sState->category = 0;
 
         for (i = 0; i < RSWIN_COUNT; i++)
@@ -718,4 +899,24 @@ void CB2_InitRulesetMenu(void)
         return;
     }
     }
+}
+
+// Phase 11A.6: entry point for the New-Game-only pre-run settings wizard
+// (see docs/SPEC.md / the struct RulesetMenuState comment above). Call this
+// in place of SetMainCallback2(CB2_NewGame) from the fresh-New-Game chain
+// (src/main_menu.c Task_NewGameBirchSpeech_Cleanup) only. Do NOT call it
+// from the Nuzlocke whiteout-retry path (src/nuzlocke_run_over.c) - that
+// flow must keep going straight to CB2_NewGame so it silently reuses its
+// already-stashed settings, untouched by this wizard.
+//
+// ResetRulesetSettings() here gives the wizard a fresh default preset and a
+// newly auto-rolled seed to show/edit; RulesetSettings_MarkPreconfigured()
+// (called from RulesetMenu_ProcessWizardConfirm on Start Game) then tells
+// NewGameInitData() to skip its own unconditional reset, so the player's
+// wizard edits survive into the actual save init.
+void RulesetMenu_EnterNewGameWizard(void)
+{
+    ResetRulesetSettings();
+    sPendingWizardMode = TRUE;
+    SetMainCallback2(CB2_InitRulesetMenu);
 }

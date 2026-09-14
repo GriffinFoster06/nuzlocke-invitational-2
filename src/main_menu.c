@@ -28,6 +28,7 @@
 #include "pokemon.h"
 #include "random.h"
 #include "rtc.h"
+#include "ruleset_menu.h"
 #include "save.h"
 #include "scanline_effect.h"
 #include "sound.h"
@@ -1814,7 +1815,12 @@ static void Task_NewGameBirchSpeech_Cleanup(u8 taskId)
         FreeAllWindowBuffers();
         FreeAndDestroyMonPicSprite(gTasks[taskId].tLotadSpriteId);
         ResetAllPicSprites();
-        SetMainCallback2(CB2_NewGame);
+        // Phase 11A.6: a genuinely fresh New Game goes through the
+        // New-Game-only pre-run settings wizard (generation mask, preset,
+        // seed) before CB2_NewGame; the Nuzlocke whiteout-retry path
+        // (nuzlocke_run_over.c) reaches CB2_NewGame directly and is
+        // unaffected, so it keeps silently reusing its stashed settings.
+        RulesetMenu_EnterNewGameWizard();
         DestroyTask(taskId);
     }
 }

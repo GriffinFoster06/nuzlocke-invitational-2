@@ -164,35 +164,33 @@ static enum Species PickReplacementCoreExcluding(rng_value_t *st, enum Species v
 
     for (i = 0; i < rungs; i++)
     {
-        u32 count = 0, pick;
+        // Phase 11A.6: reservoir sampling (Algorithm R) - a single pass over
+        // NUM_SPECIES instead of a count pass followed by a pick pass. Each
+        // accepted candidate replaces the running choice with probability
+        // 1/count-so-far, which is exactly uniform over every candidate this
+        // rung accepts. This changes the RNG draw sequence for a given seed
+        // relative to the old two-pass selector (RANDOMIZER_VERSION bumped).
+        u32 count = 0;
+        enum Species chosen = SPECIES_NONE;
         enum Species s;
 
         for (s = 1; s < NUM_SPECIES; s++)
         {
             if (!InPool(s, kind) || SpeciesIsExcluded(s, excluded, excludedCount))
                 continue;
-            if (RungAccepts(&ladder[i], s, mode, target, tgtStage))
-                count++;
+            if (!RungAccepts(&ladder[i], s, mode, target, tgtStage))
+                continue;
+            count++;
+            if (LocalRandom32(st) % count == 0)
+                chosen = s;
         }
         if (count == 0)
             continue;
 
-        pick = LocalRandom32(st) % count;
-        for (s = 1; s < NUM_SPECIES; s++)
-        {
-            if (!InPool(s, kind) || SpeciesIsExcluded(s, excluded, excludedCount))
-                continue;
-            if (!RungAccepts(&ladder[i], s, mode, target, tgtStage))
-                continue;
-            if (pick == 0)
-            {
-                // Backstop: InPool() already excludes anything not power-eligible
-                // (and 1435 is never eligible), but keep the guarantee local to
-                // the one return point in case the score cache is ever stale.
-                return IsSpeciesEnabled(s) ? s : vanilla;
-            }
-            pick--;
-        }
+        // Backstop: InPool() already excludes anything not power-eligible
+        // (and 1435 is never eligible), but keep the guarantee local to the
+        // one return point in case the score cache is ever stale.
+        return IsSpeciesEnabled(chosen) ? chosen : vanilla;
     }
     return vanilla;
 }
@@ -212,14 +210,78 @@ static enum Species PickReplacement(rng_value_t *st, enum Species vanilla, enum 
 
 // ---- wild encounters --------------------------------------------------------
 
+// Phase 11A.6: Randomizer_WildSlotSpecies(info, slot, vanilla) is a pure
+// function of (info->slotSeed, slot, run seed, locked settings) for the
+// whole run - the Deterministic World Principle guarantees a table's slot
+// mapping can never change once generation settings are locked. Without a
+// cache, NuzlockeChooseNonDupeSlot (src/wild_encounter.c) and the Pokedex
+// area-search screen both re-run the full O(NUM_SPECIES) selector for the
+// same (table, slot) every single time the player revisits a route - the
+// single largest source of the pre-battle pause. Cache a handful of
+// recently-touched tables (LRU), each holding up to
+// NUM_LAND_MONS_ENCOUNTER_SLOTS resolved slots, resolved lazily on first
+// query. Small and bounded: 6 lines x 12 slots x u16 plus tags/LRU, well
+// under 300 bytes EWRAM.
+#define WILD_SLOT_CACHE_LINES 6
+#define WILD_SLOT_CACHE_SLOTS NUM_LAND_MONS_ENCOUNTER_SLOTS // 12; covers every area/rod range
+
+static EWRAM_DATA u32 sWildSlotCacheTag[WILD_SLOT_CACHE_LINES] = {0}; // slotSeed + 1; 0 == empty line
+static EWRAM_DATA u16 sWildSlotCacheSpecies[WILD_SLOT_CACHE_LINES][WILD_SLOT_CACHE_SLOTS];
+static EWRAM_DATA u16 sWildSlotCacheValidBits[WILD_SLOT_CACHE_LINES] = {0}; // bit per resolved slot
+static EWRAM_DATA u32 sWildSlotCacheLru[WILD_SLOT_CACHE_LINES] = {0};
+static EWRAM_DATA u32 sWildSlotCacheClock = 0;
+
+void Randomizer_InvalidateWildSlotCache(void)
+{
+    u32 i;
+    for (i = 0; i < WILD_SLOT_CACHE_LINES; i++)
+        sWildSlotCacheTag[i] = 0;
+}
+
+// Returns the cache line for `tag` (a table's slotSeed+1), creating/evicting
+// one if this table isn't already resident.
+static u32 FindOrClaimWildSlotCacheLine(u32 tag)
+{
+    u32 i, victim;
+
+    for (i = 0; i < WILD_SLOT_CACHE_LINES; i++)
+    {
+        if (sWildSlotCacheTag[i] == tag)
+        {
+            sWildSlotCacheLru[i] = ++sWildSlotCacheClock;
+            return i;
+        }
+    }
+
+    victim = 0;
+    for (i = 1; i < WILD_SLOT_CACHE_LINES; i++)
+    {
+        if (sWildSlotCacheLru[i] < sWildSlotCacheLru[victim])
+            victim = i;
+    }
+    sWildSlotCacheTag[victim] = tag;
+    sWildSlotCacheValidBits[victim] = 0;
+    sWildSlotCacheLru[victim] = ++sWildSlotCacheClock;
+    return victim;
+}
+
 enum Species Randomizer_WildSlotSpecies(const struct WildPokemonInfo *info, u32 slot, enum Species vanilla)
 {
     rng_value_t st;
+    u32 line = WILD_SLOT_CACHE_LINES; // sentinel: "don't cache this call"
+    enum Species result;
 
     if (info == NULL || !Randomizer_WildEnabled() || !IsReplaceableTarget(vanilla))
         return vanilla;
 
     PowerScore_EnsureBuilt();
+
+    if (slot < WILD_SLOT_CACHE_SLOTS)
+    {
+        line = FindOrClaimWildSlotCacheLine(info->slotSeed + 1);
+        if (sWildSlotCacheValidBits[line] & (1u << slot))
+            return sWildSlotCacheSpecies[line][slot];
+    }
 
     switch (GetRulesetSetting(SETTING_ENCOUNTER_MAPPING))
     {
@@ -239,7 +301,14 @@ enum Species Randomizer_WildSlotSpecies(const struct WildPokemonInfo *info, u32 
     // excludes category-banned species, not Premium ones; POOL_STRICT_ORDINARY
     // excludes both, so enabling a species-pool category toggle (e.g. Legendary)
     // can no longer leak that category into ordinary wild slots.
-    return PickReplacement(&st, vanilla, POOL_STRICT_ORDINARY);
+    result = PickReplacement(&st, vanilla, POOL_STRICT_ORDINARY);
+
+    if (line < WILD_SLOT_CACHE_LINES)
+    {
+        sWildSlotCacheSpecies[line][slot] = result;
+        sWildSlotCacheValidBits[line] |= (1u << slot);
+    }
+    return result;
 }
 
 u32 Randomizer_WildRateSlot(const struct WildPokemonInfo *info, enum WildPokemonArea area,
@@ -700,6 +769,11 @@ void Randomizer_ApplyTrainerParty(struct TrainerMon *entries, const u32 *sourceI
 
     if (entries == NULL || trainerId == TRAINER_NONE)
         return;
+    // partySize is a 3-bit authored field (max 7) but the party engine and
+    // this function's scratch array are both bounded by PARTY_SIZE (6); clamp
+    // defensively so an authored 7-mon party can never overflow vanillaSpecies.
+    if (count > PARTY_SIZE)
+        count = PARTY_SIZE;
 
     if (Randomizer_TrainerEnabled())
         PowerScore_EnsureBuilt();

@@ -188,6 +188,64 @@ TEST("Re-rolling the run seed reshuffles the encounter map")
     EXPECT_NE(a, b);
 }
 
+// Phase 11A.6 Deterministic World Principle: once (version, seed, locked
+// settings) match, the whole generated world must match too - starters,
+// wild slots, and trainer parties alike, independent of call order or of
+// whatever the wild-slot cache (src/randomizer.c) happens to hold from a
+// previous run. Re-applying the same settings/seed from scratch (as a real
+// New Game would via the wizard) must reproduce every result bit-for-bit.
+TEST("Same (version, seed, settings) reproduces starter trio, wild slots, and a trainer party identically")
+{
+    static const struct WildPokemon slots[3] =
+    {
+        { 5, 5, SPECIES_ZIGZAGOON },
+        { 5, 5, SPECIES_POOCHYENA },
+        { 5, 5, SPECIES_WINGULL },
+    };
+    struct WildPokemonInfo info = { 20, slots, 0xFEEDFACEu, 0x0BADBEEFu };
+    struct TrainerMon party[3];
+    u32 indices[3] = { 0, 1, 2 };
+    enum Species starterA[3], starterB[3];
+    enum Species wildA[3], wildB[3];
+    enum Species trainerA[3], trainerB[3];
+    u32 i, m;
+
+    for (i = 0; i < 3; i++)
+    {
+        // ---- Run A on the first pass, Run B on the second: identical
+        // inputs, rebuilt from scratch each time via the public API only
+        // (no direct cache pokes), exactly like two separate New Games.
+        UseBalancedRandomizerRuleset();
+        SetRunSeed(0x600DF00Du);
+
+        for (m = 0; m < 3; m++)
+            (i == 0 ? starterA : starterB)[m] = Randomizer_StarterSpecies(m);
+        for (m = 0; m < 3; m++)
+            (i == 0 ? wildA : wildB)[m] = Randomizer_WildSlotSpecies(&info, m, slots[m].species);
+
+        for (m = 0; m < 3; m++)
+        {
+            u32 mv;
+            party[m].species = slots[m].species;
+            party[m].lvl = 30;
+            party[m].ability = ABILITY_NONE;
+            for (mv = 0; mv < MAX_MON_MOVES; mv++)
+                party[m].moves[mv] = MOVE_NONE;
+        }
+        FlagClear(FLAG_IS_CHAMPION);
+        Randomizer_ApplyTrainerParty(party, indices, 3, TRAINER_ROXANNE_1, TRAINER_CLASS_LEADER);
+        for (m = 0; m < 3; m++)
+            (i == 0 ? trainerA : trainerB)[m] = party[m].species;
+    }
+
+    for (i = 0; i < 3; i++)
+    {
+        EXPECT_EQ(starterA[i], starterB[i]);
+        EXPECT_EQ(wildA[i], wildB[i]);
+        EXPECT_EQ(trainerA[i], trainerB[i]);
+    }
+}
+
 TEST("Disabling wild randomization returns the vanilla species untouched")
 {
     static const struct WildPokemon slots[1] = { { 5, 5, SPECIES_ZIGZAGOON } };

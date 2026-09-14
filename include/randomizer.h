@@ -32,6 +32,9 @@ enum Species Randomizer_WildSlotSpecies(const struct WildPokemonInfo *info, u32 
 u32 Randomizer_WildRateSlot(const struct WildPokemonInfo *info, enum WildPokemonArea area,
                             u8 rod, u32 slot);
 enum Species Randomizer_SpecialWildSpecies(enum Species vanilla, u32 sourceKey, u32 routeKey);
+// Phase 11A.6: drop the small per-table wild-slot species cache (a locked
+// setting moved, or the run seed changed - see include/run_rng.h).
+void Randomizer_InvalidateWildSlotCache(void);
 
 // Starters. `index` is 0..2; the three results are de-duplicated.
 enum Species Randomizer_StarterSpecies(u32 index);

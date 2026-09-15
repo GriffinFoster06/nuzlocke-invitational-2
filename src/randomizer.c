@@ -30,7 +30,13 @@
 // Per-category salts and the seed helper now live in include/run_rng.h so the
 // Phase 4 learnset generator shares one implementation.
 
-enum PoolKind { POOL_ORDINARY, POOL_STRICT_ORDINARY, POOL_PREMIUM, POOL_ORDINARY_OR_PREMIUM };
+// Phase 11D: POOL_ORDINARY (category-bans only, no Premium exclusion) removed
+// - every ordinary category (wild, trainer, starter, gift, ordinary static)
+// now uses POOL_STRICT_ORDINARY so a Premium species can only ever be
+// selected at a genuine Premium slot (docs/SPEC.md "Premium species
+// category"). This enum is internal to this file and never persisted, so
+// renumbering it has no save-compatibility impact.
+enum PoolKind { POOL_STRICT_ORDINARY, POOL_PREMIUM, POOL_ORDINARY_OR_PREMIUM };
 
 // ---- enable checks --------------------------------------------------------
 
@@ -60,9 +66,6 @@ static bool32 InPool(enum Species s, enum PoolKind kind)
     if (!IsSpeciesPowerEligible(s))
         return FALSE;
 
-    if (kind == POOL_ORDINARY)
-        return !IsSpeciesCategoryBanned(s);
-
     if (kind == POOL_STRICT_ORDINARY)
         return !IsSpeciesCategoryBanned(s) && !IsSpeciesPremium(s);
 
@@ -71,7 +74,6 @@ static bool32 InPool(enum Species s, enum PoolKind kind)
 
     switch (GetRulesetSetting(SETTING_PREMIUM_POOL_MODE))
     {
-    case PREMPOOL_SAME_AS_NORMAL:
     case PREMPOOL_ALL_LEGENDARY:
         return IsSpeciesPremium(s);
     case PREMPOOL_CURATED:
@@ -297,10 +299,12 @@ enum Species Randomizer_WildSlotSpecies(const struct WildPokemonInfo *info, u32 
         break;
     }
     // Phase 11B: docs/SPEC.md "Premium encounter balancing" - ordinary wild
-    // encounter slots never generate Premium species. POOL_ORDINARY only
-    // excludes category-banned species, not Premium ones; POOL_STRICT_ORDINARY
-    // excludes both, so enabling a species-pool category toggle (e.g. Legendary)
-    // can no longer leak that category into ordinary wild slots.
+    // encounter slots never generate Premium species. POOL_STRICT_ORDINARY
+    // excludes both category-banned and Premium species, so enabling a
+    // species-pool category toggle (e.g. Legendary) can no longer leak that
+    // category into ordinary wild slots. Phase 11D applied the same
+    // exclusion to every other ordinary category (starters, gifts, ordinary
+    // statics) - see Randomizer_StarterSpecies/GiftSpecies/StaticSpecies.
     result = PickReplacement(&st, vanilla, POOL_STRICT_ORDINARY);
 
     if (line < WILD_SLOT_CACHE_LINES)
@@ -387,7 +391,11 @@ static void ResolveStarterTrio(enum Species out[3])
 
         // Count-and-pick excludes prior choices directly, guaranteeing a
         // unique trio whenever the eligible rung contains three candidates.
-        out[i] = PickReplacementCoreExcluding(&st, vanilla, POOL_ORDINARY,
+        // Phase 11D: POOL_STRICT_ORDINARY, not POOL_ORDINARY - starters are
+        // an ordinary category and must never roll a Premium species
+        // (docs/SPEC.md "Premium species category" lists only Elite
+        // Four/Wallace/premium statics as eligible for Premium results).
+        out[i] = PickReplacementCoreExcluding(&st, vanilla, POOL_STRICT_ORDINARY,
                                                GetRulesetSetting(SETTING_POWER_MATCHING),
                                                EVOSTAGE_STRICT, out, i);
     }
@@ -537,7 +545,10 @@ enum Species Randomizer_GiftSpecies(enum Species vanilla, u8 level, u32 sourceKe
         return vanilla;
     PowerScore_EnsureBuilt();
     st = SeedFor(SALT_GIFT, sourceKey, vanilla, level);
-    return PickReplacement(&st, vanilla, POOL_ORDINARY);
+    // Phase 11D: POOL_STRICT_ORDINARY - gifts are an ordinary category and
+    // must never roll a Premium species (docs/SPEC.md "Premium species
+    // category").
+    return PickReplacement(&st, vanilla, POOL_STRICT_ORDINARY);
 }
 
 void Randomizer_ApplyGiftMonIVs(struct Pokemon *mon, enum Species vanilla, u32 sourceKey)
@@ -590,6 +601,28 @@ static bool32 VanillaIsPremiumTier(enum Species vanilla)
     return IsSpeciesPremium(vanilla);
 }
 
+// docs/SPEC.md "Premium encounter balancing": a Premium static draws uniformly
+// from the eligible Premium pool - no power ladder - and the slot's original
+// species always stays eligible, even when the curated pool's power floor
+// excludes it (Regirock/Regice/Registeel). The Gen mask, bans and form gating
+// still apply to the original through IsSpeciesPowerEligible.
+static enum Species PickPremiumStatic(rng_value_t *st, enum Species vanilla)
+{
+    u32 count = 0;
+    enum Species chosen = SPECIES_NONE;
+    enum Species s;
+
+    for (s = 1; s < NUM_SPECIES; s++)
+    {
+        if (!InPool(s, POOL_PREMIUM) && !(s == vanilla && IsSpeciesPowerEligible(s)))
+            continue;
+        count++;
+        if (LocalRandom32(st) % count == 0)
+            chosen = s;
+    }
+    return (count != 0 && IsSpeciesEnabled(chosen)) ? chosen : vanilla;
+}
+
 enum Species Randomizer_StaticSpecies(enum Species vanilla, u8 level, u32 sourceKey)
 {
     bool32 premium;
@@ -613,7 +646,12 @@ enum Species Randomizer_StaticSpecies(enum Species vanilla, u8 level, u32 source
 
     st = SeedFor(SALT_STATIC, sourceKey, ((u32)vanilla << 8) | level, 0);
 
-    return PickReplacement(&st, vanilla, premium ? POOL_PREMIUM : POOL_ORDINARY);
+    // Phase 11D: POOL_STRICT_ORDINARY for the non-Premium branch - an
+    // ordinary static (Sudowoodo, Kecleon, Voltorb...) must never roll a
+    // Premium species (docs/SPEC.md "Premium species category").
+    if (premium)
+        return PickPremiumStatic(&st, vanilla);
+    return PickReplacement(&st, vanilla, POOL_STRICT_ORDINARY);
 }
 
 enum Species Randomizer_RoamerSpecies(enum Species vanilla, u8 level, u32 roamerId)
@@ -631,7 +669,11 @@ enum Species Randomizer_RoamerSpecies(enum Species vanilla, u8 level, u32 roamer
         return vanilla;
 
     st = SeedFor(SALT_ROAMER, roamerId, ((u32)vanilla << 8) | level, 0);
-    return PickReplacement(&st, vanilla, premium ? POOL_PREMIUM : POOL_ORDINARY);
+    // Phase 11D: POOL_STRICT_ORDINARY for the (currently unreachable, but
+    // defensive) non-Premium branch - see Randomizer_StaticSpecies above.
+    if (premium)
+        return PickPremiumStatic(&st, vanilla);
+    return PickReplacement(&st, vanilla, POOL_STRICT_ORDINARY);
 }
 
 // ---- trainer parties -------------------------------------------------------
@@ -639,7 +681,7 @@ enum Species Randomizer_RoamerSpecies(enum Species vanilla, u8 level, u32 roamer
 // docs/SPEC.md "Trainer Pokemon": "Bosses use stricter power matching than
 // ordinary route trainers." One step tighter, never past STRICT. BST-only and
 // unrestricted are deliberate global choices, so they are left alone.
-static bool32 TrainerClassIsBoss(u8 trainerClass)
+bool32 TrainerClassIsBoss(u8 trainerClass)
 {
     switch (trainerClass)
     {

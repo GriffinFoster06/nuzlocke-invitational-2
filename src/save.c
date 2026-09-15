@@ -757,9 +757,18 @@ u8 HandleSavingData(u8 saveType)
             WriteSectorSignatureByte_NoOffset(i, gRamSaveSectorLocations);
         break;
     case SAVE_OVERWRITE_DIFFERENT_FILE:
-        // Erase Hall of Fame
+        // Erase Hall of Fame. Phase 11E: skip SECTOR_ID_RUN_REPORT - a
+        // finalized Run Report must survive starting a new save over a
+        // different trainer's file, so it stays exportable (docs/SPEC.md
+        // "Terminal Run Reports": "remains recoverable long enough for
+        // manual export"). Deliberately not skipped by ClearSaveData()
+        // (the title-screen "erase all" gesture), which is the one place
+        // that should actually delete it.
         for (i = SECTOR_ID_HOF_1; i < SECTORS_COUNT; i++)
-            EraseFlashSector(i);
+        {
+            if (i != SECTOR_ID_RUN_REPORT)
+                EraseFlashSector(i);
+        }
 
         // Overwrite save slot
         CopyPartyAndObjectsToSave();

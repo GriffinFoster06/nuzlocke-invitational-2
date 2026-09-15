@@ -55,11 +55,15 @@ NavelRock_Top_EventScript_HoOh::
 	applymovement LOCALID_NAVEL_ROCK_HO_OH, NavelRock_Top_Movement_HoOhApproach
 	waitmovement 0
 	special RemoveCameraObject
+	@ Phase 11D: set VAR_LAST_TALKED before seteventmon (not after), matching
+	@ MarineCave_End/TerraCave_End - CreateEnemyEventMon's randomizer sourceKey
+	@ reads gSpecialVar_LastTalked at seteventmon time, so setting it
+	@ afterward left this slot keying on a stale/zeroed value.
+	setvar VAR_LAST_TALKED, LOCALID_NAVEL_ROCK_HO_OH
 	seteventmon SPECIES_HO_OH, 70
 	setflag FLAG_SYS_CTRL_OBJ_DELETE
 	special BattleSetup_StartLegendaryBattle
 	clearflag FLAG_SYS_CTRL_OBJ_DELETE
-	setvar VAR_LAST_TALKED, LOCALID_NAVEL_ROCK_HO_OH
 	specialvar VAR_RESULT, GetBattleOutcome
 	goto_if_eq VAR_RESULT, B_OUTCOME_WON, NavelRock_Top_EventScript_DefeatedHoOh
 	goto_if_eq VAR_RESULT, B_OUTCOME_RAN, NavelRock_Top_EventScript_RanFromHoOh

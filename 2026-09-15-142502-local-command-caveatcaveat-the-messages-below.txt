@@ -1,0 +1,230 @@
+▗ ▗   ▖ ▖  Claude Code v2.1.263
+           Opus 5 · Claude Pro
+  ▘▘ ▝▝    ~/Projects/pokeemerald-expansion
+
+
+❯ /clear                                                                        
+
+❯ /model opus                                                                   
+  ⎿  Set model to Opus 5 and saved as your default for new sessions
+
+❯ /plan                                                                         
+  ⎿  Enabled plan mode
+
+❯ This is the dedicated broad Phase-11 audit.                                   
+                                                                                
+  Unlike implementation phases, broad cross-system verification belongs here.   
+                                                                                
+  The output should be blockers, not a giant report of everything that passes.  
+                                                                                
+  Suggested Claude Code setup                                                   
+                                                                                
+  Model: Claude Opus 5                                                          
+  Effort: high                                                                  
+  Plan mode: ON / read-only audit first                                         
+  Subagents: up to 3 only for independent audit tracks                          
+                                                                                
+  Prompt                                                                        
+                                                                                
+  Perform Phase 11F — Final Phase-11 Correctness and Integration Gate.          
+                                                                                
+  <context>                                                                     
+  Phases 11A through 11E are intended complete.                                 
+                                                                                
+  This is the dedicated cross-system audit. It is allowed to be broad, but      
+  optimize for finding genuine blockers rather than documenting every passing   
+  behavior.                                                                     
+                                                                                
+  Do not add discretionary features.                                            
+  Do not do Phase-12 UX polish.                                                 
+  </context>                                                                    
+                                                                                
+  <startup>                                                                     
+  Read:                                                                         
+  - CLAUDE.md;                                                                  
+  - docs/CLAUDE_HANDOFF.md;                                                     
+  - relevant SPEC acceptance sections;                                          
+  - recent Phase-11 git history.                                                
+                                                                                
+  Use actual code selectively based on the audit tracks below.                  
+  </startup>                                                                    
+                                                                                
+  <subagents>                                                                   
+  You may use at most three read-only subagents if useful:                      
+                                                                                
+  1. deterministic generation / settings / Nuzlocke / AI;                       
+  2. world / Premium / core QoL;                                                
+  3. Run Reports / save / exporter.                                             
+                                                                                
+  Tell each subagent to report only defects, contradictions, or unverified      
+  critical assumptions.                                                         
+  Do not have them narrate passing code.                                        
+  The main agent reconciles duplicates and decides what is actually blocking.   
+  </subagents>                                                                  
+                                                                                
+  <audit_targets>                                                               
+  Check for genuine Phase-11 defects in these contracts:                        
+                                                                                
+  A. Run identity and deterministic generation                                  
+  - same version + seed + locked generation settings reproduces generated       
+  content;                                                                      
+  - automatic seed architecture is coherent;                                    
+  - generation settings lock correctly;                                         
+  - Gen 1-9 filtering reaches required generation paths and evolution;          
+  - invalid pools fail safely;                                                  
+  - no material randomizer-caused encounter/trainer stall;                      
+  - RAM remains safe.                                                           
+                                                                                
+  B. Randomizer behavior                                                        
+  - species/trainer/starter/gift/static/ability/learnset/TM/Tutor/item          
+  integration;                                                                  
+  - intended 21 generated level-up opportunities and no duplicate generated     
+  move within a species;                                                        
+  - weighting remains weighting, not a quality floor;                           
+  - trainer level/cap rules;                                                    
+  - no accidental high/low-roll normalization.                                  
+                                                                                
+  C. Premium rules                                                              
+  - ordinary wild/forbidden trainer Premium exclusion;                          
+  - Elite Four allowance;                                                       
+  - Wallace guarantee;                                                          
+  - every exposed Premium static obeys Premium-only replacement, generation     
+  mask, original-species eligibility, independent deterministic slot behavior,  
+  and cross-slot duplicates allowed.                                            
+                                                                                
+  D. Nuzlocke                                                                   
+  - permadeath;                                                                 
+  - no revival bypass;                                                          
+  - dead-mon no-benefit rule;                                                   
+  - location consumption;                                                       
+  - Dupes history after all valid encounter outcomes;                           
+  - safe duplicate handling;                                                    
+  - Shiny Clause;                                                               
+  - wild doubles;                                                               
+  - battle-item rule;                                                           
+  - wipe terminal path.                                                         
+                                                                                
+  E. AI / battle                                                                
+  - Standard = vanilla Emerald behavior;                                        
+  - harder difficulty progression works as intended;                            
+  - no pathological switch oscillation regression;                              
+  - fair modes do not read hidden information;                                  
+  - banned battle gimmicks remain unavailable.                                  
+                                                                                
+  F. Core QoL/world                                                             
+  - Level to Cap;                                                               
+  - Move Reminder;                                                              
+  - evolution;                                                                  
+  - Portable Heal;                                                              
+  - Infinite Repel;                                                             
+  - HM-free traversal;                                                          
+  - both bikes;                                                                 
+  - type icons;                                                                 
+  - Quick Travel;                                                               
+  - Master Ball timing;                                                         
+  - campaign remains finishable.                                                
+                                                                                
+  G. Run Reports/export                                                         
+  - Victory and Wipe terminal hooks;                                            
+  - Wipe snapshot timing;                                                       
+  - persistence;                                                                
+  - report identity/settings;                                                   
+  - final Pokémon/statistics/death data as designed;                            
+  - no effect on future generation;                                             
+  - manual JSON exporter;                                                       
+  - input save unchanged;                                                       
+  - schema/version/error behavior;                                              
+  - automatic export/duplicate prevention if shipped.                           
+  </audit_targets>                                                              
+                                                                                
+  <output>                                                                      
+  Report ONLY genuine blockers or items that cannot be established statically   
+  and require a specific runtime test.                                          
+                                                                                
+  For every blocker include:                                                    
+  - exact behavior;                                                             
+  - exact file/function or subsystem;                                           
+  - smallest correct fix;                                                       
+  - focused verification.                                                       
+                                                                                
+  Do not list passing requirements one by one.                                  
+                                                                                
+  If there are no code blockers, provide a short runtime acceptance checklist   
+  and stop.                                                                     
+                                                                                
+  If code blockers exist, present a concise correction plan and wait for        
+  approval before editing.                                                      
+  </output>                                                                     
+                                                                                
+  <fix_and_close>                                                               
+  If fixes are approved:                                                        
+  - implement only blockers;                                                    
+  - run focused tests;                                                          
+  - run make clean && make -j$(sysctl -n hw.ncpu);                              
+  - run git diff --check;                                                       
+  - inspect the Phase-11F diff.                                                 
+                                                                                
+  When no known required Phase-11 defect remains, end exactly:                  
+                                                                                
+  PHASE 11 COMPLETE                                                             
+                                                                                
+  Do not begin Phase 12.                                                        
+  </fix_and_close>                                                              
+
+  Searched for 2 patterns, read 3 files, ran 5 shell commands (ctrl+o to expand)
+
+⏺ 3 background agents launched (↓ to manage)
+   ├ Audit: generation/Nuzlocke/AI
+   ├ Audit: world/Premium/QoL
+   └ Audit: Run Reports/save/export
+
+  Searched for 5 patterns, read 4 files, listed 2 directories, ran 4 shell commands (ctrl+o to expand)
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+  Searched for 9 patterns, read 1 file, ran 9 shell commands (ctrl+o to expand)
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+⏺ The three audit agents are still running. One blocker is already confirmed and
+  recorded in the plan file:
+
+  B1: the guaranteed Master Ball is never given. Phase 11D put the grant in
+  SootopolisCity_EventScript_MaxieArchieLeave, which only runs when you talk to
+  Maxie and Archie. The actual story path is Sky Pillar → ResolveCrisis →
+  CompleteCrisis, and CompleteCrisis hides both of them first. So the player
+  never reaches the grant.
+
+  I'll combine this with the agents' findings, check each one, and then give you
+  the correction plan.
+
+✻ Baked for 10m 48s · done 10:50 AM
+
+⏺ Agent "Audit: generation/Nuzlocke/AI" failed: Agent terminated early due to an
+API error: You've hit your session limit · resets 2:30pm (America/Chicago)
+(error type rate_limit, HTTP 429, request id req_011Cf5VZA2Wk6K8dLsRHRoSy, model
+sent to the API: claude-opus-5)
+  ⎿  You've hit your session limit · resets 2:30pm (America/Chicago)
+     /upgrade to increase your usage limit.
+
+✻ Baked for 0s · done 10:52 AM
+
+⏺ Agent "Audit: Run Reports/save/export" failed: Agent terminated early due to
+an API error: You've hit your session limit · resets 2:30pm (America/Chicago)
+(error type rate_limit, HTTP 429, request id req_011Cf5VZHv2ZhqWeuyyMrobo, model
+sent to the API: claude-opus-5)
+  ⎿  You've hit your session limit · resets 2:30pm (America/Chicago)
+     /upgrade to increase your usage limit.
+
+✻ Sautéed for 0s · done 10:52 AM
+
+⏺ Agent "Audit: world/Premium/QoL" failed: Agent terminated early due to an API
+error: You've hit your session limit · resets 2:30pm (America/Chicago) (error
+type rate_limit, HTTP 429, request id req_011Cf5Va9oPsgvSF252fZA6m, model sent
+to the API: claude-opus-5)
+  ⎿  You've hit your session limit · resets 2:30pm (America/Chicago)
+     /upgrade to increase your usage limit.
+
+✻ Cogitated for 12m 38s · done 10:52 AM

@@ -2271,8 +2271,15 @@ bool8 ScrCmd_bufferboxname(struct ScriptContext *ctx)
 
 bool8 ScrCmd_giveegg(struct ScriptContext *ctx)
 {
-    u32 sourceKey = (u32)ctx->scriptPtr - ROM_START;
+    u32 sourceKey;
     enum Species species = VarGet(ScriptReadHalfword(ctx));
+
+    // Phase 11D: a stable (map, vanilla species) key, matching the
+    // ScrCmd_createmon fix above - the previous ROM-address derivation
+    // shifted whenever unrelated code/script size changed.
+    sourceKey = ((u32)gSaveBlock1Ptr->location.mapGroup << 24)
+              | ((u32)gSaveBlock1Ptr->location.mapNum << 16)
+              | species;
 
     Script_RequestEffects(SCREFF_V1 | SCREFF_SAVE);
 

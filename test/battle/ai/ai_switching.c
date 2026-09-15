@@ -1846,6 +1846,10 @@ AI_SINGLE_BATTLE_TEST("AI_FLAG_SMART_SWITCHING: AI will switch out if all moves 
 {
     PASSES_RANDOMLY(SHOULD_SWITCH_ALL_SCORES_BAD_PERCENTAGE, 100, RNG_AI_SWITCH_ALL_SCORES_BAD);
     GIVEN {
+        // Project default requires the switch-in to clear canSwitchinWin1v1 (see
+        // include/config/ai.h ALL_SCORES_BAD_NEEDS_GOOD_SWITCHIN); this test predates that
+        // and exercises upstream's unconditional fallback switch, so opt back into it here.
+        WITH_CONFIG(ALL_SCORES_BAD_NEEDS_GOOD_SWITCHIN, FALSE);
         ASSUME(GetMoveEffect(MOVE_WILL_O_WISP) == EFFECT_NON_VOLATILE_STATUS);
         ASSUME(GetMoveNonVolatileStatus(MOVE_WILL_O_WISP) == MOVE_EFFECT_BURN);
         ASSUME(GetMoveEffect(MOVE_POLTERGEIST) == EFFECT_POLTERGEIST);

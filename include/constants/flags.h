@@ -54,7 +54,7 @@
 #define FLAG_UNUSED_0x020    0x20 // Unused Flag
 #define FLAG_RULESET_BALL_NPC_999_CLAIMED 0x21 // docs/SPEC.md "999 Poke Ball NPC": one-shot claim guard
 
-#define FLAG_UNUSED_0x022    0x22 // Unused Flag
+#define FLAG_RULESET_GUARANTEED_MASTER_BALL_CLAIMED 0x22 // docs/SPEC.md "Poke Ball availability": one-shot guard for the guaranteed post-Rayquaza Master Ball
 #define FLAG_UNUSED_0x023    0x23 // Unused Flag
 #define FLAG_UNUSED_0x024    0x24 // Unused Flag
 #define FLAG_UNUSED_0x025    0x25 // Unused Flag

@@ -74,17 +74,27 @@ bool32 Nuzlocke_DupesRerollActiveHere(void);
 bool32 Nuzlocke_MonIsDead(struct Pokemon *mon);
 bool32 Nuzlocke_MonCanBattle(struct Pokemon *mon);
 bool32 Nuzlocke_MonCanProvideGameplayBenefit(struct Pokemon *mon);
-void Nuzlocke_MarkMonDead(struct Pokemon *mon);       // field poison, debug
+void Nuzlocke_MarkMonDead(struct Pokemon *mon);       // debug menu force-kill
+void Nuzlocke_MarkMonDeadFieldPoison(struct Pokemon *mon); // field poison faint
 void Nuzlocke_RecordBattleFaint(enum BattlerId battler);
 void Nuzlocke_ProcessPostBattleDeaths(void);          // ReturnFromBattleToOverworld
+// Phase 11E: graveyard move + party compaction, shared by
+// Nuzlocke_ProcessPostBattleDeaths() and the field-poison wipe path so both
+// snapshot the same way before cleanup (docs/CLAUDE_HANDOFF.md Phase 11E).
+void Nuzlocke_FinalizeDeadMons(void);
 u32 Nuzlocke_GetDeathCount(void);
 u32 Nuzlocke_CountLocationsCaught(void);
+u32 Nuzlocke_CountLocationsUsed(void);
 
 // ---- no battle items (docs/SPEC.md "No battle items") ----
 bool32 Nuzlocke_BattleItemsBlocked(void);   // current battle: Bag combat items disabled
 bool32 Nuzlocke_BattleBagBallsOnly(void);   // current battle: restrict Bag to the Ball pocket
 
 // ---- whiteout / run over (docs/SPEC.md "Whiteout") ----
+// TRUE if no usable Pokemon remain anywhere (party, boxes, daycare). Also the
+// Phase 11E Wipe-report condition, independent of SETTING_WHITEOUT_BEHAVIOR -
+// see Nuzlocke_ShouldEndRunOnWhiteout() for the stricter "run actually ends" check.
+bool32 Nuzlocke_AnyUsableMonRemains(void);
 bool32 Nuzlocke_ShouldEndRunOnWhiteout(void);
 void Nuzlocke_SetRunOver(void);
 void Nuzlocke_FieldCB_RunOver(void);        // gFieldCallback after the whiteout warp

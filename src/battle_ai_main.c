@@ -287,7 +287,11 @@ static bool32 IsSmartBattle(void)
                                    | AI_FLAG_WILL_SUICIDE                       \
                                    | AI_FLAG_SMART_TERA)
 
-#define AI_FLAGS_RULESET_PRO_FAIR   (AI_FLAGS_RULESET_EXPERT                    \
+// Pro Fair drops AI_FLAG_RANDOMIZE_SWITCHIN that Expert carries: for the strongest
+// fair-information tier, switch-in selection should deterministically pick the best
+// qualifying candidate (GetBestMonIntegrated's tracked best-of-tier id) rather than a
+// random member of the winning tier. Expert keeps randomization for variety.
+#define AI_FLAGS_RULESET_PRO_FAIR   ((AI_FLAGS_RULESET_EXPERT & ~AI_FLAG_RANDOMIZE_SWITCHIN) \
                                    | AI_FLAG_PREDICT_MOVE)
 
 #define AI_FLAGS_HIDDEN_INFORMATION (AI_FLAG_OMNISCIENT                         \
@@ -300,7 +304,7 @@ static bool32 IsSmartBattle(void)
                                    | AI_FLAG_PREDICT_SWITCH                     \
                                    | AI_FLAG_PREDICT_INCOMING_MON)
 
-static u64 GetRulesetAiFlags(void)
+u64 GetRulesetAiFlags(void)
 {
     switch (GetRulesetSetting(SETTING_AI_DIFFICULTY))
     {
@@ -310,6 +314,13 @@ static u64 GetRulesetAiFlags(void)
     case AIDIFF_VANILLA:
     default:              return 0;   // keep exactly what the trainer authored
     }
+}
+
+// docs/SPEC.md "AI difficulty settings": Standard means no project tuning, so
+// the AI_TUNED chances in include/config/ai.h fall back to upstream values.
+bool32 IsAiProjectTuningActive(void)
+{
+    return GetRulesetSetting(SETTING_AI_DIFFICULTY) != AIDIFF_VANILLA;
 }
 
 static u64 GetAiFlags(u16 trainerId, enum BattlerId battler)

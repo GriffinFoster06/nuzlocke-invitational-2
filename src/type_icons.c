@@ -14,7 +14,6 @@ static void LoadTypeIconsPerBattler(enum BattlerId, u32);
 
 static bool32 UseDoubleBattleCoords(u32);
 
-static enum Type GetMonPublicType(enum BattlerId, u32);
 static bool32 ShouldHideUncaughtType(enum Species species);
 static bool32 ShouldHideUnseenType(enum Species species);
 static enum Type GetMonDefensiveTeraType(struct Pokemon *, struct Pokemon *, enum BattlerId, u32, enum Species, enum Species);
@@ -249,6 +248,41 @@ void LoadTypeIcons(enum BattlerId battler)
         LoadTypeIconsPerBattler(battler, position);
 }
 
+// Phase 11D (docs/SPEC.md "Type icons"): non-battle callers (Party, PC,
+// starter selection, the persistent battle-HUD icon) load the same gfx/
+// palettes through this public wrapper rather than duplicating the asset
+// data. Safe to call repeatedly - LoadTypeSpritesAndPalettes() already
+// no-ops once the palette tag is loaded.
+void TypeIcons_LoadGraphics(void)
+{
+    LoadTypeSpritesAndPalettes();
+}
+
+// A static (no slide/hide/bounce, no battler association) icon sprite for a
+// single type, at an arbitrary caller-owned position. Overrides the shared
+// template's SpriteCB_TypeIcon callback - that callback reads battler/
+// healthbox state that does not exist outside a battle. The caller is
+// responsible for destroying the returned sprite id (DestroySprite) when
+// done; the loaded tile/palette tags need no separate teardown here - like
+// every other tagged sprite sheet in this codebase they are invalidated by
+// the next screen's own sprite-system reset.
+u8 CreateStaticTypeIconSprite(enum Type type, s16 x, s16 y, u8 subpriority)
+{
+    const struct SpriteTemplate *template = gTypesInfo[type].useSecondTypeIconPalette
+        ? &sSpriteTemplate_TypeIcons2 : &sSpriteTemplate_TypeIcons1;
+    u8 spriteId = CreateSprite(template, x, y, subpriority);
+
+    // Normalize CreateSprite's own MAX_SPRITES failure sentinel to SPRITE_NONE
+    // so every caller can use the one bookkeeping convention already used
+    // elsewhere in this codebase (e.g. party_menu.c's monSpriteId/itemSpriteId).
+    if (spriteId == MAX_SPRITES)
+        return SPRITE_NONE;
+
+    gSprites[spriteId].callback = SpriteCallbackDummy;
+    StartSpriteAnim(&gSprites[spriteId], type);
+    return spriteId;
+}
+
 static void LoadTypeSpritesAndPalettes(void)
 {
     if (IndexOfSpritePaletteTag(TYPE_ICON_TAG) != UCHAR_MAX)
@@ -291,7 +325,7 @@ static bool32 UseDoubleBattleCoords(u32 position)
     return TRUE;
 }
 
-static enum Type GetMonPublicType(enum BattlerId battlerId, u32 typeNum)
+enum Type GetMonPublicType(enum BattlerId battlerId, u32 typeNum)
 {
     struct Pokemon *mon = GetBattlerMon(battlerId);
     enum Species monSpecies = GetMonData(mon,MON_DATA_SPECIES,NULL);

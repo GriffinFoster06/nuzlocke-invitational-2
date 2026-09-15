@@ -1,5 +1,6 @@
 #include "global.h"
 #include "test/battle.h"
+#include "battle_ai_main.h" // IsAiProjectTuningActive, used by AI_TUNED switch chances
 
 ASSUMPTIONS
 {

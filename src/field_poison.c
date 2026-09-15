@@ -12,6 +12,7 @@
 #include "nuzlocke.h"
 #include "pokemon_storage_system.h"
 #include "pokenav.h"
+#include "run_report.h"
 #include "script.h"
 #include "string_util.h"
 #include "strings.h"
@@ -79,8 +80,10 @@ static void Task_TryFieldPoisonWhiteOut(u8 taskId)
             if (MonFaintedFromPoison(tPartyIdx))
             {
                 FaintFromFieldPoison(tPartyIdx);
-                // Phase 3 Nuzlocke permadeath: field-poison faints are deaths too.
-                Nuzlocke_MarkMonDead(&gParties[B_TRAINER_PLAYER][tPartyIdx]);
+                // Phase 3 Nuzlocke permadeath: field-poison faints are deaths
+                // too. Phase 11E: no immediate graveyard move here - see
+                // Nuzlocke_FinalizeDeadMons() in case 2 below.
+                Nuzlocke_MarkMonDeadFieldPoison(&gParties[B_TRAINER_PLAYER][tPartyIdx]);
                 ShowFieldMessage(gText_PkmnFainted_FldPsn);
                 tState++;
                 return;
@@ -96,6 +99,11 @@ static void Task_TryFieldPoisonWhiteOut(u8 taskId)
     case 2:
         if (AllMonsFainted())
         {
+            // Phase 11E: snapshot the complete pre-cleanup party for the Run
+            // Report BEFORE Nuzlocke_FinalizeDeadMons() below destroys it.
+            if (RunReport_WipeConditionMet())
+                RunReport_Finalize(RUN_RESULT_WIPE, RUN_WIPE_OPPONENT_FIELD_POISON);
+            Nuzlocke_FinalizeDeadMons();
             // Battle facilities have their own white out script to handle the challenge loss
 #ifdef BUGFIX
             if (CurrentBattlePyramidLocation() || InBattlePike() || InTrainerHillChallenge())
@@ -110,8 +118,7 @@ static void Task_TryFieldPoisonWhiteOut(u8 taskId)
         {
             gSpecialVar_Result = FLDPSN_NO_WHITEOUT;
             // Phase 3: a graveyard move may have left party gaps - close them.
-            CompactPartySlots();
-            CalculatePlayerPartyCount();
+            Nuzlocke_FinalizeDeadMons();
             UpdateFollowingPokemon();
         }
         ScriptContext_Enable();

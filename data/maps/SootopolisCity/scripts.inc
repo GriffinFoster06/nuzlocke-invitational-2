@@ -422,11 +422,32 @@ SootopolisCity_EventScript_ResolveCrisis::
 	doweather
 	special WaitWeather
 	call SootopolisCity_EventScript_CompleteCrisis
+	call SootopolisCity_EventScript_GiveGuaranteedMasterBall
 	fadenewbgm MUS_SOOTOPOLIS
 	clearflag FLAG_HIDE_MAP_NAME_POPUP
 	warpwhitefade MAP_SOOTOPOLIS_CITY, 43, 32
 	waitstate
 	end
+
+@ docs/SPEC.md "Poke Ball availability": exactly one guaranteed Master Ball
+@ immediately before the post-Rayquaza Premium unlocks (Regis, Weather
+@ Institute, Slateport legendary-map NPC all gate on the
+@ FLAG_SOOTOPOLIS_ARCHIE_MAXIE_LEAVE flag CompleteCrisis just set). One-shot
+@ guarded so no script path can re-grant it; does not prevent an independent
+@ Master Ball from the Aqua Hideout's ordinary randomized field item.
+SootopolisCity_EventScript_GiveGuaranteedMasterBall::
+	goto_if_set FLAG_RULESET_GUARANTEED_MASTER_BALL_CLAIMED, Common_EventScript_NopReturn
+	checkitemspace ITEM_MASTER_BALL
+	goto_if_eq VAR_RESULT, FALSE, Common_EventScript_NopReturn
+	setflag FLAG_RULESET_GUARANTEED_MASTER_BALL_CLAIMED
+	additem ITEM_MASTER_BALL
+	playfanfare MUS_OBTAIN_ITEM
+	message SootopolisCity_Text_ReceivedGuaranteedMasterBall
+	waitmessage
+	waitfanfare
+	putitemaway ITEM_MASTER_BALL
+	closemessage
+	return
 
 SootopolisCity_EventScript_ReconcileCompletedCrisis::
 	goto_if_ne VAR_SOOTOPOLIS_CITY_STATE, 5, Common_EventScript_NopReturn
@@ -1469,6 +1490,10 @@ SootopolisCity_Text_GroudonPleaseStop:
 	.string "I know the extent of your power now!\p"
 	.string "If you keep going, all HOENN, not just\n"
 	.string "SOOTOPOLIS, will be utterly ruined!$"
+
+SootopolisCity_Text_ReceivedGuaranteedMasterBall:
+	.string "{PLAYER} found a MASTER BALL among the\n"
+	.string "chaos!$"
 
 SootopolisCity_Text_AfterAllOurScheming:
 	.string "MAXIE: So the super-ancient POKéMON\n"

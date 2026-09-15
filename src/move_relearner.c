@@ -7,7 +7,9 @@
 #include "contest_effect.h"
 #include "data.h"
 #include "randomizer.h"
+#include "ruleset.h"
 #include "ruleset_field.h"
+#include "constants/ruleset.h"
 #include "decompress.h"
 #include "event_data.h"
 #include "field_screen_effect.h"
@@ -1045,6 +1047,10 @@ static bool32 HasRelearnerLevelUpMoves(struct BoxPokemon *boxMon)
     enum Species species = GetBoxMonData(boxMon, MON_DATA_SPECIES);
     u32 level = (P_ENABLE_ALL_LEVEL_UP_MOVES == TRUE) ? MAX_LEVEL : GetLevelFromBoxMonExp(boxMon);
 
+    // docs/SPEC.md "Move Reminder": see IsLevelUpMoveRelearnerActive above.
+    if (GetRulesetSetting(SETTING_MOVE_REMINDER_MODE) == MVREMIND_DISABLED)
+        return FALSE;
+
     do
     {
         const struct LevelUpMove *learnset = GetSpeciesLevelUpLearnset(species);
@@ -1127,9 +1133,22 @@ static bool32 HasRelearnerTutorMoves(struct BoxPokemon *boxMon)
     return FALSE;
 }
 
+// docs/SPEC.md "Move Reminder": Disabled (default)/Normal/Free/Previously
+// learned only.
+//   Disabled: no level-up relearning anywhere - HasRelearnerLevelUpMoves()
+//             reports nothing, so the Fallarbor NPC (script mode, which skips
+//             this isActive check) cannot teach and keeps its Heart Scale.
+//   Normal:   the Emerald reminder only - the Fallarbor Heart Scale NPC.
+//   Free / Previously learned only: additionally the free summary-screen
+//             relearner, gated here. GetRelearnerLevelUpMoves only ever offers
+//             moves at or below the mon's current level from its generated
+//             learnset (there is no "reveal a future move" path), so these two
+//             offer the same list.
 static bool32 IsLevelUpMoveRelearnerActive(void)
 {
-    return TRUE;
+    u32 mode = GetRulesetSetting(SETTING_MOVE_REMINDER_MODE);
+
+    return mode == MVREMIND_FREE || mode == MVREMIND_LEARNED_ONLY;
 }
 
 static bool32 IsEggMoveRelearnerActive(void)

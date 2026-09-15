@@ -21,6 +21,7 @@
 #include "text_window.h"
 #include "trainer_pokemon_sprites.h"
 #include "trig.h"
+#include "type_icons.h"
 #include "window.h"
 #include "constants/songs.h"
 #include "constants/rgb.h"
@@ -51,6 +52,9 @@ static void SpriteCB_Pokeball(struct Sprite *sprite);
 static void SpriteCB_StarterPokemon(struct Sprite *sprite);
 
 static u16 sStarterLabelWindowId;
+// docs/SPEC.md "Type icons": species/type icons may show on starter
+// selection but ability must stay hidden - type is public info, no conflict.
+static u8 sStarterLabelTypeSpriteIds[2];
 
 const u16 gBirchBagGrass_Pal[] = INCGFX_U16("graphics/starter_choose/tiles.png", ".gbapal");
 static const u16 sPokeballSelection_Pal[] = INCGFX_U16("graphics/starter_choose/pokeball_selection.png", ".gbapal");
@@ -463,6 +467,9 @@ void CB2_ChooseStarter(void)
     gSprites[spriteId].sBallId = 2;
 
     sStarterLabelWindowId = WINDOW_NONE;
+    sStarterLabelTypeSpriteIds[0] = SPRITE_NONE;
+    sStarterLabelTypeSpriteIds[1] = SPRITE_NONE;
+    TypeIcons_LoadGraphics(); // docs/SPEC.md "Type icons"
 }
 
 static void CB2_StarterChoose(void)
@@ -570,6 +577,12 @@ static void Task_DeclineStarter(u8 taskId)
     gTasks[taskId].func = Task_StarterChoose;
 }
 
+// docs/SPEC.md "Type icons": reserve this many pixels at the right edge of
+// the label's interior for the type icon(s) so they never overlap the
+// (center-aligned) species-name text, rather than hoping for accidental
+// margin.
+#define STARTER_LABEL_TYPE_ICON_RESERVED_W 18
+
 static void CreateStarterPokemonLabel(u8 selection)
 {
     u8 categoryText[32];
@@ -577,8 +590,10 @@ static void CreateStarterPokemonLabel(u8 selection)
     const u8 *speciesName;
     s32 width;
     u8 labelLeft, labelRight, labelTop, labelBottom;
+    enum Species species;
+    enum Type type1, type2;
 
-    enum Species species = GetStarterPokemon(selection);
+    species = GetStarterPokemon(selection);
     CopyMonCategoryText(species, categoryText);
     speciesName = GetSpeciesName(species);
 
@@ -592,7 +607,7 @@ static void CreateStarterPokemonLabel(u8 selection)
     width = GetStringCenterAlignXOffset(FONT_NARROW, categoryText, 0x68);
     AddTextPrinterParameterized3(sStarterLabelWindowId, FONT_NARROW, width, 1, sTextColors, 0, categoryText);
 
-    width = GetStringCenterAlignXOffset(FONT_NORMAL, speciesName, 0x68);
+    width = GetStringCenterAlignXOffset(FONT_NORMAL, speciesName, 0x68 - STARTER_LABEL_TYPE_ICON_RESERVED_W);
     AddTextPrinterParameterized3(sStarterLabelWindowId, FONT_NORMAL, width, 17, sTextColors, 0, speciesName);
 
     PutWindowTilemap(sStarterLabelWindowId);
@@ -604,6 +619,14 @@ static void CreateStarterPokemonLabel(u8 selection)
     labelBottom = (sStarterLabelCoords[selection][1] + 4) * 8;
     SetGpuReg(REG_OFFSET_WIN0H, WIN_RANGE(labelLeft, labelRight));
     SetGpuReg(REG_OFFSET_WIN0V, WIN_RANGE(labelTop, labelBottom));
+
+    // docs/SPEC.md "Type icons": shown, ability stays hidden until obtained
+    // (species/type are public info; ability is not revealed before pick).
+    type1 = GetSpeciesType(species, 0);
+    type2 = GetSpeciesType(species, 1);
+    sStarterLabelTypeSpriteIds[0] = CreateStaticTypeIconSprite(type1, labelRight - 17, labelTop + 15, 0);
+    if (type2 != type1)
+        sStarterLabelTypeSpriteIds[1] = CreateStaticTypeIconSprite(type2, labelRight - 9, labelTop + 15, 0);
 }
 
 static void ClearStarterLabel(void)
@@ -615,6 +638,13 @@ static void ClearStarterLabel(void)
     SetGpuReg(REG_OFFSET_WIN0H, 0);
     SetGpuReg(REG_OFFSET_WIN0V, 0);
     ScheduleBgCopyTilemapToVram(0);
+
+    if (sStarterLabelTypeSpriteIds[0] != SPRITE_NONE)
+        DestroySprite(&gSprites[sStarterLabelTypeSpriteIds[0]]);
+    if (sStarterLabelTypeSpriteIds[1] != SPRITE_NONE)
+        DestroySprite(&gSprites[sStarterLabelTypeSpriteIds[1]]);
+    sStarterLabelTypeSpriteIds[0] = SPRITE_NONE;
+    sStarterLabelTypeSpriteIds[1] = SPRITE_NONE;
 }
 
 static void Task_MoveStarterChooseCursor(u8 taskId)

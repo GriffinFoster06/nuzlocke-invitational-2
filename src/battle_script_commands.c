@@ -42,6 +42,7 @@
 #include "naming_screen.h"
 #include "battle_setup.h"
 #include "nuzlocke.h"
+#include "run_report.h"
 #include "ruleset_qol.h"
 #include "overworld.h"
 #include "wild_encounter.h"
@@ -8178,6 +8179,7 @@ static void SetBallThrowShakes(void)
     enum PokeBall ballId = ItemIdToBallId(gLastUsedItem);
     if (gBattleResults.catchAttempts[ballId] < 255)
         gBattleResults.catchAttempts[ballId]++;
+    RunReport_NoteBallThrown();
 
     gBattleSpritesDataPtr->animationData->isCriticalCapture = FALSE;
     gBattleSpritesDataPtr->animationData->criticalCaptureSuccess = FALSE;
@@ -8232,6 +8234,7 @@ static void SetBallThrowShakes(void)
 
     BtlController_EmitBallThrowAnim(gBattlerAttacker, B_COMM_TO_CONTROLLER, shakes);
     MarkBattlerForControllerExec(gBattlerAttacker);
+    RunReport_NoteCatchFailed();
     gBattlescriptCurrInstr = BattleScript_ShakeBallThrow;
 }
 

@@ -270,6 +270,7 @@
     F(AI_REVERSE_BATTLER_LOGIC_ORDER_CHANCE,    reverseBattlerLogicChance,  (u32, 100)) \
     F(SHOULD_SWITCH_ALL_MOVES_BAD_PERCENTAGE,   switchAllBadMovesChance,    (u32, 100)) \
     F(SHOULD_SWITCH_LOSES_1V1_PERCENTAGE,       switchLoses1v1Chance,       (u32, 100)) \
+    F(ALL_SCORES_BAD_NEEDS_GOOD_SWITCHIN,       allScoresBadNeedsSwitchin,  (u32, TRUE)) \
     F(AI_ROLL_ATTACKING,                        aiRollAttacking,            (u32, AI_ROLL_TYPE_COUNT - 1)) \
 
 #define GET_CONFIG_MAXIMUM(_typeMaxValue, ...) INVOKE_WITH_B(GET_CONFIG_MAXIMUM_, _typeMaxValue)

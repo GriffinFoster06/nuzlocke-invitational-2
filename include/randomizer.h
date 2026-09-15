@@ -25,6 +25,11 @@ bool32 Randomizer_StaticEnabled(void);
 bool32 Randomizer_LegendaryEnabled(void);
 bool32 Randomizer_TrainerEnabled(void);
 
+// docs/SPEC.md "Trainer Pokemon": bosses (Leaders, Elite Four, Champion,
+// Rival, Aqua/Magma Leader/Admin) use stricter power matching. Exposed for
+// Phase 11E's boss-defeat / boss-opponent Run Report bookkeeping.
+bool32 TrainerClassIsBoss(u8 trainerClass);
+
 // Wild encounters. Returns the persistent replacement for the given
 // (encounter table, slot); returns `vanilla` unchanged when randomization is
 // off or the target is not a valid replaceable species.

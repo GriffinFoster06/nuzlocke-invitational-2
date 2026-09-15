@@ -15,7 +15,7 @@
 // Crc32B and seeds an SFC32 stream from the digest. These four draws were
 // computed independently (a standalone Python re-implementation of Crc32B
 // and SFC32, cross-checked against zlib.crc32 for the CRC step) for the
-// exact tuple below, at RANDOMIZER_VERSION == 3. If this test ever fails
+// exact tuple below, at RANDOMIZER_VERSION == 4. If this test ever fails
 // after a change to RunRng_Seed, Crc32B, or the SFC32 stepping, that change
 // silently reshuffled every existing run seed's entire world and must be
 // paired with a RANDOMIZER_VERSION bump (see src/ruleset.c's version-history
@@ -26,13 +26,13 @@ TEST("RunRng_Seed golden values are stable for a fixed (seed, version, salt) tup
 
     SetRunSeed(0x1234ABCD);
     EXPECT_EQ(GetSavedRandomizerVersion(), RANDOMIZER_VERSION);
-    EXPECT_EQ(RANDOMIZER_VERSION, 3);
+    EXPECT_EQ(RANDOMIZER_VERSION, 4);
 
     state = RunRng_Seed(SALT_WILD_SLOT, 1, 2, 3);
-    EXPECT_EQ(LocalRandom32(&state), 0x44436E0Au);
-    EXPECT_EQ(LocalRandom32(&state), 0x5FDDC46Du);
-    EXPECT_EQ(LocalRandom32(&state), 0x7FDBECB1u);
-    EXPECT_EQ(LocalRandom32(&state), 0x27B1304Bu);
+    EXPECT_EQ(LocalRandom32(&state), 0xD65DED53u);
+    EXPECT_EQ(LocalRandom32(&state), 0x7FFBA635u);
+    EXPECT_EQ(LocalRandom32(&state), 0x8CC1F34Eu);
+    EXPECT_EQ(LocalRandom32(&state), 0x283041EDu);
 }
 
 // A category's stream must depend on its own salt/keys only - not on any

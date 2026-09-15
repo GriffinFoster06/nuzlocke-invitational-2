@@ -9,8 +9,10 @@
 // ============================================================================
 
 #include "global.h"
+#include "bike.h"
 #include "event_object_movement.h"
 #include "event_data.h"
+#include "field_player_avatar.h"
 #include "item.h"
 #include "list_menu.h"
 #include "main.h"
@@ -28,6 +30,7 @@
 #include "ruleset.h"
 #include "ruleset_field.h"
 #include "ruleset_menu.h"
+#include "constants/items.h"
 #include "constants/ruleset.h"
 #include "constants/songs.h"
 
@@ -67,6 +70,42 @@ bool32 Ruleset_QuickTravelAvailable(void)
 {
     return GetRulesetSetting(SETTING_QUICK_TRAVEL) != 0
         && FlagGet(FLAG_RECOVERED_DEVON_GOODS);
+}
+
+// docs/SPEC.md "Bikes".
+bool32 Ruleset_BothBikesOwned(void)
+{
+    return CheckBagHasItem(ITEM_MACH_BIKE, 1) && CheckBagHasItem(ITEM_ACRO_BIKE, 1);
+}
+
+// docs/SPEC.md "Bikes": "Bike mode can be switched from the menu outside
+// battle." If currently riding, switch in place via the same GetOnOffBike()
+// primitive the Bag's bike-item-use flow already relies on - safe here
+// because RulesetField_ShowMenu's caller (StartMenuRulesCallback) already
+// calls FreezeObjectEvents() before opening this menu, the same precondition
+// item-use's field callback expects. If not currently riding, retarget the
+// registered quick-item instead of forcing an unwanted mount, so the next
+// Select-button press (or manual Bag use) mounts the other bike.
+void Ruleset_SwitchBikeMode(void)
+{
+    if (TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_MACH_BIKE))
+    {
+        GetOnOffBike(PLAYER_AVATAR_FLAG_ACRO_BIKE);
+        gSaveBlock1Ptr->registeredItem = ITEM_ACRO_BIKE;
+    }
+    else if (TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_ACRO_BIKE))
+    {
+        GetOnOffBike(PLAYER_AVATAR_FLAG_MACH_BIKE);
+        gSaveBlock1Ptr->registeredItem = ITEM_MACH_BIKE;
+    }
+    else if (gSaveBlock1Ptr->registeredItem == ITEM_MACH_BIKE)
+    {
+        gSaveBlock1Ptr->registeredItem = ITEM_ACRO_BIKE;
+    }
+    else
+    {
+        gSaveBlock1Ptr->registeredItem = ITEM_MACH_BIKE;
+    }
 }
 
 bool32 Ruleset_InfiniteRepelActive(void)
@@ -128,10 +167,11 @@ enum
     RF_ACT_RUNINFO,
     RF_ACT_HEAL,
     RF_ACT_REPEL,
+    RF_ACT_SWITCH_BIKE,
     RF_ACT_CANCEL,
 };
 
-#define RF_MAX_ROWS 4
+#define RF_MAX_ROWS 5
 #define RF_NAME_LEN 24
 
 struct RulesetFieldMenu
@@ -147,12 +187,13 @@ struct RulesetFieldMenu
 
 static EWRAM_DATA struct RulesetFieldMenu *sRfMenu = NULL;
 
-static const u8 sText_RfRunInfo[]  = _("RUN INFO / SETTINGS");
-static const u8 sText_RfHeal[]     = _("HEAL PARTY");
-static const u8 sText_RfRepelOn[]  = _("REPEL: ON");
-static const u8 sText_RfRepelOff[] = _("REPEL: OFF");
-static const u8 sText_RfCancel[]   = _("CANCEL");
-static const u8 sText_RfHealDone[] = _("Your POKéMON were\nrestored to full health.");
+static const u8 sText_RfRunInfo[]    = _("RUN INFO / SETTINGS");
+static const u8 sText_RfHeal[]       = _("HEAL PARTY");
+static const u8 sText_RfRepelOn[]    = _("REPEL: ON");
+static const u8 sText_RfRepelOff[]   = _("REPEL: OFF");
+static const u8 sText_RfSwitchBike[] = _("SWITCH BIKE");
+static const u8 sText_RfCancel[]     = _("CANCEL");
+static const u8 sText_RfHealDone[]   = _("Your POKéMON were\nrestored to full health.");
 
 static const struct WindowTemplate sRfMenuWindowTemplate =
 {
@@ -160,7 +201,8 @@ static const struct WindowTemplate sRfMenuWindowTemplate =
     .tilemapLeft = 1,
     .tilemapTop = 1,
     .width = 21,
-    .height = 8,
+    .height = 10, // Phase 11D: +2 tiles over the original 4-row sizing (8) so
+                  // a 5th row (SWITCH BIKE) doesn't clip - verify in mGBA.
     .paletteNum = 15,
     .baseBlock = 1,
 };
@@ -188,6 +230,13 @@ static void RfMenu_BuildItems(void)
         StringCopy(sRfMenu->names[n],
                    Ruleset_InfiniteRepelActive() ? sText_RfRepelOn : sText_RfRepelOff);
         sRfMenu->actions[n] = RF_ACT_REPEL;
+        n++;
+    }
+
+    if (Ruleset_BothBikesOwned())
+    {
+        StringCopy(sRfMenu->names[n], sText_RfSwitchBike);
+        sRfMenu->actions[n] = RF_ACT_SWITCH_BIKE;
         n++;
     }
 
@@ -323,6 +372,11 @@ static void Task_RfMenuInput(u8 taskId)
         PlaySE(SE_SELECT);
         Ruleset_SetInfiniteRepelActive(!Ruleset_InfiniteRepelActive());
         RfMenu_Redraw();
+        break;
+    case RF_ACT_SWITCH_BIKE:
+        PlaySE(SE_SELECT);
+        Ruleset_SwitchBikeMode();
+        RfMenu_TearDown(taskId, TRUE);
         break;
     case RF_ACT_CANCEL:
     default:

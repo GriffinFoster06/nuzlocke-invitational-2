@@ -36,6 +36,15 @@ void Ruleset_SetInfiniteRepelActive(bool32 active);
 // callers still enforce the existing outdoor-map and visited-town checks.
 bool32 Ruleset_QuickTravelAvailable(void);
 
+// docs/SPEC.md "Bikes": the player permanently owns both bikes once received
+// (the Bike Shop script already gives both in one visit) and can switch
+// which one is active from a menu outside battle, with no return trip to
+// Rydel. Ruleset_BothBikesOwned gates whether the RULES menu shows the row;
+// Ruleset_SwitchBikeMode performs the switch (in place if currently riding,
+// otherwise retargets the next mount).
+bool32 Ruleset_BothBikesOwned(void);
+void Ruleset_SwitchBikeMode(void);
+
 // docs/SPEC.md "Set battle style". When on, no free switch is offered after
 // defeating an opposing Pokemon, and the Options battle-style row is locked.
 bool32 Ruleset_ForceSetBattleStyleOn(void);

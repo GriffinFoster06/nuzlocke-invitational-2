@@ -20,6 +20,7 @@
 #include "randomizer.h"
 #include "caps.h"
 #include "nuzlocke.h"
+#include "run_report.h"
 #include "ruleset_field.h"
 #include "roamer.h"
 #include "safari_zone.h"
@@ -613,6 +614,7 @@ static u8 NuzlockeChooseNonDupeSlot(const struct WildPokemonInfo *info, enum Wil
     if (!Nuzlocke_IsFamilyOwned(Randomizer_WildSlotSpecies(info, slot, info->wildPokemon[slot].species)))
         return slot;
 
+    RunReport_NoteDupeRerolled();
     GetEncounterSlotRange(area, rod, &first, &count, &weights);
     for (i = 0; i < count; i++)
     {

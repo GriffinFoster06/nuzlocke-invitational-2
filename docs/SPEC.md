@@ -831,8 +831,10 @@ friendly fire but can intentionally hit an ally when beneficial; considers
 board position rather than treating each AI Pokémon independently.
 
 ### AI difficulty settings
-Vanilla / Improved / Expert / Pro Fair (default). Increasing difficulty
-improves reasoning. No standard difficulty setting grants omniscience.
+Standard / Improved / Expert / Pro Fair (default). Standard means original
+Emerald trainer AI behavior (the authored per-trainer flags only, no project
+tuning or fair-knowledge layer). Increasing difficulty improves reasoning.
+No standard difficulty setting grants omniscience.
 
 ## Story streamlining — overall rule
 Default: heavily linearized. The individual cuts below define this project's
@@ -1012,8 +1014,12 @@ opponent, cause, and progression checkpoint.
 
 Canonical finalized report state lives in save data. The latest finalized
 report remains recoverable long enough for manual export, including across
-practical run-reset/new-run handling; the exact save architecture is designed
-in Phase 11E. A standalone repository tool must read an ordinary `.sav` and
+practical run-reset/new-run handling; implemented in Phase 11E as a two-slot
+bank in the e-Reader Trainer Hill special flash sector (`SECTOR_ID_RUN_REPORT`,
+`include/run_report.h`, `src/run_report.c`), which this hack never otherwise
+reaches, plus a small live-counter/death-history block appended to
+`SaveBlock3` (`struct RunReportState`) that resets each New Game. A standalone
+repository tool must read an ordinary `.sav` and
 export its finalized report without modifying that save. Its versioned JSON
 uses human-readable names for species, forms, moves, abilities, items,
 locations, and settings; preferred non-overwriting filenames are
@@ -1025,7 +1031,10 @@ report finalizes. Core ROM gameplay never depends on mGBA, and manual
 `.sav`-to-JSON export remains the portable fallback. A unique report ID and
 ready state prevent repeated save events from exporting the same report more
 than once. The ROM must not claim that an external JSON file was created until
-host-side tooling confirms it.
+host-side tooling confirms it. Implemented in Phase 11E as `tools/export_run.py`
+(manual, required) and `tools/watch_run_export.py` (optional `.sav` poller with
+a host-side JSON ledger keyed by report ID — no gameplay state is mutated to
+acknowledge export).
 
 ## Postgame
 Nuzlocke run formally ends at Champion by default. Player can optionally

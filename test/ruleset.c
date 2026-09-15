@@ -1,9 +1,15 @@
 #include "global.h"
+#include "config_changes.h"
 #include "nuzlocke.h"
 #include "ruleset.h"
 #include "test/test.h"
+#include "constants/battle_ai.h"
 #include "constants/ruleset.h"
 #include "constants/species.h"
+
+// Declared directly (rather than including battle_ai_main.h) since that header's other
+// prototypes pull in battle-internal struct definitions this file has no other need for.
+extern u64 GetRulesetAiFlags(void); // docs/SPEC.md "AI difficulty settings"
 
 static u8 ExpectedPresetValue(u32 preset, u32 settingId)
 {
@@ -185,4 +191,55 @@ TEST("Deprecated Phase 11A controls retain IDs but are hidden")
     EXPECT((GetSettingDescriptor(SETTING_HOF_SPECIES_EXCLUSION)->flags & SETTING_FLAG_HIDDEN));
     EXPECT((GetSettingDescriptor(SETTING_FINAL_TEAM_LOCK)->flags & SETTING_FLAG_HIDDEN));
     EXPECT_EQ(GetSettingDescriptor(SETTING_TRAINER_LEVEL_MODE)->maxValue, TRLEVEL_VANILLA);
+}
+
+// docs/SPEC.md "AI difficulty settings" / "Maximum-strength fair AI". Standard (AIDIFF_VANILLA
+// internally, no save/API churn from the player-facing rename) must add nothing on top of a
+// trainer's authored AI flags, so it reproduces original Emerald trainer AI behavior; every
+// higher tier must never author a hidden-information flag itself.
+TEST("AI Difficulty Standard adds no flags; no tier authors hidden-information flags")
+{
+    const u64 hiddenInfoFlags = AI_FLAG_OMNISCIENT | AI_FLAG_ABILITY_OMNISCIENCE
+                               | AI_FLAG_ITEM_OMNISCIENCE | AI_FLAG_MOVE_OMNISCIENCE
+                               | AI_FLAG_KNOW_OPPONENT_PARTY;
+
+    EXPECT((SetRulesetSetting(SETTING_AI_DIFFICULTY, AIDIFF_VANILLA)));
+    EXPECT(GetRulesetAiFlags() == 0);
+
+    EXPECT((SetRulesetSetting(SETTING_AI_DIFFICULTY, AIDIFF_IMPROVED)));
+    EXPECT((GetRulesetAiFlags() & hiddenInfoFlags) == 0);
+
+    EXPECT((SetRulesetSetting(SETTING_AI_DIFFICULTY, AIDIFF_EXPERT)));
+    EXPECT((GetRulesetAiFlags() & hiddenInfoFlags) == 0);
+
+    EXPECT((SetRulesetSetting(SETTING_AI_DIFFICULTY, AIDIFF_PRO_FAIR)));
+    EXPECT((GetRulesetAiFlags() & hiddenInfoFlags) == 0);
+}
+
+// Expert keeps AI_FLAG_RANDOMIZE_SWITCHIN for variety; Pro Fair (the "strongest fair-information
+// reasoning available" tier, spec) drops it so switch-in selection deterministically picks the
+// best qualifying candidate GetBestMonIntegrated tracked, rather than a random one from the tier.
+TEST("AI Difficulty Pro Fair keeps Expert's smart switching but drops switch-in randomization")
+{
+    EXPECT((SetRulesetSetting(SETTING_AI_DIFFICULTY, AIDIFF_EXPERT)));
+    EXPECT((GetRulesetAiFlags() & AI_FLAG_SMART_SWITCHING));
+    EXPECT((GetRulesetAiFlags() & AI_FLAG_SMART_MON_CHOICES));
+    EXPECT((GetRulesetAiFlags() & AI_FLAG_RANDOMIZE_SWITCHIN));
+
+    EXPECT((SetRulesetSetting(SETTING_AI_DIFFICULTY, AIDIFF_PRO_FAIR)));
+    EXPECT((GetRulesetAiFlags() & AI_FLAG_SMART_SWITCHING));
+    EXPECT((GetRulesetAiFlags() & AI_FLAG_SMART_MON_CHOICES));
+    EXPECT((GetRulesetAiFlags() & AI_FLAG_PREDICT_MOVE));
+    EXPECT(!(GetRulesetAiFlags() & AI_FLAG_RANDOMIZE_SWITCHIN));
+}
+
+// Regression coverage for the A -> B -> A voluntary-switch oscillation: with this OFF,
+// ShouldSwitchIfAllScoresBad (src/battle_ai_switch.c) could fire with no party mon having
+// cleared canSwitchinWin1v1, falling back to a blind last-in-party-order switch every time
+// all of the active mon's move scores are bad - producing exactly that oscillation. ON keeps
+// it consistent with every other voluntary-switch trigger, which already require a candidate
+// that cleared canSwitchinWin1v1 (mostSuitableMonId != PARTY_SIZE) before giving up the turn.
+TEST("AI all-scores-bad switch requires a real switch-in by project default")
+{
+    EXPECT((GetConfig(ALL_SCORES_BAD_NEEDS_GOOD_SWITCHIN)));
 }

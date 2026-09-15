@@ -103,6 +103,8 @@ enum MoveComparisonResult
 void BattleAI_SetupAIData(u8 defaultScoreMoves, enum BattlerId battler);
 void BattleAI_SetupItems(void);
 void BattleAI_SetupFlags(void);
+u64 GetRulesetAiFlags(void); // docs/SPEC.md "AI difficulty settings"; exported for test/ruleset.c coverage
+bool32 IsAiProjectTuningActive(void); // AI_TUNED in include/config/ai.h
 void ComputeAiBattlerDecisions(enum BattlerId battler);
 u32 BattleAI_ChooseMoveIndex(enum BattlerId battler);
 void Ai_InitPartyStruct(void);

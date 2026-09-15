@@ -26,7 +26,6 @@ static const u8 *const sLbl_PremiumPool[] =
 {
     COMPOUND_STRING("Curated high-power"),
     COMPOUND_STRING("All legendaries"),
-    COMPOUND_STRING("Same as normal"),
 };
 static const u8 *const sLbl_PowerMatch[] =
 {
@@ -124,7 +123,9 @@ static const u8 *const sLbl_ShinyOdds[] =
 };
 static const u8 *const sLbl_AiDifficulty[] =
 {
-    COMPOUND_STRING("Vanilla"),
+    // Player-facing label is "Standard" (AIDIFF_VANILLA keeps its internal name to avoid
+    // save/API churn); it means original Emerald trainer AI behavior, not a project mode.
+    COMPOUND_STRING("Standard"),
     COMPOUND_STRING("Improved"),
     COMPOUND_STRING("Expert"),
     COMPOUND_STRING("Pro Fair"),
@@ -211,7 +212,7 @@ static const struct SettingDescriptor sSettingDescriptors[NUM_SETTINGS] =
         "Allow Other Forms",
         "Include misc alternate forms with working battle data."),
     [SETTING_PREMIUM_POOL_MODE] = DESC_ENUM(SETTING_CAT_SPECIES_POOL, GEN, PREMPOOL_CURATED, SETTING_FLAG_NONE,
-        sLbl_PremiumPool, 2, "Premium Pool",
+        sLbl_PremiumPool, 1, "Premium Pool",
         "Species used for legendary/static premium slots."),
 
     // -- Wild & Encounters --

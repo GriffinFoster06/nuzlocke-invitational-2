@@ -6,6 +6,7 @@
 #include "hall_of_fame_frlg.h"
 #include "load_save.h"
 #include "overworld.h"
+#include "run_report.h"
 #include "script_pokemon_util.h"
 #include "tv.h"
 #include "constants/heal_locations.h"
@@ -82,6 +83,11 @@ int GameClear(void)
         }
     }
 
+    // Phase 11E: gParties[B_TRAINER_PLAYER] is still the complete, final
+    // Hall-of-Fame team here - nothing below reads it, and everything above
+    // (healing, champion ribbons, game-clear flags) has already run.
+    RunReport_Finalize(RUN_RESULT_VICTORY, RUN_WIPE_OPPONENT_UNKNOWN);
+
     SetMainCallback2(CB2_DoHallOfFameScreen);
     return 0;
 }
@@ -132,6 +138,9 @@ bool8 EnterHallOfFame(void)
         IncrementGameStat(GAME_STAT_RECEIVED_RIBBONS);
         FlagSet(FLAG_SYS_RIBBON_GET);
     }
+    // Phase 11E: see the matching comment in GameClear() above.
+    RunReport_Finalize(RUN_RESULT_VICTORY, RUN_WIPE_OPPONENT_UNKNOWN);
+
     SetMainCallback2(CB2_DoHallOfFameScreenFrlg);
     return FALSE;
 }

@@ -38,6 +38,7 @@
 #include "sound.h"
 #include "randomizer.h"
 #include "nuzlocke.h"
+#include "run_report.h"
 #include "starter_choose.h"
 #include "strings.h"
 #include "string_util.h"
@@ -1642,6 +1643,7 @@ static void CB2_EndTrainerBattle(void)
         {
             RegisterTrainerInMatchCall();
             SetBattledTrainersFlags();
+            RunReport_NoteTrainerDefeated(TRAINER_BATTLE_PARAM.opponentA);
         }
     }
 }
@@ -1662,6 +1664,7 @@ static void CB2_EndRematchBattle(void)
         SetMainCallback2(CB2_ReturnToFieldContinueScriptPlayMapMusic);
         RegisterTrainerInMatchCall();
         SetBattledTrainersFlags();
+        RunReport_NoteTrainerDefeated(TRAINER_BATTLE_PARAM.opponentA);
         HandleRematchVarsOnBattleEnd();
         DowngradeBadPoison();
     }

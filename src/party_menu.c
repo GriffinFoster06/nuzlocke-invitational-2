@@ -48,6 +48,7 @@
 #include "metatile_behavior.h"
 #include "move_relearner.h"
 #include "nuzlocke.h"
+#include "run_report.h"
 #include "overworld.h"
 #include "palette.h"
 #include "party_menu.h"
@@ -70,6 +71,7 @@
 #include "strings.h"
 #include "task.h"
 #include "text.h"
+#include "type_icons.h"
 #include "text_window.h"
 #include "trade.h"
 #include "union_room.h"
@@ -211,6 +213,7 @@ struct PartyMenuBox
     u8 itemSpriteId;
     u8 pokeballSpriteId;
     u8 statusSpriteId;
+    u8 typeSpriteIds[2]; // docs/SPEC.md "Type icons"
 };
 
 // EWRAM vars
@@ -294,6 +297,8 @@ static void CreatePartyMonStatusSpriteParameterized(enum Species, u8, struct Par
 static void CreatePartyMonHeldItemSprite(struct Pokemon *, struct PartyMenuBox *);
 static void CreatePartyMonPokeballSprite(struct Pokemon *, struct PartyMenuBox *);
 static void CreatePartyMonIconSprite(struct Pokemon *, struct PartyMenuBox *);
+static void CreatePartyMonTypeIconSprite(struct Pokemon *, struct PartyMenuBox *);
+static void RecreatePartyMonTypeIconSprites(struct Pokemon *, struct PartyMenuBox *);
 static void CreatePartyMonStatusSprite(struct Pokemon *, struct PartyMenuBox *);
 static u8 CreateSmallPokeballButtonSprite(u8, u8);
 static void DrawCancelConfirmButtons(void);
@@ -999,6 +1004,8 @@ static void LoadPartyMenuBoxes(enum PartyMenuLayout layout)
         sPartyMenuBoxes[i].itemSpriteId = SPRITE_NONE;
         sPartyMenuBoxes[i].pokeballSpriteId = SPRITE_NONE;
         sPartyMenuBoxes[i].statusSpriteId = SPRITE_NONE;
+        sPartyMenuBoxes[i].typeSpriteIds[0] = SPRITE_NONE;
+        sPartyMenuBoxes[i].typeSpriteIds[1] = SPRITE_NONE;
     }
 
     // The first party mon goes in the left column
@@ -1304,6 +1311,7 @@ static void CreatePartyMonSprites(u8 slot)
         CreatePartyMonHeldItemSprite(&party[partySlot], &sPartyMenuBoxes[slot]);
         CreatePartyMonPokeballSprite(&party[partySlot], &sPartyMenuBoxes[slot]);
         CreatePartyMonStatusSprite(&party[partySlot], &sPartyMenuBoxes[slot]);
+        CreatePartyMonTypeIconSprite(&party[partySlot], &sPartyMenuBoxes[slot]);
     }
 }
 
@@ -3320,10 +3328,17 @@ static void MoveAndBufferPartySlot(const void *rectSrc, s16 x, s16 y, s16 width,
 
 static void MovePartyMenuBoxSprites(struct PartyMenuBox *menuBox, s16 offset)
 {
+    u32 i;
+
     gSprites[menuBox->pokeballSpriteId].x2 += offset * 8;
     gSprites[menuBox->itemSpriteId].x2 += offset * 8;
     gSprites[menuBox->monSpriteId].x2 += offset * 8;
     gSprites[menuBox->statusSpriteId].x2 += offset * 8;
+    for (i = 0; i < ARRAY_COUNT(menuBox->typeSpriteIds); i++)
+    {
+        if (menuBox->typeSpriteIds[i] != SPRITE_NONE)
+            gSprites[menuBox->typeSpriteIds[i]].x2 += offset * 8;
+    }
 }
 
 static void SlidePartyMenuBoxSpritesOneStep(u8 taskId)
@@ -3446,6 +3461,11 @@ static void SwitchPartyMon(void)
     SwitchMenuBoxSprites(&menuBoxes[0]->itemSpriteId, &menuBoxes[1]->itemSpriteId);
     SwitchMenuBoxSprites(&menuBoxes[0]->monSpriteId, &menuBoxes[1]->monSpriteId);
     SwitchMenuBoxSprites(&menuBoxes[0]->statusSpriteId, &menuBoxes[1]->statusSpriteId);
+    // docs/SPEC.md "Type icons": a box may hold one or two icons, so rebuild
+    // each box's pair for its new mon instead of swapping ids, then match the
+    // box's current slide offset (its mon icon's x2).
+    RecreatePartyMonTypeIconSprites(mon1, menuBoxes[0]);
+    RecreatePartyMonTypeIconSprites(mon2, menuBoxes[1]);
 }
 
 // Finish switching mons or using Softboiled
@@ -4416,6 +4436,59 @@ static void CreatePartyMonIconSprite(struct Pokemon *mon, struct PartyMenuBox *m
     bool32 isEgg = GetMonData(mon, MON_DATA_IS_EGG);
     CreatePartyMonIconSpriteParameterized(species, GetMonData(mon, MON_DATA_PERSONALITY), isEgg, menuBox, 1);
     UpdatePartyMonHPBar(menuBox->monSpriteId, mon);
+}
+
+// docs/SPEC.md "Type icons". Created once alongside the box's other sprites
+// (this box is populated exactly once per party-menu session by
+// CreatePartyMonSprites - species-change points such as evolution/form-
+// change animations already destroy+recreate monSpriteId directly and do
+// not route back through here, so a type icon can go briefly stale during
+// those specific animations; it is correct again the next time the party
+// menu opens). Positioned as a fixed offset from the box's own icon
+// coordinate (spriteCoords[0]/[1]), which is layout-independent, rather than
+// adding a fifth coordinate pair to every sPartyMenuSpriteCoords layout row.
+static void CreatePartyMonTypeIconSprite(struct Pokemon *mon, struct PartyMenuBox *menuBox)
+{
+    enum Species species = GetMonData(mon, MON_DATA_SPECIES);
+    enum Type type1, type2;
+    s16 x, y;
+
+    if (species == SPECIES_NONE || GetMonData(mon, MON_DATA_IS_EGG))
+        return;
+
+    TypeIcons_LoadGraphics();
+    type1 = GetSpeciesType(species, 0);
+    type2 = GetSpeciesType(species, 1);
+    // To the right of the mon icon, same row - avoids the row-above/
+    // row-below collision risk a vertical offset would carry in the
+    // tighter multi-battle layouts. Needs an mGBA pass across every
+    // PartyMenuLayout to confirm no overlap with the nickname/level text.
+    x = (s16)menuBox->spriteCoords[0] + 24;
+    y = (s16)menuBox->spriteCoords[1] + 4;
+    menuBox->typeSpriteIds[0] = CreateStaticTypeIconSprite(type1, x, y, 1);
+    if (type2 != type1)
+        menuBox->typeSpriteIds[1] = CreateStaticTypeIconSprite(type2, x + 9, y, 1);
+}
+
+// Used by SwitchPartyMon: replaces a box's type icons with its new mon's.
+static void RecreatePartyMonTypeIconSprites(struct Pokemon *mon, struct PartyMenuBox *menuBox)
+{
+    u32 i;
+
+    for (i = 0; i < ARRAY_COUNT(menuBox->typeSpriteIds); i++)
+    {
+        if (menuBox->typeSpriteIds[i] != SPRITE_NONE)
+        {
+            DestroySprite(&gSprites[menuBox->typeSpriteIds[i]]);
+            menuBox->typeSpriteIds[i] = SPRITE_NONE;
+        }
+    }
+    CreatePartyMonTypeIconSprite(mon, menuBox);
+    for (i = 0; i < ARRAY_COUNT(menuBox->typeSpriteIds); i++)
+    {
+        if (menuBox->typeSpriteIds[i] != SPRITE_NONE)
+            gSprites[menuBox->typeSpriteIds[i]].x2 = gSprites[menuBox->monSpriteId].x2;
+    }
 }
 
 static void CreatePartyMonIconSpriteParameterized(enum Species species, u32 pid, bool32 isEgg, struct PartyMenuBox *menuBox, u8 priority)
@@ -7036,6 +7109,7 @@ static void CursorCb_LevelToCap(u8 taskId)
 
     BufferMonStatsToTaskData(mon, arrayPtr);
     LevelToCap_ApplyLevel(mon, target);
+    RunReport_NoteLevelToCapUsed();
     BufferMonStatsToTaskData(mon, &ptr->data[NUM_STATS]);
 
     sFinalLevel = GetMonData(mon, MON_DATA_LEVEL);

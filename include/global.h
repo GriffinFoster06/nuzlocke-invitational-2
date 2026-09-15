@@ -27,6 +27,7 @@
 #include "constants/moves.h"
 #include "constants/ruleset.h"
 #include "constants/region_map_sections.h"
+#include "run_report.h"
 #include "config/save.h"
 
 // Prevent cross-jump optimization.
@@ -319,6 +320,11 @@ struct SaveBlock3
 #endif
     struct RulesetSettings ruleset;
     struct NuzlockeState nuzlocke;
+    // Phase 11E (docs/SPEC.md "Terminal Run Reports"). Live counters + bounded
+    // death history only - the finalized report itself lives in flash
+    // (SECTOR_ID_RUN_REPORT, include/save.h), not here. Append-only, same
+    // convention as the two fields above.
+    struct RunReportState runReport;
 }; /* max size 1624 bytes */
 
 extern struct SaveBlock3 *gSaveBlock3Ptr;

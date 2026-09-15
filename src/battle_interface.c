@@ -35,6 +35,7 @@
 #include "constants/items.h"
 #include "caps.h"
 #include "ruleset_qol.h"
+#include "type_icons.h"
 
 #define HEALTHBOX_BG_INDEX 2
 
@@ -596,6 +597,96 @@ static const union TextColor sHealthBoxTextColor =
 #define hBar_HealthBoxSpriteId      data[5]
 #define hBar_Data6                  data[6]
 
+// data fields for the persistent per-side type icon (docs/SPEC.md "Type
+// icons") - distinct from type_icons.c's LoadTypeIcons, which is scoped to
+// move-selection only and hidden the rest of the time.
+#define hTypeIcon_HealthboxSpriteId data[5]
+#define hTypeIcon_OffsetX           data[6]
+#define hTypeIcon_OffsetY           data[7]
+
+// One pair of type-icon sprite ids per battler, SPRITE_NONE when not yet
+// created or the battler slot is empty.
+static u8 sBattlerTypeIconSpriteIds[MAX_BATTLERS_COUNT][2];
+
+// Syncs the position of a persistent type icon with its healthbox, the same
+// way SpriteCB_HealthBar (above... below, in this file) tracks the healthbar -
+// including the x2/y2 layer so entry/retreat/hit-shake animations carry the
+// icon along with the box instead of leaving it behind.
+static void SpriteCB_HealthboxTypeIcon(struct Sprite *sprite)
+{
+    u8 healthboxSpriteId = sprite->hTypeIcon_HealthboxSpriteId;
+
+    sprite->x = gSprites[healthboxSpriteId].x + sprite->hTypeIcon_OffsetX;
+    sprite->y = gSprites[healthboxSpriteId].y + sprite->hTypeIcon_OffsetY;
+    sprite->x2 = gSprites[healthboxSpriteId].x2;
+    sprite->y2 = gSprites[healthboxSpriteId].y2;
+}
+
+// docs/SPEC.md "Type icons": (re)creates the up-to-two persistent
+// icon sprites for one battler's healthbox, called from UpdateHealthboxAttribute
+// at every point that already refreshes the nickname (switch-in, Illusion
+// reveal, Tera activation) - exactly the set of moments the displayed
+// species/type can change. The fixed per-icon offset from the healthbox's own
+// base position reuses type_icons.c's already-tuned sTypeIconPositions rather
+// than inventing new coordinates, so both icon systems agree on placement;
+// SpriteCB_HealthboxTypeIcon (above) keeps the icon glued to the healthbox's
+// current (possibly animating) position every frame.
+static void UpdateHealthboxTypeIcons(u8 healthboxSpriteId, enum BattlerId battler)
+{
+    bool32 isDoubles = (GetBattlerCoordsIndex(battler) == BATTLE_COORDS_DOUBLES);
+    enum BattlerPosition position = GetBattlerPosition(battler);
+    s16 healthboxBaseX, healthboxBaseY;
+    enum Type types[2];
+    bool32 invisible = FALSE;
+    u32 i;
+
+    GetBattlerHealthboxCoords(battler, &healthboxBaseX, &healthboxBaseY);
+    types[0] = GetMonPublicType(battler, 0);
+    types[1] = GetMonPublicType(battler, 1);
+    if (types[0] == types[1])
+        types[1] = TYPE_NONE; // signals "no second icon" below
+
+    // Both icons are hidden/shown in lockstep (SetHealthboxTypeIconsInvisible),
+    // so any existing one says whether the replacements start hidden.
+    for (i = 0; i < 2; i++)
+    {
+        if (sBattlerTypeIconSpriteIds[battler][i] != SPRITE_NONE)
+            invisible = gSprites[sBattlerTypeIconSpriteIds[battler][i]].invisible;
+    }
+
+    for (i = 0; i < 2; i++)
+    {
+        u8 spriteId = sBattlerTypeIconSpriteIds[battler][i];
+        s16 offsetX, offsetY;
+
+        // Always rebuild: the two icon templates use different sheets and
+        // palettes (gTypesInfo[].useSecondTypeIconPalette), so re-animating
+        // the old sprite in place would draw a new type from the wrong sheet.
+        if (spriteId != SPRITE_NONE)
+        {
+            DestroySprite(&gSprites[spriteId]);
+            sBattlerTypeIconSpriteIds[battler][i] = SPRITE_NONE;
+        }
+
+        if (i == 1 && types[1] == TYPE_NONE)
+            continue;
+
+        offsetX = sTypeIconPositions[position][isDoubles].x - healthboxBaseX;
+        offsetY = sTypeIconPositions[position][isDoubles].y - healthboxBaseY + (i * 11);
+        TypeIcons_LoadGraphics();
+        spriteId = CreateStaticTypeIconSprite(types[i], 0, 0, 0);
+        if (spriteId == SPRITE_NONE)
+            continue;
+        gSprites[spriteId].hTypeIcon_HealthboxSpriteId = healthboxSpriteId;
+        gSprites[spriteId].hTypeIcon_OffsetX = offsetX;
+        gSprites[spriteId].hTypeIcon_OffsetY = offsetY;
+        gSprites[spriteId].invisible = invisible;
+        gSprites[spriteId].callback = SpriteCB_HealthboxTypeIcon;
+        gSprites[spriteId].callback(&gSprites[spriteId]); // one sync now, not just next frame
+        sBattlerTypeIconSpriteIds[battler][i] = spriteId;
+    }
+}
+
 // This function is here to cover a specific case - one player's mon in a 2 vs 1 double battle. In this scenario - display singles layout.
 // The same goes for a 2 vs 1 where opponent has only one Pokémon.
 enum BattleCoordTypes GetBattlerCoordsIndex(enum BattlerId battler)
@@ -703,6 +794,12 @@ u8 CreateBattlerHealthboxSprites(enum BattlerId battler)
     gBattleStruct->ballSpriteIds[1] = MAX_SPRITES;
     gBattleStruct->moveInfoSpriteId = MAX_SPRITES;
 
+    // docs/SPEC.md "Type icons": a fresh healthbox means a fresh persistent
+    // icon pair - UpdateHealthboxTypeIcons creates them lazily the first
+    // time HEALTHBOX_NICK/HEALTHBOX_ALL fires for this battler.
+    sBattlerTypeIconSpriteIds[battler][0] = SPRITE_NONE;
+    sBattlerTypeIconSpriteIds[battler][1] = SPRITE_NONE;
+
     return healthboxLeftSpriteId;
 }
 
@@ -777,12 +874,28 @@ void SetBattleBarStruct(enum BattlerId battler, u8 healthboxSpriteId, s32 maxVal
     gBattleSpritesDataPtr->battleBars[battler].currValue = -32768;
 }
 
+// docs/SPEC.md "Type icons": hide/show the persistent icon(s) for whichever
+// battler owns this healthbox, in lockstep with the box itself.
+static void SetHealthboxTypeIconsInvisible(u8 healthboxSpriteId, bool32 invisible)
+{
+    enum BattlerId battler = gSprites[healthboxSpriteId].hMain_Battler;
+    u32 i;
+
+    for (i = 0; i < 2; i++)
+    {
+        u8 spriteId = sBattlerTypeIconSpriteIds[battler][i];
+        if (spriteId != SPRITE_NONE)
+            gSprites[spriteId].invisible = invisible;
+    }
+}
+
 void SetHealthboxSpriteInvisible(u8 healthboxSpriteId)
 {
     gSprites[healthboxSpriteId].invisible = TRUE;
     gSprites[gSprites[healthboxSpriteId].hMain_HealthBarSpriteId].invisible = TRUE;
     gSprites[gSprites[healthboxSpriteId].oam.affineParam].invisible = TRUE;
     UpdateIndicatorVisibilityAndType(healthboxSpriteId, TRUE);
+    SetHealthboxTypeIconsInvisible(healthboxSpriteId, TRUE);
 }
 
 void SetHealthboxSpriteVisible(u8 healthboxSpriteId)
@@ -791,6 +904,7 @@ void SetHealthboxSpriteVisible(u8 healthboxSpriteId)
     gSprites[gSprites[healthboxSpriteId].hMain_HealthBarSpriteId].invisible = FALSE;
     gSprites[gSprites[healthboxSpriteId].oam.affineParam].invisible = FALSE;
     UpdateIndicatorVisibilityAndType(healthboxSpriteId, FALSE);
+    SetHealthboxTypeIconsInvisible(healthboxSpriteId, FALSE);
 }
 
 static void UpdateSpritePos(u8 spriteId, s16 x, s16 y)
@@ -2109,7 +2223,10 @@ void UpdateHealthboxAttribute(u8 healthboxSpriteId, struct Pokemon *mon, u8 elem
             MoveBattleBar(battler, healthboxSpriteId, EXP_BAR, 0);
         }
         if (elementId == HEALTHBOX_NICK || elementId == HEALTHBOX_ALL)
+        {
             UpdateNickInHealthbox(healthboxSpriteId, mon);
+            UpdateHealthboxTypeIcons(healthboxSpriteId, battler);
+        }
         if (elementId == HEALTHBOX_STATUS_ICON || elementId == HEALTHBOX_ALL)
             UpdateStatusIconInHealthbox(healthboxSpriteId);
         if (elementId == HEALTHBOX_SAFARI_ALL_TEXT)
@@ -2136,7 +2253,10 @@ void UpdateHealthboxAttribute(u8 healthboxSpriteId, struct Pokemon *mon, u8 elem
             MoveBattleBar(battler, healthboxSpriteId, HEALTH_BAR, 0);
         }
         if (elementId == HEALTHBOX_NICK || elementId == HEALTHBOX_ALL)
+        {
             UpdateNickInHealthbox(healthboxSpriteId, mon);
+            UpdateHealthboxTypeIcons(healthboxSpriteId, battler);
+        }
         if (elementId == HEALTHBOX_STATUS_ICON || elementId == HEALTHBOX_ALL)
             UpdateStatusIconInHealthbox(healthboxSpriteId);
     }

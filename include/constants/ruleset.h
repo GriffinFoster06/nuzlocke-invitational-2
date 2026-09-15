@@ -36,7 +36,20 @@
 // seed generates. A save from RANDOMIZER_VERSION 2 must not mix old and new
 // generation logic, so this bump forces the same full reinit as a
 // RULESET_VERSION change.
-#define RANDOMIZER_VERSION 3
+//   v4: Phase 11D closes the Premium-pool leak - Randomizer_StarterSpecies,
+//       Randomizer_GiftSpecies, and Randomizer_StaticSpecies's non-Premium
+//       branch now draw from POOL_STRICT_ORDINARY instead of POOL_ORDINARY,
+//       so a candidate draw that used to land on a Premium species for a
+//       starter/gift/ordinary-static slot is now excluded and resolution
+//       continues (docs/SPEC.md "Premium species category"). Also: gift/egg
+//       sourceKey (src/script_pokemon_util.c, src/scrcmd.c) switched from a
+//       raw ROM address to a stable map+localId key, matching the
+//       Phase 11A.6 fix already applied to setwildbattle - both changes
+//       alter what a given seed generates for those slots. Phase 11F: the
+//       Premium static/roamer branch draws uniformly from the Premium pool
+//       (no power ladder) with the slot's original species always eligible
+//       (docs/SPEC.md "Premium encounter balancing").
+#define RANDOMIZER_VERSION 4
 
 // ----------------------------------------------------------------------------
 // Presets
@@ -112,7 +125,13 @@ enum SettingType
 // ----------------------------------------------------------------------------
 enum { SEEDMODE_RANDOM, SEEDMODE_MANUAL };
 
-enum { PREMPOOL_CURATED, PREMPOOL_ALL_LEGENDARY, PREMPOOL_SAME_AS_NORMAL };
+// Phase 11D: PREMPOOL_SAME_AS_NORMAL removed - InPool()'s POOL_PREMIUM switch
+// (src/randomizer.c) resolved it identically to PREMPOOL_ALL_LEGENDARY, so it
+// was a dead, misleadingly-named option (picking "Same as normal" did not
+// give the ordinary species pool). Safe to renumber: RANDOMIZER_VERSION's
+// bump this phase already forces every save to reinit, so no stale stored
+// value (e.g. the old value 2) can survive.
+enum { PREMPOOL_CURATED, PREMPOOL_ALL_LEGENDARY };
 
 enum { PWRMATCH_STRICT, PWRMATCH_NORMAL, PWRMATCH_LOOSE, PWRMATCH_BST_ONLY, PWRMATCH_UNRESTRICTED };
 enum { EVOSTAGE_OFF, EVOSTAGE_PREFER, EVOSTAGE_STRICT };

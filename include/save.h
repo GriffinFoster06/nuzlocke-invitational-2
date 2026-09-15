@@ -29,6 +29,12 @@
 #define SECTOR_ID_RECORDED_BATTLE    31
 #define SECTORS_COUNT                32
 
+// Phase 11E (docs/SPEC.md "Terminal Run Reports"): the finalized Run Report
+// bank lives in the e-Reader Trainer Hill special sector, which this hack can
+// never reach (no e-Reader link) and which TryWrite/ReadSpecialSaveSector()
+// already accept. See include/run_report.h / src/run_report.c.
+#define SECTOR_ID_RUN_REPORT SECTOR_ID_TRAINER_HILL
+
 #define NUM_HOF_SECTORS 2
 
 #define SAVE_STATUS_EMPTY    0

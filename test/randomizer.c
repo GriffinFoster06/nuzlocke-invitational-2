@@ -307,6 +307,49 @@ TEST("A legendary static slot draws from the premium pool")
     EXPECT((IsSpeciesPremiumTier(pick)));
 }
 
+// docs/SPEC.md "Premium encounter balancing": a Premium static may remain its
+// original species even when the curated pool's power floor excludes it
+// (Regirock scores below it), but otherwise only ever rolls Premium species.
+// A Gen-3-only mask keeps the pool small so the original shows up in the sample.
+TEST("A Premium static keeps its original species eligible")
+{
+    u32 gen, key, originals = 0;
+
+    UseBalancedRandomizerRuleset();
+    for (gen = SETTING_GEN_1_ENABLED; gen <= SETTING_GEN_9_ENABLED; gen++)
+        SetRulesetSetting(gen, gen == SETTING_GEN_3_ENABLED);
+    PowerScore_EnsureBuilt();
+    EXPECT(!(IsSpeciesPremiumTier(SPECIES_REGIROCK)));
+
+    for (key = 0; key < 128; key++)
+    {
+        enum Species pick = Randomizer_StaticSpecies(SPECIES_REGIROCK, 40, key);
+
+        if (pick == SPECIES_REGIROCK)
+            originals++;
+        else
+            EXPECT((IsSpeciesPremiumTier(pick)));
+    }
+    EXPECT_GT(originals, 0);
+}
+
+TEST("A generation-masked Premium original is never kept")
+{
+    u32 key;
+
+    UseBalancedRandomizerRuleset();
+    SetRulesetSetting(SETTING_GEN_3_ENABLED, FALSE);
+    PowerScore_EnsureBuilt();
+
+    for (key = 0; key < 64; key++)
+    {
+        enum Species pick = Randomizer_StaticSpecies(SPECIES_REGIROCK, 40, key);
+
+        EXPECT_NE(pick, SPECIES_REGIROCK);
+        EXPECT((IsSpeciesPremiumTier(pick)));
+    }
+}
+
 TEST("Zero is a valid deterministic run seed")
 {
     static const struct WildPokemon slots[1] = { { 5, 5, SPECIES_ZIGZAGOON } };

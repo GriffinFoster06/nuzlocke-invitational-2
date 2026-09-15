@@ -243,6 +243,18 @@ void NewGameInitData(void)
 #if IS_FRLG
     u8 rivalName[PLAYER_NAME_LENGTH + 1];
 #endif
+    // Phase 11A.6: the New-Game-only settings wizard (src/ruleset_menu.c)
+    // already called ResetRulesetSettings() itself when it opened and then
+    // let the player configure generation-locked settings on top of that
+    // fresh default. ClearSav3() below zeroes SaveBlock3, ruleset included,
+    // so carry the wizard's result across it and skip the reset exactly once.
+    // The Nuzlocke retry path (src/nuzlocke_run_over.c) never marks the
+    // wizard done, so it keeps resetting here exactly as before.
+    bool8 preconfigured = RulesetSettings_ConsumePreconfigured();
+    struct RulesetSettings wizardSettings;
+
+    if (preconfigured)
+        wizardSettings = gSaveBlock3Ptr->ruleset;
     if (gSaveFileStatus == SAVE_STATUS_EMPTY || gSaveFileStatus == SAVE_STATUS_CORRUPT)
         RtcReset();
 
@@ -257,6 +269,8 @@ void NewGameInitData(void)
     ClearFrontierRecord();
     ClearSav1();
     ClearSav3();
+    if (preconfigured)
+        gSaveBlock3Ptr->ruleset = wizardSettings;
     ClearAllMail();
     gSaveBlock2Ptr->specialSaveWarpFlags = 0;
     gSaveBlock2Ptr->gcnLinkFlags = 0;
@@ -314,16 +328,14 @@ void NewGameInitData(void)
     ResetItemFlags();
     ResetDexNav();
     ClearFollowerNPCData();
-    // Phase 11A.6: the New-Game-only settings wizard (src/ruleset_menu.c)
-    // already called ResetRulesetSettings() itself when it opened and then
-    // let the player configure generation-locked settings on top of that
-    // fresh default; doing it again here would immediately wipe those
-    // choices. Skip it exactly once when the wizard marked itself done -
-    // the Nuzlocke retry path (src/nuzlocke_run_over.c) never sets this
-    // flag, so it keeps resetting here exactly as before.
-    if (!RulesetSettings_ConsumePreconfigured())
+    if (!preconfigured)
         ResetRulesetSettings();
     Nuzlocke_ResetState();
+    // docs/SPEC.md "Settings behavior": generation-locked settings are locked
+    // in by the time gameplay begins, so the in-run RULES menu never offers
+    // them as editable. After Nuzlocke_ResetState(), whose retry path may
+    // still reroll the seed.
+    SetRulesetRunStarted(TRUE);
     Ruleset_ApplyUnlimitedMoneyGrant(); // docs/SPEC.md "Unlimited money"
     Ruleset_ApplyForcedBattleStyle();   // docs/SPEC.md "Set battle style"
     Ruleset_GrantFieldKeyItems();       // SPEC "Portable healing" / "Infinite Repel" key items

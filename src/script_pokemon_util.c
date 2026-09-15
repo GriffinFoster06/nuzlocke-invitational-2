@@ -428,13 +428,24 @@ u32 ScriptGiveMon(enum Species species, u8 level, enum Item item)
 void ScrCmd_createmon(struct ScriptContext *ctx)
 {
     u32 i;
-    u32 sourceKey = (u32)ctx->scriptPtr - ROM_START;
+    u32 sourceKey;
     u8 side                   = ScriptReadByte(ctx);
     u8 slot                   = ScriptReadByte(ctx);
 
     struct PokemonTemplate monTemplate = {0};
     monTemplate.species      = VarGet(ScriptReadHalfword(ctx));
     monTemplate.level        = VarGet(ScriptReadHalfword(ctx));
+
+    // Phase 11D: a stable (map, vanilla species) key, matching the
+    // setwildbattle/seteventmon fix from Phase 11A.6 - the previous
+    // "(u32)ctx->scriptPtr - ROM_START" derivation shifted whenever any
+    // earlier script/code changed size, silently reshuffling every gift's
+    // (Beldum/Castform/Lileep/Anorith/Johto starters) randomized result
+    // across unrelated edits. The vanilla species is already unique per gift
+    // script on a given map, so no separate object/local id is needed.
+    sourceKey = ((u32)gSaveBlock1Ptr->location.mapGroup << 24)
+              | ((u32)gSaveBlock1Ptr->location.mapNum << 16)
+              | monTemplate.species;
 
     u32 flags                 = ScriptReadWord(ctx);
     monTemplate.heldItem     = PARSE_FLAG(0, ITEM_NONE);

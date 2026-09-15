@@ -17,6 +17,7 @@
 #include "ability_gen.h"
 #include "battle.h"
 #include "battle_controllers.h"
+#include "battle_setup.h"
 #include "item.h"
 #include "main.h"
 #include "naming_screen.h"
@@ -25,6 +26,7 @@
 #include "pokemon_storage_system.h"
 #include "random.h"
 #include "ruleset.h"
+#include "run_report.h"
 #include "script.h"
 #include "string_util.h"
 #include "nuzlocke.h"
@@ -361,6 +363,7 @@ void Nuzlocke_NoteWildEncounterStart(bool32 scripted)
 {
     u32 i;
     bool32 locationOpen;
+    bool32 anyShiny = FALSE;
 
     (void)scripted;
     memset(&sEncounter, 0, sizeof(sEncounter));
@@ -382,11 +385,46 @@ void Nuzlocke_NoteWildEncounterStart(bool32 scripted)
         target->shiny = Nuzlocke_ShinyClauseOn() && IsMonShiny(mon);
         target->duplicate = Nuzlocke_DupesClauseOn() && Nuzlocke_IsFamilyOwned(species);
         target->ordinaryValid = locationOpen && !target->shiny && !target->duplicate;
+        anyShiny |= target->shiny;
 
         // Encounter history is about the encounter, not the eventual outcome.
         // Snapshot duplicate status first so this encounter does not disqualify itself.
         if (target->ordinaryValid)
             Nuzlocke_MarkFamilyOwned(species);
+    }
+
+    RunReport_NoteEncounterStart(anyShiny);
+}
+
+// Phase 11E run statistics: killed/fled/ran-from encounter counts, tracked
+// independently of SETTING_ONE_ENCOUNTER_PER_LOCATION (unlike
+// NuzlockeConsumeLocation() below, which only runs when that setting is on).
+// Successful catches are already covered by GAME_STAT_POKEMON_CAPTURES.
+static void NoteEncounterStatsOutcome(u32 outcome)
+{
+    u32 i;
+    bool32 anyPresent = FALSE;
+
+    if (!sEncounter.active)
+        return;
+    for (i = 0; i < ARRAY_COUNT(sEncounter.targets); i++)
+        anyPresent |= sEncounter.targets[i].present;
+    if (!anyPresent)
+        return;
+
+    switch (outcome)
+    {
+    case B_OUTCOME_WON:
+        RunReport_NoteEncounterKilled();
+        break;
+    case B_OUTCOME_MON_FLED:
+        RunReport_NoteEncounterFled();
+        break;
+    case B_OUTCOME_RAN:
+        RunReport_NoteEncounterRanFrom();
+        break;
+    default:
+        break;
     }
 }
 
@@ -425,6 +463,8 @@ static void NuzlockeFinishEncounter(void)
 
 void Nuzlocke_HandleWildBattleEnd(void)
 {
+    if (!(gBattleTypeFlags & NUZLOCKE_EXEMPT_ENCOUNTER_FLAGS))
+        NoteEncounterStatsOutcome(gBattleOutcome);
     if (!Nuzlocke_RunIsActive() || !Nuzlocke_OneEncounterPerLocationOn())
         return;
     if (gBattleTypeFlags & NUZLOCKE_EXEMPT_ENCOUNTER_FLAGS)
@@ -436,6 +476,7 @@ void Nuzlocke_HandleScriptedBattleEnd(void)
 {
     // Static / legendary encounters consume their location (planning decision),
     // but the script - not this rule - decides whether they are catchable.
+    NoteEncounterStatsOutcome(gBattleOutcome);
     if (!Nuzlocke_RunIsActive() || !Nuzlocke_OneEncounterPerLocationOn())
         return;
     NuzlockeFinishEncounter();
@@ -443,6 +484,7 @@ void Nuzlocke_HandleScriptedBattleEnd(void)
 
 void Nuzlocke_HandleSafariBattleEnd(void)
 {
+    NoteEncounterStatsOutcome(gBattleOutcome);
     if (!Nuzlocke_RunIsActive() || !Nuzlocke_OneEncounterPerLocationOn())
         return;
     NuzlockeFinishEncounter();
@@ -489,7 +531,11 @@ void Nuzlocke_NoteCaughtBattler(enum BattlerId battler)
     u32 index = GetEncounterTargetIndex(battler);
 
     if (sEncounter.active && index < ARRAY_COUNT(sEncounter.targets))
+    {
         sEncounter.ordinaryCaught = sEncounter.targets[index].ordinaryValid;
+        if (sEncounter.targets[index].shiny)
+            RunReport_NoteShinyCatch();
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -606,7 +652,20 @@ static void MoveDeadMonToGraveyard(struct Pokemon *mon)
     ZeroMonData(mon);
 }
 
-static void MarkMonDead(struct Pokemon *mon, bool32 moveToGraveyard)
+// Phase 11E: identifies the opponent for a battle death's death record. Wild
+// battles use the battle's recorded wild species (best-effort - there is no
+// single "the" opponent in a double battle, but this is the common case and
+// never invented data); it stays valid for the post-battle pass, which runs
+// after ZeroEnemyPartyMons(). Trainer battles use TRAINER_BATTLE_PARAM.opponentA.
+static void NoteBattleDeath(struct Pokemon *mon)
+{
+    if (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
+        RunReport_NoteDeath(mon, RUN_DEATH_CAUSE_BATTLE, TRAINER_BATTLE_PARAM.opponentA, TRUE);
+    else
+        RunReport_NoteDeath(mon, RUN_DEATH_CAUSE_BATTLE, gBattleResults.lastOpponentSpecies, FALSE);
+}
+
+static void MarkMonDead(struct Pokemon *mon, bool32 moveToGraveyard, u8 deathCause)
 {
     bool8 dead = TRUE;
 
@@ -621,13 +680,26 @@ static void MarkMonDead(struct Pokemon *mon, bool32 moveToGraveyard)
     if (gSaveBlock3Ptr->nuzlocke.deathCount < 0xFFFF)
         gSaveBlock3Ptr->nuzlocke.deathCount++;
 
+    if (deathCause == RUN_DEATH_CAUSE_BATTLE)
+        NoteBattleDeath(mon);
+    else
+        RunReport_NoteDeath(mon, deathCause, 0, FALSE);
+
     if (moveToGraveyard && GetRulesetSetting(SETTING_GRAVEYARD_BOX))
         MoveDeadMonToGraveyard(mon);
 }
 
 void Nuzlocke_MarkMonDead(struct Pokemon *mon)
 {
-    MarkMonDead(mon, TRUE);
+    MarkMonDead(mon, TRUE, RUN_DEATH_CAUSE_DEBUG);
+}
+
+void Nuzlocke_MarkMonDeadFieldPoison(struct Pokemon *mon)
+{
+    // Phase 11E: no immediate graveyard move (unlike the debug path above) -
+    // Nuzlocke_FinalizeDeadMons() does that once, after a Wipe report (if any)
+    // has snapshotted the still-intact party (see field_poison.c).
+    MarkMonDead(mon, FALSE, RUN_DEATH_CAUSE_FIELD_POISON);
 }
 
 void Nuzlocke_RecordBattleFaint(enum BattlerId battler)
@@ -640,7 +712,29 @@ void Nuzlocke_RecordBattleFaint(enum BattlerId battler)
                           | BATTLE_TYPE_CATCH_TUTORIAL | BATTLE_TYPE_FIRST_BATTLE))
         return;
     if (gBattlerPartyIndexes[battler] < PARTY_SIZE)
-        MarkMonDead(&gParties[B_TRAINER_PLAYER][gBattlerPartyIndexes[battler]], FALSE);
+        MarkMonDead(&gParties[B_TRAINER_PLAYER][gBattlerPartyIndexes[battler]], FALSE, RUN_DEATH_CAUSE_BATTLE);
+}
+
+// Graveyard move + party compaction, shared by Nuzlocke_ProcessPostBattleDeaths()
+// below and the field-poison wipe path (src/field_poison.c) so both cleanup
+// the same way, after any Wipe report has already snapshotted the party.
+void Nuzlocke_FinalizeDeadMons(void)
+{
+    u32 i;
+
+    if (GetRulesetSetting(SETTING_GRAVEYARD_BOX))
+    {
+        for (i = 0; i < PARTY_SIZE; i++)
+        {
+            struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][i];
+
+            if (GetMonData(mon, MON_DATA_SPECIES) != SPECIES_NONE
+             && GetMonData(mon, MON_DATA_IS_DEAD))
+                MoveDeadMonToGraveyard(mon);
+        }
+        CompactPartySlots();
+    }
+    CalculatePlayerPartyCount();
 }
 
 void Nuzlocke_ProcessPostBattleDeaths(void)
@@ -662,24 +756,17 @@ void Nuzlocke_ProcessPostBattleDeaths(void)
         if (GetMonData(mon, MON_DATA_SANITY_IS_EGG))
             continue;
         if (GetMonData(mon, MON_DATA_HP) == 0)
-            MarkMonDead(mon, FALSE);
+            MarkMonDead(mon, FALSE, RUN_DEATH_CAUSE_BATTLE);
     }
 
-    if (GetRulesetSetting(SETTING_GRAVEYARD_BOX))
-    {
-        for (i = 0; i < PARTY_SIZE; i++)
-        {
-            struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][i];
+    // Phase 11E: the complete pre-cleanup party must be snapshotted here -
+    // Nuzlocke_FinalizeDeadMons() below is what destroys it (docs/SPEC.md
+    // "Terminal Run Reports": Wipe reports capture the party "immediately
+    // before run-loss cleanup destroys relevant state").
+    if (RunReport_WipeConditionMet())
+        RunReport_Finalize(RUN_RESULT_WIPE, RUN_WIPE_OPPONENT_UNKNOWN);
 
-            if (GetMonData(mon, MON_DATA_SPECIES) != SPECIES_NONE
-             && GetMonData(mon, MON_DATA_IS_DEAD))
-                MoveDeadMonToGraveyard(mon);
-        }
-    }
-
-    if (GetRulesetSetting(SETTING_GRAVEYARD_BOX))
-        CompactPartySlots();
-    CalculatePlayerPartyCount();
+    Nuzlocke_FinalizeDeadMons();
 }
 
 u32 Nuzlocke_GetDeathCount(void)
@@ -694,6 +781,18 @@ u32 Nuzlocke_CountLocationsCaught(void)
     for (i = 0; i < MAPSEC_COUNT; i++)
     {
         if (BITARR_GET(gSaveBlock3Ptr->nuzlocke.locationCaught, i))
+            count++;
+    }
+    return count;
+}
+
+u32 Nuzlocke_CountLocationsUsed(void)
+{
+    u32 i, count = 0;
+
+    for (i = 0; i < MAPSEC_COUNT; i++)
+    {
+        if (BITARR_GET(gSaveBlock3Ptr->nuzlocke.locationUsed, i))
             count++;
     }
     return count;
@@ -725,7 +824,7 @@ bool32 Nuzlocke_BattleBagBallsOnly(void)
 // Whiteout / run over
 // ---------------------------------------------------------------------------
 
-static bool32 AnyLivingMonAnywhere(void)
+bool32 Nuzlocke_AnyUsableMonRemains(void)
 {
     u32 i, boxId, pos;
 
@@ -777,7 +876,7 @@ bool32 Nuzlocke_ShouldEndRunOnWhiteout(void)
         return FALSE;
     if (GetRulesetSetting(SETTING_WHITEOUT_BEHAVIOR) != WHITEOUT_RUN_OVER)
         return FALSE;
-    return !AnyLivingMonAnywhere();
+    return !Nuzlocke_AnyUsableMonRemains();
 }
 
 void Nuzlocke_SetRunOver(void)

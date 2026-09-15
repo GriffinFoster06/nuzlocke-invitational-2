@@ -1,5 +1,6 @@
 #include "global.h"
 #include "malloc.h"
+#include "battle.h"
 #include "bg.h"
 #include "data.h"
 #include "decompress.h"
@@ -16,6 +17,7 @@
 #include "item.h"
 #include "item_icon.h"
 #include "item_menu.h"
+#include "level_to_cap.h"
 #include "mail.h"
 #include "main.h"
 #include "menu.h"
@@ -28,11 +30,13 @@
 #include "pokemon_icon.h"
 #include "pokemon_summary_screen.h"
 #include "pokemon_storage_system.h"
+#include "run_report.h"
 #include "script.h"
 #include "sound.h"
 #include "string_util.h"
 #include "strings.h"
 #include "text.h"
+#include "type_icons.h"
 #include "text_window.h"
 #include "trig.h"
 #include "walda_phrase.h"
@@ -165,6 +169,7 @@ enum {
     MENU_MACHINE,
     MENU_SIMPLE,
     MENU_SELECT,
+    MENU_LEVEL_TO_CAP, // docs/SPEC.md "Level to Cap"
 };
 #define MENU_WALLPAPER_SETS_START MENU_SCENERY_1
 #define MENU_WALLPAPERS_START MENU_FOREST
@@ -207,6 +212,7 @@ enum {
     SCREEN_CHANGE_SUMMARY_SCREEN,
     SCREEN_CHANGE_NAME_BOX,
     SCREEN_CHANGE_ITEM_FROM_BAG,
+    SCREEN_CHANGE_L2C_FORGET_MOVE, // Level to Cap: summary screen to pick a move to forget
 };
 
 enum {
@@ -496,6 +502,7 @@ struct PokemonStorageSystemData
     u8 monPlaceChangeState;
     u8 shiftBoxId;
     struct Sprite *markingComboSprite;
+    u8 displayMonTypeSpriteIds[2]; // docs/SPEC.md "Type icons"
     struct Sprite *waveformSprites[2];
     u16 *markingComboTilesPtr;
     struct MonMarkingsMenu markMenu;
@@ -558,6 +565,37 @@ EWRAM_DATA static bool8 sAutoActionOn = 0;
 EWRAM_DATA static bool8 sJustOpenedBag = 0;
 EWRAM_DATA static bool8 sRefreshDisplayMonGfx = FALSE;
 
+// docs/SPEC.md "Level to Cap" for PC Pokémon (Task_LevelToCap). Lives outside
+// sStorage because the forget-a-move summary screen frees sStorage mid-flow.
+struct PcLevelToCap
+{
+    struct Pokemon mon; // working copy, written back to the box after every change
+    u8 boxId;
+    u8 boxPos;
+    u8 level;           // level whose moves are being offered
+    u8 finalLevel;
+    bool8 firstMove;    // next MonTryLearningNewMoveAtLevel call starts this level
+    u16 move;           // move waiting on the forget-a-move decision
+};
+EWRAM_DATA static struct PcLevelToCap sLevelToCap = {0};
+
+enum {
+    L2C_STATE_START,
+    L2C_STATE_WAIT_GREW,
+    L2C_STATE_SCAN,
+    L2C_STATE_WAIT_LEARNED,
+    L2C_STATE_WAIT_WANTS,
+    L2C_STATE_ASK_FORGET,
+    L2C_STATE_FADE_TO_SUMMARY,
+    L2C_STATE_AFTER_FORGET, // entered from Task_ReshowPokeStorage
+    L2C_STATE_WAIT_FORGOT,
+    L2C_STATE_WAIT_NOT_LEARNED,
+    L2C_STATE_WAIT_NO_EFFECT,
+    L2C_STATE_FINISH,
+};
+
+static bool32 CanCursorBoxMonLevelToCap(void);
+
 // Main tasks
 static void Task_InitPokeStorage(u8);
 static void Task_PlaceMon(u8);
@@ -583,6 +621,7 @@ static void Task_TakeItemForMoving(u8);
 static void Task_ShowMarkMenu(u8);
 static void Task_ShowMonSummary(u8);
 static void Task_ReleaseMon(u8);
+static void Task_LevelToCap(u8);
 static void Task_ReshowPokeStorage(u8);
 static void Task_PokeStorageMain(u8);
 static void Task_JumpBox(u8);
@@ -1987,6 +2026,8 @@ static void EnterPokeStorage(u8 boxOption)
         sStorage->isReopening = FALSE;
         sMovingItemId = ITEM_NONE;
         sStorage->state = 0;
+        sStorage->displayMonTypeSpriteIds[0] = SPRITE_NONE;
+        sStorage->displayMonTypeSpriteIds[1] = SPRITE_NONE;
         sStorage->taskId = CreateTask(Task_InitPokeStorage, 3);
         sLastUsedBox = StorageGetCurrentBox();
         SetMainCallback2(CB2_PokeStorage);
@@ -2009,6 +2050,8 @@ static void CB2_ReturnToPokeStorage(void)
         sStorage->boxOption = sCurrentBoxOption;
         sStorage->isReopening = TRUE;
         sStorage->state = 0;
+        sStorage->displayMonTypeSpriteIds[0] = SPRITE_NONE;
+        sStorage->displayMonTypeSpriteIds[1] = SPRITE_NONE;
         sStorage->taskId = CreateTask(Task_InitPokeStorage, 3);
         SetMainCallback2(CB2_PokeStorage);
     }
@@ -2202,7 +2245,13 @@ static void Task_ReshowPokeStorage(u8 taskId)
     case 1:
         if (!UpdatePaletteFade())
         {
-            if (sWhichToReshow == SCREEN_CHANGE_ITEM_FROM_BAG - 1 && gSpecialVar_ItemId != ITEM_NONE)
+            if (sWhichToReshow == SCREEN_CHANGE_L2C_FORGET_MOVE - 1)
+            {
+                // Resume the Level to Cap move catch-up after the forget-a-move screen.
+                SetPokeStorageTask(Task_LevelToCap);
+                sStorage->state = L2C_STATE_AFTER_FORGET;
+            }
+            else if (sWhichToReshow == SCREEN_CHANGE_ITEM_FROM_BAG - 1 && gSpecialVar_ItemId != ITEM_NONE)
             {
                 PrintMessage(MSG_ITEM_IS_HELD);
                 sStorage->state++;
@@ -2656,6 +2705,10 @@ static void Task_OnSelectedMon(u8 taskId)
         case MENU_SUMMARY:
             PlaySE(SE_SELECT);
             SetPokeStorageTask(Task_ShowMonSummary);
+            break;
+        case MENU_LEVEL_TO_CAP:
+            PlaySE(SE_SELECT);
+            SetPokeStorageTask(Task_LevelToCap);
             break;
         case MENU_MARK:
             PlaySE(SE_SELECT);
@@ -3584,6 +3637,189 @@ static void Task_ShowMonSummary(u8 taskId)
     }
 }
 
+// ---------------------------------------------------------------------------
+// docs/SPEC.md "Level to Cap": the PC counterpart of the party-menu command
+// (CursorCb_LevelToCap in src/party_menu.c). Jumps the box mon to its target
+// level, then offers every skipped level-up move in chronological order;
+// never evolves and grants no EVs (src/level_to_cap.c). Works on a copy that
+// is written back to the box after every change.
+// ---------------------------------------------------------------------------
+static bool32 CanCursorBoxMonLevelToCap(void)
+{
+    struct Pokemon mon;
+
+    if (sCursorArea != CURSOR_AREA_IN_BOX || sIsMonBeingMoved)
+        return FALSE;
+    BoxMonToMon(GetBoxedMonPtr(StorageGetCurrentBox(), sCursorPosition), &mon);
+    return LevelToCap_IsAvailable(&mon);
+}
+
+// Like PrintMessage, but for text built from gStringVar1-3; narrows the font
+// when a long nickname/move name would overflow the one-line message box.
+static void PrintLevelToCapMessage(const u8 *text)
+{
+    StringExpandPlaceholders(gStringVar4, text);
+    FillWindowPixelBuffer(WIN_MESSAGE, PIXEL_FILL(1));
+    AddTextPrinterParameterized(WIN_MESSAGE, GetFontIdToFit(gStringVar4, FONT_NORMAL, 0, 144),
+                                gStringVar4, 0, 1, TEXT_SKIP_DRAW, NULL);
+    DrawTextBorderOuter(WIN_MESSAGE, 2, 14);
+    PutWindowTilemap(WIN_MESSAGE);
+    CopyWindowToVram(WIN_MESSAGE, COPYWIN_GFX);
+    ScheduleBgCopyTilemapToVram(0);
+}
+
+static void LevelToCap_WriteBack(void)
+{
+    SetBoxMonAt(sLevelToCap.boxId, sLevelToCap.boxPos, &sLevelToCap.mon.box);
+    TryRefreshDisplayMon();
+    RefreshDisplayMonData();
+}
+
+static void Task_LevelToCap(u8 taskId)
+{
+    struct Pokemon *mon = &sLevelToCap.mon;
+    enum Move result;
+    u8 target, slot;
+
+    switch (sStorage->state)
+    {
+    case L2C_STATE_START:
+        sLevelToCap.boxId = StorageGetCurrentBox();
+        sLevelToCap.boxPos = sCursorPosition;
+        BoxMonToMon(GetBoxedMonPtr(sLevelToCap.boxId, sLevelToCap.boxPos), mon);
+        sLevelToCap.level = GetMonData(mon, MON_DATA_LEVEL);
+        target = LevelToCap_GetTargetLevel(mon);
+        if (target <= sLevelToCap.level)
+        {
+            PlaySE(SE_FAILURE);
+            PrintLevelToCapMessage(COMPOUND_STRING("It won't have any effect."));
+            sStorage->state = L2C_STATE_WAIT_NO_EFFECT;
+            break;
+        }
+        LevelToCap_ApplyLevel(mon, target);
+        RunReport_NoteLevelToCapUsed();
+        sLevelToCap.level++;
+        sLevelToCap.finalLevel = GetMonData(mon, MON_DATA_LEVEL);
+        sLevelToCap.firstMove = TRUE;
+        LevelToCap_WriteBack();
+        GetMonNickname(mon, gStringVar1);
+        ConvertIntToDecimalStringN(gStringVar2, sLevelToCap.finalLevel, STR_CONV_MODE_LEFT_ALIGN, 3);
+        PlayFanfare(MUS_LEVEL_UP);
+        PrintLevelToCapMessage(COMPOUND_STRING("{STR_VAR_1} grew to Lv. {STR_VAR_2}!"));
+        sStorage->state = L2C_STATE_WAIT_GREW;
+        break;
+    case L2C_STATE_WAIT_GREW:
+    case L2C_STATE_WAIT_LEARNED:
+        if (WaitFanfare(FALSE) && JOY_NEW(A_BUTTON | B_BUTTON))
+            sStorage->state = L2C_STATE_SCAN;
+        break;
+    case L2C_STATE_SCAN:
+        // Same catch-up as the party menu's Task_TryLearnNewMoves: every
+        // generated level-up move from the old level + 1 to the new level.
+        while (sLevelToCap.level <= sLevelToCap.finalLevel)
+        {
+            result = MonTryLearningNewMoveAtLevel(mon, sLevelToCap.firstMove, sLevelToCap.level);
+            sLevelToCap.firstMove = FALSE;
+            if (result == MOVE_NONE)
+            {
+                sLevelToCap.level++;
+                sLevelToCap.firstMove = TRUE;
+                continue;
+            }
+            if (result == MON_ALREADY_KNOWS_MOVE)
+                continue;
+
+            GetMonNickname(mon, gStringVar1);
+            if (result == MON_HAS_MAX_MOVES)
+            {
+                sLevelToCap.move = gMoveToLearn;
+                StringCopy(gStringVar2, GetMoveName(sLevelToCap.move));
+                PrintLevelToCapMessage(COMPOUND_STRING("{STR_VAR_1} wants to learn {STR_VAR_2}."));
+                sStorage->state = L2C_STATE_WAIT_WANTS;
+                return;
+            }
+            LevelToCap_WriteBack();
+            StringCopy(gStringVar2, GetMoveName(result));
+            PlayFanfare(MUS_LEVEL_UP);
+            PrintLevelToCapMessage(COMPOUND_STRING("{STR_VAR_1} learned {STR_VAR_2}!"));
+            sStorage->state = L2C_STATE_WAIT_LEARNED;
+            return;
+        }
+        sStorage->state = L2C_STATE_FINISH;
+        break;
+    case L2C_STATE_WAIT_WANTS:
+        if (JOY_NEW(A_BUTTON | B_BUTTON))
+        {
+            PrintLevelToCapMessage(COMPOUND_STRING("Forget a move to learn it?"));
+            ShowYesNoWindow(0);
+            sStorage->state = L2C_STATE_ASK_FORGET;
+        }
+        break;
+    case L2C_STATE_ASK_FORGET:
+        switch (Menu_ProcessInputNoWrapClearOnChoose())
+        {
+        case 0: // Yes
+            ClearBottomWindow();
+            BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
+            sStorage->state = L2C_STATE_FADE_TO_SUMMARY;
+            break;
+        case MENU_B_PRESSED:
+        case 1: // No
+            PrintLevelToCapMessage(COMPOUND_STRING("{STR_VAR_1} did not learn {STR_VAR_2}."));
+            sStorage->state = L2C_STATE_WAIT_NOT_LEARNED;
+            break;
+        }
+        break;
+    case L2C_STATE_FADE_TO_SUMMARY:
+        if (!UpdatePaletteFade())
+        {
+            sWhichToReshow = SCREEN_CHANGE_L2C_FORGET_MOVE - 1;
+            sStorage->screenChangeType = SCREEN_CHANGE_L2C_FORGET_MOVE;
+            SetPokeStorageTask(Task_ChangeScreen);
+        }
+        break;
+    case L2C_STATE_AFTER_FORGET:
+        slot = GetMoveSlotToReplace();
+        GetMonNickname(mon, gStringVar1);
+        StringCopy(gStringVar2, GetMoveName(sLevelToCap.move));
+        if (slot < MAX_MON_MOVES)
+        {
+            StringCopy(gStringVar3, GetMoveName(GetMonData(mon, MON_DATA_MOVE1 + slot)));
+            RemoveMonPPBonus(mon, slot);
+            SetMonMoveSlot(mon, sLevelToCap.move, slot);
+            LevelToCap_WriteBack();
+            PrintLevelToCapMessage(COMPOUND_STRING("{STR_VAR_1} forgot {STR_VAR_3}!"));
+            sStorage->state = L2C_STATE_WAIT_FORGOT;
+        }
+        else
+        {
+            PrintLevelToCapMessage(COMPOUND_STRING("{STR_VAR_1} did not learn {STR_VAR_2}."));
+            sStorage->state = L2C_STATE_WAIT_NOT_LEARNED;
+        }
+        break;
+    case L2C_STATE_WAIT_FORGOT:
+        if (JOY_NEW(A_BUTTON | B_BUTTON))
+        {
+            PlayFanfare(MUS_LEVEL_UP);
+            PrintLevelToCapMessage(COMPOUND_STRING("{STR_VAR_1} learned {STR_VAR_2}!"));
+            sStorage->state = L2C_STATE_WAIT_LEARNED;
+        }
+        break;
+    case L2C_STATE_WAIT_NOT_LEARNED:
+        if (JOY_NEW(A_BUTTON | B_BUTTON))
+            sStorage->state = L2C_STATE_SCAN;
+        break;
+    case L2C_STATE_WAIT_NO_EFFECT:
+        if (JOY_NEW(A_BUTTON | B_BUTTON))
+            sStorage->state = L2C_STATE_FINISH;
+        break;
+    case L2C_STATE_FINISH:
+        ClearBottomWindow();
+        SetPokeStorageTask(Task_PokeStorageMain);
+        break;
+    }
+}
+
 static void Task_GiveItemFromBag(u8 taskId)
 {
     switch (sStorage->state)
@@ -3784,6 +4020,10 @@ static void Task_ChangeScreen(u8 taskId)
     case SCREEN_CHANGE_ITEM_FROM_BAG:
         FreePokeStorageData();
         GoToBagMenu(ITEMMENULOCATION_PCBOX, 0, CB2_ReturnToPokeStorage);
+        break;
+    case SCREEN_CHANGE_L2C_FORGET_MOVE:
+        FreePokeStorageData();
+        ShowSelectMovePokemonSummaryScreen(&sLevelToCap.mon, 0, CB2_ReturnToPokeStorage, sLevelToCap.move);
         break;
     }
 
@@ -4010,13 +4250,47 @@ static void LoadDisplayMonGfx(enum Species species, u32 pid, bool32 isEgg)
     }
 }
 
+// docs/SPEC.md "Type icons": the display panel's cursor/selected mon.
+// Destroys any previous icon(s) first - the displayed species can change on
+// almost every call (moving the cursor), so this must not leak a sprite per
+// mon browsed in one PC session.
+static void UpdateDisplayMonTypeIcons(void)
+{
+    u32 i;
+
+    for (i = 0; i < ARRAY_COUNT(sStorage->displayMonTypeSpriteIds); i++)
+    {
+        if (sStorage->displayMonTypeSpriteIds[i] != SPRITE_NONE)
+            DestroySprite(&gSprites[sStorage->displayMonTypeSpriteIds[i]]);
+        sStorage->displayMonTypeSpriteIds[i] = SPRITE_NONE;
+    }
+
+    if (sStorage->boxOption == OPTION_MOVE_ITEMS
+        || sStorage->displayMonSpecies == SPECIES_NONE
+        || sStorage->displayMonIsEgg)
+        return;
+
+    TypeIcons_LoadGraphics();
+    {
+        enum Type type1 = GetSpeciesType(sStorage->displayMonSpecies, 0);
+        enum Type type2 = GetSpeciesType(sStorage->displayMonSpecies, 1);
+
+        sStorage->displayMonTypeSpriteIds[0] = CreateStaticTypeIconSprite(type1, 54, 100, 1);
+        if (type2 != type1)
+            sStorage->displayMonTypeSpriteIds[1] = CreateStaticTypeIconSprite(type2, 62, 100, 1);
+    }
+}
+
 static void PrintDisplayMonInfo(void)
 {
     FillWindowPixelBuffer(WIN_DISPLAY_INFO, PIXEL_FILL(1));
     if (sStorage->boxOption != OPTION_MOVE_ITEMS)
     {
+        // docs/SPEC.md "Type icons": -18 (not just -12) reserves room at the
+        // right edge for UpdateDisplayMonTypeIcons()'s sprites instead of
+        // risking overlap with a long species name.
         AddTextPrinterParameterized(WIN_DISPLAY_INFO, GetFontIdToFit(sStorage->displayMonNameText, FONT_NORMAL, 0, WindowWidthPx(WIN_DISPLAY_INFO) - 6), sStorage->displayMonNameText, 6, 0, TEXT_SKIP_DRAW, NULL);
-        AddTextPrinterParameterized(WIN_DISPLAY_INFO, GetFontIdToFit(sStorage->displayMonNameText, FONT_SHORT, 0, WindowWidthPx(WIN_DISPLAY_INFO) - 12), sStorage->displayMonSpeciesName, 6, 15, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(WIN_DISPLAY_INFO, GetFontIdToFit(sStorage->displayMonNameText, FONT_SHORT, 0, WindowWidthPx(WIN_DISPLAY_INFO) - 18), sStorage->displayMonSpeciesName, 6, 15, TEXT_SKIP_DRAW, NULL);
         AddTextPrinterParameterized(WIN_DISPLAY_INFO, FONT_SHORT, sStorage->displayMonGenderLvlText, 10, 29, TEXT_SKIP_DRAW, NULL);
         AddTextPrinterParameterized(WIN_DISPLAY_INFO, GetFontIdToFit(sStorage->displayMonItemName, FONT_SMALL, 0, WindowWidthPx(WIN_DISPLAY_INFO) - 6), sStorage->displayMonItemName, 6, 43, TEXT_SKIP_DRAW, NULL);
     }
@@ -4038,6 +4312,7 @@ static void PrintDisplayMonInfo(void)
     {
         sStorage->markingComboSprite->invisible = TRUE;
     }
+    UpdateDisplayMonTypeIcons();
 }
 
 // Turn the wave animation on the sides of "Pkmn Data" on/off
@@ -7808,6 +8083,9 @@ static bool8 SetMenuTexts_Mon(void)
         else
             SetMenuText(MENU_STORE);
     }
+    if ((sStorage->boxOption == OPTION_WITHDRAW || sStorage->boxOption == OPTION_MOVE_MONS)
+     && CanCursorBoxMonLevelToCap())
+        SetMenuText(MENU_LEVEL_TO_CAP);
 
     SetMenuText(MENU_MARK);
     if (sStorage->boxOption != OPTION_SELECT_MON)
@@ -8107,6 +8385,7 @@ static const u8 *const sMenuTexts[] =
     [MENU_MACHINE]    = COMPOUND_STRING("MACHINE"),
     [MENU_SIMPLE]     = COMPOUND_STRING("SIMPLE"),
     [MENU_SELECT]     = COMPOUND_STRING("SELECT"),
+    [MENU_LEVEL_TO_CAP] = COMPOUND_STRING("LV TO CAP"),
 };
 
 static void SetMenuText(u8 textId)

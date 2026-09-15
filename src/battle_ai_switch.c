@@ -1501,7 +1501,7 @@ bool32 ShouldSwitchIfAllScoresBad(struct SwitchAiContext *switchContext)
         }
     }
     if (RandomPercentage(RNG_AI_SWITCH_ALL_SCORES_BAD, GetSwitchChance(SHOULD_SWITCH_ALL_SCORES_BAD))
-        && (gAiLogicData->mostSuitableMonId[switchContext->battler] != PARTY_SIZE || !ALL_SCORES_BAD_NEEDS_GOOD_SWITCHIN))
+        && (gAiLogicData->mostSuitableMonId[switchContext->battler] != PARTY_SIZE || !GetConfig(ALL_SCORES_BAD_NEEDS_GOOD_SWITCHIN)))
         return TRUE;
     return FALSE;
 }

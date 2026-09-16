@@ -49,7 +49,13 @@
 //       Premium static/roamer branch draws uniformly from the Premium pool
 //       (no power ladder) with the slot's original species always eligible
 //       (docs/SPEC.md "Premium encounter balancing").
-#define RANDOMIZER_VERSION 4
+//   v5: Phase 13A closes a Ball field-item leak - ItemIsPoolEligible()
+//       (src/randomizer.c) admitted the entire POCKET_POKE_BALLS pocket, so
+//       a randomized field item could roll any owned-tier Ball instead of
+//       only the Master Ball (docs/SPEC.md "Poke Ball availability"). This
+//       changes the eligible-item count PickPoolItem() draws over, so it
+//       alters what a given seed generates for field items.
+#define RANDOMIZER_VERSION 5
 
 // ----------------------------------------------------------------------------
 // Presets

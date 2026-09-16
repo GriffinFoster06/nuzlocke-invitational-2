@@ -500,9 +500,11 @@ RusturfTunnel_Text_ThankYouLetsGoHomePeeko:
 	.string "you. Let's head home, PEEKO!$"
 
 @ Phase 12A (docs/CLAUDE_HANDOFF.md): docs/SPEC.md "Quick Travel".
+@ Phase 13A: corrected from "TOWN MAP" - no Town Map is ever granted in this
+@ campaign; POKENAV is the item the player actually receives at this beat.
 RusturfTunnel_Text_QuickTravelUnlocked:
 	.string "Quick Travel is now available!\p"
-	.string "Use the TOWN MAP and press {R_BUTTON} to\n"
+	.string "Open your POKENAV and press {R_BUTTON} to\n"
 	.string "fast-travel to a town you've visited.$"
 
 RusturfTunnel_Text_WhyCantTheyKeepDigging:

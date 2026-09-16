@@ -1,3 +1,11 @@
+> **Note:** this file documents the capabilities of the underlying
+> `pokeemerald-expansion` engine this ROM hack is built on, not this hack's
+> own default ruleset. Several items below — Mega Evolution, Z-Moves,
+> Dynamax, Gigantamax, Terastallization — are supported by the engine but are
+> **off by default and absent from every preset** in this project. See the
+> root [`README.md`](README.md) and [`docs/PLAYER_GUIDE.md`](docs/PLAYER_GUIDE.md)
+> for what this hack actually ships with.
+
 # What features are included?
 ## Table of Contents
 - [What features are included?](#what-features-are-included)

@@ -1,14 +1,16 @@
 # Build Phases
 
-> **Historical status:** Phases 0-10 are complete. The Phase 0-9.5 prompts
-> below are retained as implementation history, not current instructions,
-> current product requirements, or evidence of the present code state. Where
-> an old prompt conflicts with [SPEC.md](SPEC.md)—including old Tournament,
-> Invitational-named preset, mandatory-nickname, or literal 7/7/7 references—
-> SPEC.md controls. Phase 10's completed grouped-arc record remains in
+> **Historical status:** Phases 0-12B are complete; the product is feature-
+> frozen. The Phase 0-9.5 prompts below are retained as implementation
+> history, not current instructions, current product requirements, or
+> evidence of the present code state. Where an old prompt conflicts with
+> [SPEC.md](SPEC.md)—including old Tournament, Invitational-named preset,
+> mandatory-nickname, or literal 7/7/7 references—SPEC.md controls. Phase
+> 10's completed grouped-arc record remains in
 > [PHASE10_PROMPTS.md](PHASE10_PROMPTS.md). **The authoritative runbook for
-> all remaining work (Phase 11C onward) is [`../PROMPTS.md`](../PROMPTS.md);
-> current volatile state is [CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md).**
+> the remaining Phase 13A/13B work is [`../PROMPTS.md`](../PROMPTS.md);
+> current volatile state is [CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md); the
+> full player-facing feature set is [PLAYER_GUIDE.md](PLAYER_GUIDE.md).**
 
 ## Current completion roadmap
 
@@ -18,33 +20,38 @@
   complete.
 - **Phase 11B — Nuzlocke enforcement and fair-AI correctness:** complete.
 - **Phase 11C — Generation architecture, performance, seed quality & pre-run
-  configuration:** next. See `../PROMPTS.md`.
-- **Phase 11D — World / Premium statics / missing core QoL:** see
-  `../PROMPTS.md`.
+  configuration:** complete. Nine independent Gen 1-9 toggles, a New Game
+  settings wizard, higher-quality automatic seed mixing, and reservoir-
+  sampling performance work.
+- **Phase 11D — World / Premium statics / missing core QoL:** complete.
+  Premium-pool leak closed, guaranteed Master Ball wired to the actual
+  linearized story trigger, Move Reminder mode semantics fixed, PC-side
+  Level to Cap.
 - **Phase 11E — Victory + Wipe Run Reports / save architecture / JSON
-  export:** see `../PROMPTS.md`.
-- **Phase 11F — Final Phase-11 correctness gate:** see `../PROMPTS.md`.
+  export:** complete. `src/run_report.c`/`include/run_report.h`,
+  `tools/export_run.py`, `tools/watch_run_export.py` — see
+  [PLAYER_GUIDE.md](PLAYER_GUIDE.md#run-reports).
+- **Phase 11F — Final Phase-11 correctness gate:** complete.
 - **Phase 12A — Fun, accessibility, recommended defaults, settings
-  simplification, UX, game feel:** improve the intended solo replay
-  experience. This phase may change defaults; simplify, hide, reorganize, or
-  remove redundant player-facing settings; improve onboarding; reduce
-  configuration overload and unnecessary button presses; speed run restarts;
-  and improve feedback, readability, pacing, and general game feel.
-  Supported underlying functionality should be preserved where useful, but
-  every historical option need not receive equal prominence. The Recommended
-  configuration should be the configuration the developers genuinely believe
-  is most enjoyable. See `../PROMPTS.md`.
-- **Phase 12B — Final technical & presentation polish:** see
-  `../PROMPTS.md`.
-- **Phase 13A — Final documentation / repository cleanup:** complete
-  documentation and release cleanup. See `../PROMPTS.md`.
-- **Phase 13B — Final release gate:** perform final product validation.
-  After Phase 13B the product is intended to be PRODUCT COMPLETE. See
-  `../PROMPTS.md`.
+  simplification, UX, game feel:** complete. Eight zero-consumer settings
+  hidden, a read-only Run Information overlay added, terminal-flow messaging
+  improved.
+- **Phase 12B — Final technical & presentation polish:** complete.
+- **Phase 13A — Final documentation / repository cleanup:** complete.
+  Player-facing documentation rewritten from verified source
+  ([README.md](../README.md), [PLAYER_GUIDE.md](PLAYER_GUIDE.md)); several
+  dead/misleading settings and a Ball-pool leak found during verification
+  and corrected (`RANDOMIZER_VERSION` 4→5) — see
+  [CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md) for the exact list; repository
+  cleaned of two accidentally-tracked files.
+- **Phase 13B — Final release gate:** the terminal phase. Static audit only
+  — see [CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md) for its outcome and the
+  mGBA checklist a human playthrough still needs to clear.
 
 There is no Phase 14. Full scope, prerequisites, acceptance criteria, and
 copy/paste session prompts for every phase from 11C onward live in
-[`../PROMPTS.md`](../PROMPTS.md), not here.
+[`../PROMPTS.md`](../PROMPTS.md), not here — that document is itself
+historical once Phase 13B closes, since there is no further planned phase.
 
 The original phases were worked roughly in order, usually in one or a few
 focused sessions.

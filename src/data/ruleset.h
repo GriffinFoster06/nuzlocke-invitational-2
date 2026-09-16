@@ -189,21 +189,30 @@ static const struct SettingDescriptor sSettingDescriptors[NUM_SETTINGS] =
         "Reuse this seed on the next attempt instead of rerolling."),
 
     // -- Species Pool --
-    [SETTING_ALLOW_LEGENDARY] = DESC_BOOL(SETTING_CAT_SPECIES_POOL, GEN, 0, SETTING_FLAG_NONE,
+    // Phase 13A: these five "Allow ..." toggles are hidden - not simplified,
+    // genuinely dead. The Premium category (Legendary/Mythical/Sub-Legendary/
+    // Ultra Beast/Paradox) is unconditionally excluded from the ordinary pool
+    // via IsSpeciesPremium() regardless of these bits (docs/SPEC.md "Premium
+    // species category"), and POOL_PREMIUM never consults them either - so no
+    // pool's membership ever changes when one of these is toggled. Retained
+    // as SETTING_FLAG_HIDDEN storage ids (same pattern as Phase 12A's other
+    // zero-consumer settings) rather than removed, since RULESET_VERSION
+    // does not need to change to hide a row.
+    [SETTING_ALLOW_LEGENDARY] = DESC_BOOL(SETTING_CAT_SPECIES_POOL, GEN, 0, SETTING_FLAG_HIDDEN,
         "Allow Legendary",
-        "Let Legendary species replace ordinary Pokemon."),
-    [SETTING_ALLOW_MYTHICAL] = DESC_BOOL(SETTING_CAT_SPECIES_POOL, GEN, 0, SETTING_FLAG_NONE,
+        "Reserved: Premium-category exclusion from the ordinary pool is unconditional."),
+    [SETTING_ALLOW_MYTHICAL] = DESC_BOOL(SETTING_CAT_SPECIES_POOL, GEN, 0, SETTING_FLAG_HIDDEN,
         "Allow Mythical",
-        "Let Mythical species replace ordinary Pokemon."),
-    [SETTING_ALLOW_SUB_LEGENDARY] = DESC_BOOL(SETTING_CAT_SPECIES_POOL, GEN, 0, SETTING_FLAG_NONE,
+        "Reserved: Premium-category exclusion from the ordinary pool is unconditional."),
+    [SETTING_ALLOW_SUB_LEGENDARY] = DESC_BOOL(SETTING_CAT_SPECIES_POOL, GEN, 0, SETTING_FLAG_HIDDEN,
         "Allow Sub-Legendary",
-        "Let Sub-Legendary species into the ordinary pool."),
-    [SETTING_ALLOW_ULTRA_BEAST] = DESC_BOOL(SETTING_CAT_SPECIES_POOL, GEN, 0, SETTING_FLAG_NONE,
+        "Reserved: Premium-category exclusion from the ordinary pool is unconditional."),
+    [SETTING_ALLOW_ULTRA_BEAST] = DESC_BOOL(SETTING_CAT_SPECIES_POOL, GEN, 0, SETTING_FLAG_HIDDEN,
         "Allow Ultra Beast",
-        "Let Ultra Beasts into the ordinary pool."),
-    [SETTING_ALLOW_PARADOX] = DESC_BOOL(SETTING_CAT_SPECIES_POOL, GEN, 0, SETTING_FLAG_NONE,
+        "Reserved: Premium-category exclusion from the ordinary pool is unconditional."),
+    [SETTING_ALLOW_PARADOX] = DESC_BOOL(SETTING_CAT_SPECIES_POOL, GEN, 0, SETTING_FLAG_HIDDEN,
         "Allow Paradox",
-        "Let Paradox Pokemon into the ordinary pool."),
+        "Reserved: Premium-category exclusion from the ordinary pool is unconditional."),
     [SETTING_ALLOW_REGIONAL_FORMS] = DESC_BOOL(SETTING_CAT_SPECIES_POOL, GEN, 1, SETTING_FLAG_NONE,
         "Allow Regional Forms",
         "Include Alolan/Galarian/Hisuian/Paldean forms."),
@@ -398,9 +407,12 @@ static const struct SettingDescriptor sSettingDescriptors[NUM_SETTINGS] =
     [SETTING_SHINY_CLAUSE] = DESC_BOOL(SETTING_CAT_NUZLOCKE, RUL, 1, SETTING_FLAG_NONE,
         "Shiny Clause",
         "A shiny can always be caught, extra to the location."),
-    [SETTING_SHINY_ODDS] = DESC_ENUM(SETTING_CAT_NUZLOCKE, RUL, SHINYODDS_NORMAL, SETTING_FLAG_NONE,
+    // Phase 13A: hidden - zero consumers. Shiny rate is the fixed vanilla
+    // SHINY_ODDS constant (src/pokemon.c) regardless of this setting; see
+    // docs/SPEC.md "Shiny Clause".
+    [SETTING_SHINY_ODDS] = DESC_ENUM(SETTING_CAT_NUZLOCKE, RUL, SHINYODDS_NORMAL, SETTING_FLAG_HIDDEN,
         sLbl_ShinyOdds, 2, "Shiny Odds",
-        "Encounter shiny rate."),
+        "Reserved: shiny rate is not currently configurable."),
     [SETTING_NICKNAME_MODE] = DESC_ENUM(SETTING_CAT_NUZLOCKE, RUL, NICK_OPTIONAL, SETTING_FLAG_NONE,
         sLbl_Nickname, 2, "Nicknames",
         "Optional / Mandatory / Strict: force naming every obtained Pokemon."),

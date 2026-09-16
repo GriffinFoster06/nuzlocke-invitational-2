@@ -4,22 +4,23 @@ Concise current-state snapshot. This is deliberately volatile and short —
 detailed phase scope, acceptance criteria, and copy/paste prompts live in
 [`../PROMPTS.md`](../PROMPTS.md). Historical Phase 0-10 record lives in
 [PHASES.md](PHASES.md). Product-behavior authority is
-[SPEC.md](SPEC.md). Read all three before starting work; this file is not a
-substitute for any of them.
+[SPEC.md](SPEC.md). The full player-facing feature set is
+[PLAYER_GUIDE.md](PLAYER_GUIDE.md). Read all four before starting work; this
+file is not a substitute for any of them.
 
 ## Repository state
 
 - Branch: `main`.
-- HEAD (at last check): `7930527ace` ("Phase 11 done") — Phase 11 in full
-  (11A/11B/11A.6("11C")/11D/11E/11F) is **committed**. The Phase 11F mGBA
-  acceptance checklist below is retained as a historical record of what was
-  verified before that commit; a fresh session does not need to re-run it
-  unless investigating a regression.
-- On top of that commit, this working tree carries **Phase 12A (product/UX
-  tuning) and Phase 12B (final polish)** changes, implemented and
-  build-verified but **not yet committed** — see "Phase 12A + 12B" below for
-  exactly what changed and what still needs mGBA acceptance + user review.
-- Working tree: not clean (see `git status`).
+- HEAD (at last check): `8939c6e651` ("Phase 12 done") — Phases 1-12B are
+  **committed**.
+- On top of that commit, this working tree carries **Phase 13A (final
+  documentation & repository cleanup)** changes, implemented and
+  build-verified but **not yet committed** — see "Phase 13A" below for
+  exactly what changed and why. Phase 13B (final release gate) has also run
+  as a static audit in this same session; see that section for its outcome
+  and the outstanding mGBA checklist.
+- Working tree: not clean (see `git status`) until this session's changes are
+  reviewed and committed.
 
 A fresh session must re-run `git status`, `git log --oneline -10`, and
 `git diff` (staged and unstaged) rather than trusting this snapshot — it is
@@ -27,18 +28,20 @@ a point-in-time record, not a live query.
 
 ## Completed phases
 
-Phases 1-10 and all of Phase 11 (11A, 11B, 11A.6/"11C", 11D, 11E, 11F) are
-complete and committed (`7930527ace`, "Phase 11 done"). See
+Phases 1-12B are complete and committed (`8939c6e651`, "Phase 12 done"). See
 [PHASES.md](PHASES.md) for the Phase 0-10 historical record and
 [`../PROMPTS.md`](../PROMPTS.md)'s "Phase taxonomy" table for full current
 status.
 
 ## Exact next phase
 
-Phase 12A + 12B are implemented and build-verified in the working tree (see
-below) but awaiting: the focused mGBA UX checklist, user review of the
-findings/decisions, then commit. Phase 13 (per
-[`../PROMPTS.md`](../PROMPTS.md)) has not started.
+Phase 13A is implemented and build-verified in the working tree (see below)
+awaiting user review of the documentation diff and the fixes it required,
+then commit. Phase 13B's static audit has been performed in this same
+session (see below); its terminal verdict is withheld pending the user's
+full mGBA playthrough, per the standing commit-gate rule. There is no
+Phase 14 — once 13B's runtime checklist passes and is confirmed, the
+product is complete.
 
 ### Phase 11F: correctness gate (historical - fixes verified before the Phase 11 commit)
 
@@ -252,17 +255,15 @@ this local environment.
 
 ## Stale document warning: `AI_HANDOFF.md`
 
-`AI_HANDOFF.md` at the repo root is **untracked and gitignored**
-(`.gitignore` line ~69) — it exists only in this particular local working
-copy, not in git history and not on any other checkout. It records a
-Phase 10 Arc 0 baseline-remediation snapshot from `2026-09-09` and is
-historical scratch state, not current status. Do not read it as evidence of
-present implementation state, and do not treat its "Exact Next Step"
-section as live instructions — Phase 10 (including Arc 0's emulator
-acceptance) is complete per [PHASES.md](PHASES.md) and
-[`../PROMPTS.md`](../PROMPTS.md). It has been left untouched; see
-`../PROMPTS.md`'s Phase 13A scope for when to reassess whether it should be
-deleted.
+`AI_HANDOFF.md` at the repo root is **untracked and gitignored** — it exists
+only in this particular local working copy, not in git history and not on
+any other checkout. It records a Phase 10 Arc 0 baseline-remediation
+snapshot from `2026-09-09` and is historical scratch state, not current
+status. As of Phase 13A it now carries its own SUPERSEDED/HISTORICAL banner
+at the top of the file saying exactly this, so a future agent that opens it
+directly (rather than this handoff) still gets the warning. Per user
+decision during Phase 13A it was marked rather than deleted, since it may
+still have archival value; safe to delete if that's ever reassessed.
 
 ## Unresolved runtime-verification items (historical, pre-Phase-11-commit)
 
@@ -273,7 +274,7 @@ historical record of what that gate covered, not as a live pending list. A
 regression investigation into any of that surface should still start from
 these checklists.
 
-## Phase 12A + 12B (implemented and build-verified, uncommitted)
+## Phase 12A + 12B (historical - committed in `8939c6e651` "Phase 12 done")
 
 Findings, decisions, and changes from this session's Phase 12A (Fun /
 Accessibility / Recommended Defaults / Settings Simplification / UX / Game
@@ -376,7 +377,7 @@ still cannot run on this host - see "Known test-runner limitation" below).
 Memory: EWRAM 241520 B (92.13%, unchanged), IWRAM 28424 B (86.74%,
 unchanged), ROM 26759696 B (79.75%, +1136 B against 32 MB - negligible).
 
-**mGBA acceptance still required before commit:**
+**mGBA acceptance checklist (verified before the Phase 12 commit):**
 1. New Game wizard: the settings-list hint reads "START begin" in wizard
    mode and "START preset" in the ordinary RULES menu.
 2. Display & Records page is gone from RULES; no page renders empty when
@@ -402,11 +403,137 @@ unchanged), ROM 26759696 B (79.75%, +1136 B against 32 MB - negligible).
    `RANDOMIZER_VERSION` bump was made, so this should be a non-event, but
    confirm).
 
+## Phase 13A (final documentation & repository cleanup; implemented and
+build-verified in the working tree, awaiting user review + commit)
+
+Full inventory came from three parallel read-only code-audit agents plus
+direct verification of every finding before acting on it. Full detail is in
+the session's approved plan; this is the durable summary.
+
+**Documentation rewritten from verified source**, not from prior session
+summaries: [`README.md`](../README.md) (was 100% unmodified upstream RHH
+boilerplate — did not mention this hack exists at all) and the new
+[`PLAYER_GUIDE.md`](PLAYER_GUIDE.md) (full player-facing behavior). The
+original upstream README is preserved verbatim at
+[`UPSTREAM_README.md`](UPSTREAM_README.md). `docs/PHASES.md`, `PROMPTS.md`
+(root), `CLAUDE.md`, `AGENTS.md` brought current (all previously said Phase
+11C was "next"). `docs/PROMPTS.md` (a second, contradictory, stale runbook)
+and `AI_HANDOFF.md` (untracked, gitignored, local-only) both marked with an
+unmistakable SUPERSEDED/HISTORICAL banner rather than deleted, per user
+decision. `FEATURES.md` (root, unmodified upstream engine-capability list)
+got a one-line note that Mega/Z-Move/Dynamax/Tera are engine capabilities,
+not this hack's defaults.
+
+**Three genuine code/doc contradictions were found during verification and
+fixed, per explicit user approval on each before touching source:**
+
+1. **Ball field-item leak (fixed, `RANDOMIZER_VERSION` 4→5).**
+   `ItemIsPoolEligible()` (`src/randomizer.c`) admitted the entire
+   `POCKET_POKE_BALLS` pocket to the randomized field-item pool, so a lucky
+   roll could hand the player an early Ultra/Timer/etc. Ball outside the
+   intended shop progression — directly contradicting `docs/SPEC.md`'s "Poké
+   Ball availability" ("the Master Ball is the only Poké Ball permitted").
+   Now restricted to `ITEM_MASTER_BALL` only. This changes what a given seed
+   generates for field items, so it needed the version bump (same precedent
+   as the Phase 11D Premium-pool fix).
+2. **Quick Travel unlock text (fixed, no version bump).** The Rusturf Tunnel
+   unlock message told the player to "Use the TOWN MAP", but `ITEM_TOWN_MAP`
+   is never granted anywhere in this campaign — the feature only ever
+   worked via PokéNav → MAP → R, which the player does receive at the same
+   story beat. Corrected to say POKéNAV.
+3. **Two dead-setting groups hidden (no version bump — hiding a row doesn't
+   renumber stored indices):**
+   - `SETTING_SHINY_ODDS` (Normal/Boosted/Disabled) had zero consumers; the
+     shiny rate is the fixed vanilla constant regardless.
+   - The five `SETTING_ALLOW_LEGENDARY`/`MYTHICAL`/`SUB_LEGENDARY`/
+     `ULTRA_BEAST`/`PARADOX` toggles were verified to have no effect on any
+     pool: the Premium category they gate is *already* unconditionally
+     excluded from the ordinary pool via `IsSpeciesPremium()`, and the
+     Premium pool itself never reads them either. Both matched the exact
+     precedent Phase 12A set for other zero-consumer settings. `docs/SPEC.md`
+     "Species-pool settings" corrected to match.
+
+**Findings verified but left as documentation-only (no code change, per
+explicit user decision or because no fix was warranted):**
+- `NICK_STRICT` and `NICK_MANDATORY` are behaviorally identical
+  (`Nuzlocke_StrictNicknamesOn()` is a literal alias) — documented as one
+  "required" behavior rather than two.
+- `TRLEVEL_FLAT_OFFSET` ("Flat offset" trainer-level mode) is defined but
+  unreachable from the menu (`maxv` caps the row at two values) — not
+  mentioned in player docs.
+- Progression-based Ball vendors are Emerald's own existing, unmodified shop
+  schedule, not bespoke project work — `docs/SPEC.md` reworded to say so
+  plainly rather than imply new logic that was never written.
+- `SETTING_ENCOUNTER_LEVEL_MODE`, `SETTING_ALLOW_DUPLICATE_PREMIUM`,
+  `SETTING_SHOP_RANDOMIZATION` remain hidden/unread exactly as before —
+  already correctly excluded from player-facing docs.
+
+**⚠️ Carried forward, not addressed this session — candidate Phase 13B
+blocker:** [`POST_CAPTURE_DIAGNOSTICS.md`](POST_CAPTURE_DIAGNOSTICS.md)
+records an **unresolved, unreproduced-since, "ROOT CAUSE NOT PROVEN"**
+input-soft-lock symptom from around Phase 9 (post-capture, the player can
+end up stuck walking Down with menus/saving potentially unavailable). It was
+committed once (Phase 10 Arc 0) and never mentioned again in any later
+handoff — nothing in this session's audit found evidence it was fixed, and
+nothing found evidence it's stale/no-longer-reproducible either. Its
+evidence files (`pokeemerald.ss1`/`.ss2`, `checkpoint-after-phase9.gba`,
+`test-0907-1634.gba`) are all untracked/local-only and exist only on the
+machine that produced them. This needs an explicit decision before release:
+either reproduce and fix it, or deliberately determine (and record) that
+it's stale. Do not silently drop this from a future handoff without that
+determination.
+
+**Repository cleanup:**
+- Removed two accidentally-tracked files: `checkpoint-after-phase9.gba.pre9_5.bak`
+  (a 33 MB full ROM, `.bak` defeated the `*.gba` gitignore rule) and
+  `2026-09-15-142502-local-command-caveatcaveat-the-messages-below.txt` (a
+  pasted terminal transcript). Added `*.bak` and `*.sav` to `.gitignore`.
+- Zero `TODO`/`FIXME`/`XXX`/`HACK` and zero project-introduced debug
+  instrumentation found across every project-owned source file (confirmed by
+  a repo-wide grep, reconfirming the same finding recorded after Phase 12B).
+
+**Verification done this session:** `make -j$(sysctl -n hw.ncpu)` clean
+(only the pre-existing, upstream-correct RWX warning); `git diff --check`
+clean. Memory: EWRAM 241520 B (92.13%, unchanged), IWRAM 28424 B (86.74%,
+unchanged), ROM 26759632 B (79.75%, -64 B against the pre-session baseline —
+negligible).
+
+## Phase 13B (final release gate — static audit performed this session)
+
+Three parallel read-only audit tracks (randomizer/Nuzlocke/battle/AI;
+progression/Premium/QoL/UX; Run Reports/save/export/documentation) plus main
+agent reconciliation. See the session's audit output for the full
+scope-item-by-scope-item pass/fail; the material outcome is the three fixes
+already folded into "Phase 13A" above (found during this audit, fixed with
+approval, and re-verified by the same build).
+
+**No other genuine release blocker was found by static inspection**, with
+one explicit exception carried forward rather than resolved: the unresolved
+post-capture soft-lock investigation above. Whether that counts as a release
+blocker is the user's call, not a default assumption either way.
+
+**mGBA playthrough still required before any final verdict** — a complete
+run from New Game through either Champion victory or a deliberate wipe,
+covering (at minimum): the New Game wizard end-to-end; every enumerated
+Premium static slot's location/event/progression behavior; a randomized
+field item never producing a non-Master Ball; the corrected Quick Travel
+message; that hiding the six dead settings didn't empty any settings page or
+change any other row's index; a Victory and a Wipe Run Report exporting
+correctly; and a second fresh run afterward confirming the first run's
+completion left no trace in the new run's randomization. The terminal
+`READY FOR FINAL RELEASE` / `PRODUCT COMPLETE` verdict is withheld until the
+user reports this playthrough passed.
+
 ## Pointers
 
 - [SPEC.md](SPEC.md) — authoritative product-behavior specification.
-- [PHASES.md](PHASES.md) — Phase 0-10 historical record and current
+- [PLAYER_GUIDE.md](PLAYER_GUIDE.md) — the finished, player-facing feature
+  set (start here for "what does the game actually do").
+- [PHASES.md](PHASES.md) — Phase 0-12B historical record and current
   high-level roadmap.
-- [`../PROMPTS.md`](../PROMPTS.md) — authoritative runbook for all
-  remaining phases (11C through 13B), with full scope, acceptance criteria,
-  and copy/paste prompts per phase.
+- [`../PROMPTS.md`](../PROMPTS.md) — authoritative runbook; only Phase 13B
+  remains open, with full scope and acceptance criteria for it.
+- [POST_CAPTURE_DIAGNOSTICS.md](POST_CAPTURE_DIAGNOSTICS.md) — an
+  unresolved, undiagnosed input-soft-lock investigation from around
+  Phase 9, never mentioned again since. See "Phase 13A" above — this needs
+  an explicit decision before release, not a silent drop.

@@ -1,53 +1,126 @@
-# About `pokeemerald-expansion`
+# A Randomized Emerald Nuzlocke
 
-![Gif that shows debugging functionality that is unique to pokeemerald-expansion such as rerolling Trainer ID, Cheat Start, PC from Debug Menu, Debug PC Fill, Pokémon Sprite Visualizer, Debug Warp to Map, and Battle Debug Menu](https://github.com/user-attachments/assets/cf9dfbee-4c6b-4bca-8e0a-07f116ef891c) ![Gif that shows overworld functionality that is unique to pokeemerald-expansion such as indoor running, BW2 style map popups, overworld followers, DNA Splicers, Gen 1 style fishing, OW Item descriptions, Quick Run from Battle, Use Last Ball, Wild Double Battles, and Catch from EXP](https://github.com/user-attachments/assets/383af243-0904-4d41-bced-721492fbc48e) ![Gif that shows off a number of modern Pokémon battle mechanics happening in the pokeemerald-expansion engine: 2 vs 1 battles, modern Pokémon, items, moves, abilities, fully customizable opponents and partners, Trainer Slides, and generational gimmicks](https://github.com/user-attachments/assets/50c576bc-415e-4d66-a38f-ad712f3316be)
+This is a solo, replay-focused Pokémon Emerald ROM hack: a heavily
+streamlined campaign built around a seeded, deterministic randomizer and a
+hardcore Nuzlocke ruleset, running on
+[RHH's `pokeemerald-expansion`](https://github.com/rh-hideout/pokeemerald-expansion)
+engine (itself built on [pret's `pokeemerald`](https://github.com/pret/pokeemerald)
+decompilation).
 
-<!-- If you want to re-record or change these gifs, here are some notes that I used: https://files.catbox.moe/05001g.md -->
+Pick **Recommended**, get a run seed, and go: a new species behind every
+encounter, an intelligent AI behind every trainer, permadeath on the line,
+and a Run Report waiting at the end. There is no Tournament mode and no
+cross-run species bans — every fresh run is fully independent, and the
+finished project is meant to be replayed, not "solved" once.
 
-**`pokeemerald-expansion`** is a GBA ROM hack base that equips developers with a comprehensive toolkit for creating Pokémon ROM hacks. **`pokeemerald-expansion`** is built on top of [pret's `pokeemerald`](https://github.com/pret/pokeemerald) decompilation project. **It is not a playable Pokémon game on its own.**
+**Full player-facing documentation:** [`docs/PLAYER_GUIDE.md`](docs/PLAYER_GUIDE.md).
+**Authoritative design spec:** [`docs/SPEC.md`](docs/SPEC.md).
 
-# [Features](FEATURES.md)
+## What's actually in the game
 
-**`pokeemerald-expansion`** offers hundreds of features from various [core series Pokémon games](https://bulbapedia.bulbagarden.net/wiki/Core_series), along with popular quality-of-life enhancements designed to streamline development and improve the player experience. A full list of those features can be found in [`FEATURES.md`](FEATURES.md).
+- **Deterministic seeded randomization** — an automatic or manually-entered
+  run seed drives every generated system; the same ROM version, seed, and
+  locked-in settings always regenerate the identical world.
+- **Gen 1–9 inclusion** — nine independent toggles (all default ON) decide
+  which generations' species/forms can appear anywhere, set once per run
+  through the New Game settings wizard.
+- **Gen 9 battle engine** — the modern physical/special split, Fairy type,
+  current type chart, move/item/ability effects through Gen 9, and Gen 9-era
+  damage/crit/weather/terrain/priority mechanics. Mega Evolution, Z-Moves,
+  Dynamax, Gigantamax, and Terastallization are supported by the underlying
+  engine but are **off by default and absent from every Recommended-style
+  run** — see [`FEATURES.md`](FEATURES.md) for the engine's full baseline
+  capability list versus this hack's own defaults.
+- **Power- and stage-matched species replacement** — wild, trainer, starter,
+  gift, and static encounters draw power-appropriate, evolutionary-stage-
+  appropriate replacements, with **no artificial quality floor**: a
+  spectacularly bad or spectacularly good roll is an intended, legal outcome.
+- **A separate Premium category** (Legendaries, Mythicals, Ultra Beasts,
+  Paradox Pokémon, and equivalent restricted species) — excluded from
+  ordinary encounters and most trainers, but can appear at legendary/premium
+  static slots, on the Elite Four, and always at least once on Champion
+  Wallace.
+- **Randomized, weighted, unique 21-slot learnsets** — every species gets its
+  own generated set of 21 level-up moves, weighted toward STAB and toward
+  higher power later, but never quota-locked or quality-floored.
+- **Randomized abilities**, consistent through evolution.
+- **Randomized TMs, Move Tutors, and field/hidden/gift items**, universally
+  compatible across the whole roster.
+- **Level caps and Level to Cap** — a per-badge progression cap with an
+  instant-level tool (party and PC) that replays every skipped move in order
+  and never auto-evolves.
+- **Maximum-strength fair AI** — sophisticated switching, prediction, and
+  strategic play, built entirely from legitimately visible information; no
+  difficulty setting reads hidden player data.
+- **Nuzlocke rules** — permadeath, one encounter per location, Dupes and
+  Shiny Clauses, no battle items, and a run-ending whiteout, gated so nothing
+  activates until the player actually holds a Poké Ball.
+- **HM-free traversal, Portable Heal, Infinite Repel, both bikes**, unlimited
+  money, an expanded Bag, and 999 starting Poké Balls.
+- **Story streamlining and Quick Travel** — busywork, fetch quests, and
+  forced backtracking cut throughout; every meaningful encounter and battle
+  preserved.
+- **Victory/Wipe Run Reports** — a comprehensive, versioned record written to
+  the save at either terminal outcome, exportable to JSON without ever
+  touching the input save.
 
-# [Credits](CREDITS.md)
+See [`docs/PLAYER_GUIDE.md`](docs/PLAYER_GUIDE.md) for exactly how each of
+these works, what the Recommended defaults are, and what stays configurable
+in Custom/Advanced.
 
- [![](https://img.shields.io/github/all-contributors/rh-hideout/pokeemerald-expansion/upcoming)](CREDITS.md)
+## Building
 
-If you use **`pokeemerald-expansion`**, please credit **RHH (Rom Hacking Hideout)**. Optionally, include the version number for clarity.
+This project builds entirely from source — **no baserom is required and
+none should be added.**
+
+```sh
+make -j$(sysctl -n hw.ncpu)   # parallel build
+make clean                    # remove build output
+make debug                    # debug build
+```
+
+`rom.sha1` only checks whether an *unmodified* build reproduces vanilla
+Emerald byte-for-byte; this hack intentionally does not match it, so a
+missing/different hash here is not a build failure — it's expected. Toolchain
+setup instructions (all upstream, still accurate for this hack) are in
+[`INSTALL.md`](INSTALL.md).
+
+## Exporting a Run Report
+
+Every finished run (Victory or Wipe) leaves a versioned report in the save
+file. Export it from any computer, without touching the save:
+
+```sh
+python3 tools/export_run.py <save-file>              # one-shot manual export
+python3 tools/watch_run_export.py <save-file>         # optional: auto-export while playing in an emulator
+```
+
+See [`docs/PLAYER_GUIDE.md`](docs/PLAYER_GUIDE.md#run-reports) for output
+format, flags, and what each field means.
+
+## Documentation map
+
+| Document | What it's for |
+|---|---|
+| [`docs/PLAYER_GUIDE.md`](docs/PLAYER_GUIDE.md) | Everything a player needs: settings, rules, items, QoL, Run Reports |
+| [`docs/SPEC.md`](docs/SPEC.md) | Authoritative design specification (for contributors/agents) |
+| [`docs/PHASES.md`](docs/PHASES.md) | Historical development record |
+| [`PROMPTS.md`](PROMPTS.md) | Development runbook (historical once Phase 13 closes) |
+| [`INSTALL.md`](INSTALL.md) | Toolchain/build setup (upstream, unmodified) |
+| [`docs/UPSTREAM_README.md`](docs/UPSTREAM_README.md) | The original RHH `pokeemerald-expansion` README |
+
+## Credits and upstream
+
+Built on **RHH's `pokeemerald-expansion`**:
 
 ```
 Based off RHH's pokeemerald-expansion 1.17.0 https://github.com/rh-hideout/pokeemerald-expansion/
 ```
 
-Please consider [crediting all contributors](CREDITS.md) involved in the project!
+...itself built on [pret's `pokeemerald`](https://github.com/pret/pokeemerald)
+decompilation project. See [`CREDITS.md`](CREDITS.md) for the full upstream
+contributor list.
 
-# Choosing `pokeemerald` or **`pokeemerald-expansion`**
-
-- **`pokeemerald-expansion`** supports multiplayer functionality with other games built on **`pokeemerald-expansion`**. It is not compatible with official Pokémon games.
-- If compatibility with official games is important, use [`pokeemerald`](https://github.com/pret/pokeemerald). Otherwise, we recommend using **`pokeemerald-expansion`**.
-- **`pokeemerald-expansion`** incorporates regular updates from `pokeemerald`, including bug fixes and documentation improvements.
-
-# [Getting Started](INSTALL.md)
-
-❗❗ **Important**: Do not use GitHub's "Download Zip" option as it will not include commit history. This is necessary if you want to update or merge other feature branches.
-
-If you're new to git and GitHub, [Team Aqua's Asset Repo](https://github.com/Pawkkie/Team-Aquas-Asset-Repo/) has a [guide to forking and cloning the repository](https://github.com/Pawkkie/Team-Aquas-Asset-Repo/wiki/The-Basics-of-GitHub). Then you can follow one of the following guides:
-
-## 📥 [Installing **`pokeemerald-expansion`**](INSTALL.md)
-## 🏗️ [Building **`pokeemerald-expansion`**](INSTALL.md#Building-pokeemerald-expansion)
-## 🚚 [Migrating from **`pokeemerald`**](INSTALL.md#Migrating-from-pokeemerald)
-## 🚀 [Updating **`pokeemerald-expansion`**](INSTALL.md#Updating-pokeemerald-expansion)
-
-# [Documentation](https://rh-hideout.github.io/pokeemerald-expansion/)
-
-For detailed documentation, visit the [pokeemerald-expansion documentation page](https://rh-hideout.github.io/pokeemerald-expansion/).
-
-# [Contributions](CONTRIBUTING.md)
-If you are looking to [report a bug](CONTRIBUTING.md#Bug-Report), [open a pull request](CONTRIBUTING.md#Pull-Requests), or [request a feature](CONTRIBUTING.md#Feature-Request), our [`CONTRIBUTING.md`](CONTRIBUTING.md) has guides for each.
-
-# [Community](https://discord.gg/6CzjAG6GZk)
-
-[![](https://dcbadge.limes.pink/api/server/6CzjAG6GZk)](https://discord.gg/6CzjAG6GZk)
-
-Our community uses the [ROM Hacking Hideout (RHH) Discord server](https://discord.gg/6CzjAG6GZk) to communicate and organize. Most of our discussions take place there, and we welcome anybody to join us!
+This is an independent fan-made ROM hack. It is **not endorsed by or
+affiliated with** RHH, pret, Nintendo, Game Freak, Creatures Inc., or The
+Pokémon Company.

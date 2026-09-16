@@ -46,10 +46,22 @@ do not replace them or recreate the old fork's bespoke randomizer.
   settings select hard, soft, warning, or off behavior.
 - `include/config/ai.h` contains the fair-AI tuning switches and prediction
   percentages. Pro Fair must not enable omniscient hidden-information flags.
+- `src/run_report.c` and `include/run_report.h` implement Victory/Wipe Run
+  Reports (a two-slot flash bank plus live EWRAM counters); `tools/export_run.py`
+  and `tools/watch_run_export.py` are the read-only host-side JSON exporters.
+- `src/species_generation.c` classifies every species/form by the generation
+  that introduced it, feeding the Gen 1-9 filter mask consumed through
+  `src/power_score.c`'s eligibility cache.
+- `src/ruleset_field.c` / `src/ruleset_qol.c` implement the in-run RULES field
+  menu, Portable Heal, Infinite Repel, Quick Travel, both-bikes switching, and
+  the Run Information overlay.
 
-These systems were implemented and remediated during Phases 1-9.5. Inspect
-their current code before changing them; do not treat old historical prompts
-as evidence that a subsystem is absent.
+These systems were implemented and remediated across Phases 1-12B, which are
+now all complete. Inspect their current code before changing them; do not
+treat old historical prompts as evidence that a subsystem is absent, and do
+not assume a setting shown in an old prompt is still live — several
+zero-consumer settings were verified and hidden during Phase 13A (see
+`docs/CLAUDE_HANDOFF.md`).
 
 ## Build
 
@@ -82,12 +94,14 @@ or compiler diagnostic.
   Work only within the current approved arc. Do not begin a later arc without
   the required plan, execution, review, build, and user mGBA acceptance.
 - `PROMPTS.md` (repo root) is authoritative for every phase after Phase 10
-  (11C onward through PRODUCT COMPLETE) — full scope, prerequisites,
-  acceptance criteria, and copy/paste session prompts per phase.
+  (11C onward through PRODUCT COMPLETE). Phases 11C-13A are complete; only
+  Phase 13B (final release gate) remains open, and this document becomes
+  fully historical once it closes — there is no Phase 14.
   `docs/CLAUDE_HANDOFF.md` carries current volatile state (branch, HEAD,
-  completed phases, known open items). Read both before starting new work.
-  The root-level `AI_HANDOFF.md` is untracked, gitignored, historical scratch
-  state and must never be treated as current status.
+  completed phases, known open items). `docs/PLAYER_GUIDE.md` documents the
+  finished player-facing feature set. Read all three before starting new
+  work. The root-level `AI_HANDOFF.md` is untracked, gitignored, historical
+  scratch state and must never be treated as current status.
 - Map scripts and events cannot be accepted by code inspection alone. State
   exactly what still needs emulator playtesting and which path or flags to use.
 - When the spec lists factors without an exact formula, propose the formula

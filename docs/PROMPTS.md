@@ -1,5 +1,18 @@
 # PROMPTS.md — Claude Code Development Runbook
 
+> **SUPERSEDED / HISTORICAL — DO NOT FOLLOW AS ACTIVE INSTRUCTIONS.**
+> This document is superseded in full by the repository root
+> [`../PROMPTS.md`](../PROMPTS.md), which `AGENTS.md`/`CLAUDE.md` name as
+> authoritative. This file still describes Phase 11C as "next" and Phases
+> 11D-13B as unstarted future work; that was true when this file was last
+> edited but is stale as of Phase 13A (2026-09-15) — Phases 1-12B are
+> complete. Kept only as a historical record of the Phase 11C-era planning
+> detail; do not use it to infer current scope, current defaults, or what
+> still needs doing. Use [`../PROMPTS.md`](../PROMPTS.md),
+> [`SPEC.md`](SPEC.md), and [`CLAUDE_HANDOFF.md`](CLAUDE_HANDOFF.md) instead.
+
+# PROMPTS.md — Claude Code Development Runbook
+
 > Current project: `pokeemerald-expansion`
 >
 > This file is the operational runbook for the remaining development work.

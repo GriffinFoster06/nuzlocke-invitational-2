@@ -1,5 +1,7 @@
 @AGENTS.md
 
-See also: docs/SPEC.md (authoritative product-behavior spec), docs/PHASES.md
-(Phase 0-10 history and roadmap), PROMPTS.md (authoritative runbook for
-Phase 11C onward), and docs/CLAUDE_HANDOFF.md (current state).
+See also: docs/SPEC.md (authoritative product-behavior spec),
+docs/PLAYER_GUIDE.md (finished player-facing feature set), docs/PHASES.md
+(Phase 0-12B history and roadmap), PROMPTS.md (authoritative runbook — only
+Phase 13B remains open; historical once it closes), and
+docs/CLAUDE_HANDOFF.md (current state).

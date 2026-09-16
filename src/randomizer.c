@@ -1045,8 +1045,12 @@ static bool32 ItemIsPoolEligible(enum Item item)
     {
     case POCKET_ITEMS:
     case POCKET_BERRIES:
-    case POCKET_POKE_BALLS:
         return TRUE;
+    case POCKET_POKE_BALLS:
+        // docs/SPEC.md "Poke Ball availability": the Master Ball is the only
+        // Ball permitted in the randomized field-item pool - every other Ball
+        // comes from progression-based shop availability, not random luck.
+        return item == ITEM_MASTER_BALL;
     default:
         return FALSE;
     }

@@ -180,11 +180,18 @@ and Mythical Pokémon, special species/forms where their battle implementation
 functions correctly. Invalid/internal/debug forms are automatically excluded.
 
 ## Species-pool settings
-Individual species can be banned. Entire categories can be allowed or
-excluded: Legendary, Mythical, Ultra Beast, Paradox, Regional forms.
-Extremely powerful restricted Pokémon use a separate pool from ordinary
-Pokémon. Default uses a curated high-power pool instead of allowing every box
-legendary to replace ordinary strong Pokémon.
+Individual species can be banned. Regional and other alternate forms can be
+allowed or excluded independently (default: both allowed). Extremely powerful
+restricted Pokémon (see "Premium species category" below) always use a
+separate pool from ordinary Pokémon rather than a per-category allow/exclude
+toggle - the Premium category is unconditionally excluded from every ordinary
+pool regardless of any such setting, so a category-level "allow Legendary
+into the ordinary pool" toggle would be meaningless and does not exist as a
+functioning setting (Phase 13A: five settings that attempted this -
+`SETTING_ALLOW_LEGENDARY`/`MYTHICAL`/`SUB_LEGENDARY`/`ULTRA_BEAST`/`PARADOX` -
+were verified to have no effect on any pool and are now hidden rather than
+shown as functioning options). Default uses a curated high-power pool instead
+of allowing every box legendary to replace ordinary strong Pokémon.
 
 ## Premium species category
 Whenever a project requirement refers to a "legendary" restriction or pool,
@@ -490,16 +497,19 @@ randomized pickups. Unlimited money does not make every Ball available
 immediately, but it makes every currently unlocked Ball effectively unlimited
 without resource grinding.
 
-Use Emerald's existing shop progression as the anchor, assigning unlocks at
-logical points based on each Ball's power and usefulness. The ordinary Poké
-Ball unlocks when catching unlocks; Great Ball and comparable early/mid tiers
-come later; Timer Ball, Repeat Ball, and comparable specialty Balls unlock at
-a sensible early/midgame point; Ultra Ball arrives at its appropriate later
-point. By the time Ultra Ball is available, essentially every normal supported
-specialty Ball should also be obtainable. Mechanically normal modern options
-such as Apricorn Balls, Dream Ball, and Beast Ball may have late availability.
-Exclude Cherish, Safari, Sport, or other unusual Balls when their actual
-implementation is event/location-specific or inappropriate for normal shops.
+Emerald's existing shop progression is the anchor and is preserved
+unmodified rather than replaced with bespoke logic: it already unlocks Balls
+at logical points based on power and usefulness without any project change
+being necessary. The ordinary Poké Ball is available the moment catching
+unlocks (via the 999 Poké Ball NPC, "999 Poké Ball NPC" below, ahead of any
+shop); Great Ball and comparable early/mid tiers arrive at Petalburg/Mauville/
+Lavaridge/Verdanturf/Fallarbor; Timer Ball and Repeat Ball are sold from
+Rustboro onward; Ultra Ball and the remaining specialty Balls (Net, Dive)
+become available by Slateport/Fortree/Mossdeep. Modern-only options (Apricorn
+Balls, Dream Ball, Beast Ball) are not stocked anywhere — this is acceptable
+per this section's "may have late availability" wording, not a requirement.
+Cherish, Safari, Sport, and other unusual Balls remain excluded from normal
+shops, as they already are in vanilla Emerald.
 
 The Master Ball is never sold. The original Aqua Hideout Master Ball location
 becomes an ordinary randomized field item and may roll a Master Ball only by
@@ -533,8 +543,12 @@ end; tapping R alone throws the currently selected Ball (the shipped Gen 7+
 "last used Ball" binding - Phase 12A: this section previously described an
 L-cycle/R-throw split that was never implemented; the code's binding is kept
 and this wording corrected to match it). The shortcut never creates an
-unowned Ball and never automatically chooses the Master Ball merely because
-one is available; the player must deliberately select it. No Ball-quantity
+unowned Ball, and the initial selection is never the Master Ball merely
+because the player has one - initial selection is the last-thrown Ball, or
+otherwise whatever occupies the first slot of the Poké Ball pocket, which the
+999 Poké Ball NPC (below) fills with ordinary Poké Balls long before a
+Master Ball can ever be owned; reaching the Master Ball via the shortcut
+still requires the player to cycle to it deliberately. No Ball-quantity
 display is required for the shortcut.
 
 ## Nuzlocke rules start gate
@@ -580,8 +594,10 @@ handle that state safely rather than loop forever.
 Default: ON. A shiny may always be caught regardless of whether the location
 encounter was already consumed, Dupes Clause, or any previous encounter. It is
 a bonus encounter: catching it neither consumes nor replaces the location's
-normal Nuzlocke encounter opportunity. Normal shiny odds unless explicitly
-changed in Custom.
+normal Nuzlocke encounter opportunity. Shiny odds are the fixed vanilla rate
+(1/8192) and are not currently player-configurable (Phase 13A: the
+Normal/Boosted/Disabled setting that once implied otherwise had zero
+consumers and is now hidden rather than shown as a functioning option).
 
 ## Nicknames
 Default: optional/off. A separately selectable rule can require every obtained

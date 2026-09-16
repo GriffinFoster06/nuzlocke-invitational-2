@@ -1,5 +1,14 @@
 # Post-Phase-10 Runbook
 
+> **Status as of Phase 13A (2026-09-15): Phases 1-12B are complete and
+> committed.** This document's per-phase sections below (11C-13B) are now a
+> historical record of that completed work, except the still-open "Phase
+> 13B" section, which remains active until the release gate closes. Once
+> 13B closes there is no further phase and this entire document becomes
+> historical — do not use it to infer live scope after that point. Current
+> state: [`docs/CLAUDE_HANDOFF.md`](docs/CLAUDE_HANDOFF.md). Full
+> implemented feature set: [`docs/PLAYER_GUIDE.md`](docs/PLAYER_GUIDE.md).
+
 This is the authoritative operational runbook for all remaining development,
 from the current post-Phase-11B state through PRODUCT COMPLETE. It picks up
 where `docs/PHASE10_PROMPTS.md` and the historical portion of `docs/PHASES.md`
@@ -28,15 +37,15 @@ to "11C2".
 | 1 – 10 | Complete (see `docs/PHASES.md`, `docs/PHASE10_PROMPTS.md`) |
 | 11A | Complete |
 | 11B | Complete |
-| **11C** | **Next** — Generation architecture, performance, seed quality, pre-run configuration |
-| 11D | World / Premium statics / missing core QoL |
-| 11E | Victory + Wipe Run Reports / save architecture / JSON export / optional mGBA integration |
-| 11F | Final Phase-11 correctness gate |
-| 12A | Fun / accessibility / recommended defaults / settings simplification / UX / game feel |
-| 12B | Final technical & presentation polish |
-| 13A | Final documentation / repository cleanup |
-| 13B | Final release gate |
-| — | **PRODUCT COMPLETE** |
+| 11C | Complete — Generation architecture, performance, seed quality, pre-run configuration |
+| 11D | Complete — World / Premium statics / missing core QoL |
+| 11E | Complete — Victory + Wipe Run Reports / save architecture / JSON export / optional mGBA integration |
+| 11F | Complete — Final Phase-11 correctness gate |
+| 12A | Complete — Fun / accessibility / recommended defaults / settings simplification / UX / game feel |
+| 12B | Complete — Final technical & presentation polish |
+| 13A | Complete — Final documentation / repository cleanup |
+| **13B** | **Current** — Final release gate (static audit done; mGBA playthrough pending user confirmation) |
+| — | **PRODUCT COMPLETE** once 13B closes |
 
 There is no Phase 14 and no planned feature phase after 13B.
 

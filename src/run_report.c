@@ -103,6 +103,11 @@ bool32 RunReport_WipeConditionMet(void)
     return !Nuzlocke_AnyUsableMonRemains();
 }
 
+const struct RunStatsCounters *RunReport_LiveStats(void)
+{
+    return Counters();
+}
+
 // Every live counter is gated here on "the run is active and hasn't already
 // finalized" so callers never have to duplicate that check.
 static bool32 ShouldTrackStats(void)

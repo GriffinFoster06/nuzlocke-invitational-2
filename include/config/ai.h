@@ -122,6 +122,11 @@
 #define AI_ROLL_ATTACKING_PARTNER                               AI_ROLL_MAX
 
 // AI prediction chances
+// Phase 12B (docs/CLAUDE_HANDOFF.md): PREDICT_SWITCH_CHANCE is currently
+// unreachable - AI_FLAG_PREDICT_SWITCH is never granted by any ruleset AI
+// tier (src/battle_ai_main.c AI_FLAGS_RULESET_*) and no trainer in
+// src/data/trainers.party authors it directly. Left in place, value
+// unchanged, in case a future trainer or tier authors the flag.
 #define PREDICT_SWITCH_CHANCE                                   AI_TUNED(80, 50) // Pro Fair: strong switch prediction. Still fallible - AI never sees the player's actual choice (spec)
 #define PREDICT_MOVE_CHANCE                                     100
 
@@ -137,6 +142,10 @@
 #define ASSUME_STAB_SEES_ABILITY                                FALSE // Flag also gives omniscience for player's ability. Can use AI_FLAG_WEIGH_ABILITY_PREDICTION instead for smarter prediction without omniscience.
 
 // AI_FLAG_ASSUME_STATUS_MOVES settings
+// Phase 12B (docs/CLAUDE_HANDOFF.md): the three AI_TUNED odds below are
+// currently unreachable for the same reason as PREDICT_SWITCH_CHANCE above -
+// AI_FLAG_ASSUME_STATUS_MOVES is never granted by any ruleset AI tier and no
+// trainer authors it directly. Values unchanged.
 #define ASSUME_STATUS_MOVES_HAS_TUNING                  TRUE // Flag has varying rates for different kinds of status move.
                                                              // Setting to false also means it will not alert on Fake Out or Super Fang.
 #define ASSUME_STATUS_HIGH_ODDS                         90 // Chance for AI to see extremely likely moves for a Pokémon to have, like Spore (already near-certain)

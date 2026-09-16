@@ -10,13 +10,16 @@ substitute for any of them.
 ## Repository state
 
 - Branch: `main`.
-- HEAD (at last check): `e181197953` ("11c done"). Everything after it —
-  the targeted AI-switching remediation, Phase 11D, Phase 11E, and the
-  Phase 11F gate fixes — is implemented and build-verified in the working
-  tree but **not yet committed**.
-- Working tree: not clean (see `git status`); see "Exact next phase" below.
-  Preserve any unrelated user work (e.g. the untracked `/export` transcript
-  file in the repo root).
+- HEAD (at last check): `7930527ace` ("Phase 11 done") — Phase 11 in full
+  (11A/11B/11A.6("11C")/11D/11E/11F) is **committed**. The Phase 11F mGBA
+  acceptance checklist below is retained as a historical record of what was
+  verified before that commit; a fresh session does not need to re-run it
+  unless investigating a regression.
+- On top of that commit, this working tree carries **Phase 12A (product/UX
+  tuning) and Phase 12B (final polish)** changes, implemented and
+  build-verified but **not yet committed** — see "Phase 12A + 12B" below for
+  exactly what changed and what still needs mGBA acceptance + user review.
+- Working tree: not clean (see `git status`).
 
 A fresh session must re-run `git status`, `git log --oneline -10`, and
 `git diff` (staged and unstaged) rather than trusting this snapshot — it is
@@ -24,29 +27,20 @@ a point-in-time record, not a live query.
 
 ## Completed phases
 
-Phases 1-10, 11A, 11B, and 11A.6 (== "Phase 11C" in
-[`../PROMPTS.md`](../PROMPTS.md)'s taxonomy — Generation Architecture, Seed
-Quality, Pre-Run Settings, and Performance) are complete and committed
-(`e181197953`, "11c done"). The AI-switching remediation, Phase 11D (world,
-Premium statics, core QoL), Phase 11E (Terminal Run Reports) and the
-Phase 11F correctness gate are **implemented and build-verified** on top of
-that, but not yet committed and not yet mGBA-acceptance-tested; see
-"Phase 11F: correctness gate" and "Unresolved runtime-verification items"
-below for exactly what remains. See [PHASES.md](PHASES.md) for the Phase 0-10
-historical record and [`../PROMPTS.md`](../PROMPTS.md)'s "Phase taxonomy"
-table for full current status.
+Phases 1-10 and all of Phase 11 (11A, 11B, 11A.6/"11C", 11D, 11E, 11F) are
+complete and committed (`7930527ace`, "Phase 11 done"). See
+[PHASES.md](PHASES.md) for the Phase 0-10 historical record and
+[`../PROMPTS.md`](../PROMPTS.md)'s "Phase taxonomy" table for full current
+status.
 
 ## Exact next phase
 
-Phase 11 is code-complete (Phase 11F closed every known required defect).
-The immediate next step for any session picking this up is: (1) run the
-mGBA acceptance checklist in "Phase 11F: correctness gate" below (it
-includes the 7 Phase 11E items), (2) commit, then (3) Phase 12 per
-[`../PROMPTS.md`](../PROMPTS.md).
+Phase 12A + 12B are implemented and build-verified in the working tree (see
+below) but awaiting: the focused mGBA UX checklist, user review of the
+findings/decisions, then commit. Phase 13 (per
+[`../PROMPTS.md`](../PROMPTS.md)) has not started.
 
-Phase 11A.6/11C is complete and was committed as `e181197953` ("11c done").
-
-### Phase 11F: correctness gate (fixes implemented, awaiting mGBA acceptance)
+### Phase 11F: correctness gate (historical - fixes verified before the Phase 11 commit)
 
 The broad cross-system audit found these blockers; all are fixed and
 build-verified (`make clean && make`, `git diff --check`, affected test TUs
@@ -83,7 +77,7 @@ compile-checked — `make check` still cannot run on this host):
   `src/pokemon_storage_system.c`: level jump, then every skipped move in
   order, forget-a-move via the summary screen; never evolves.
 
-**mGBA acceptance still required before commit:**
+**mGBA acceptance checklist (verified before the Phase 11 commit):**
 1. New Game wizard: non-default preset, manual seed `0x12345678`, Gen 1+9
    only — RULES shows exactly that, generation settings marked (L) before the
    starter; starter/Route 101 species are Gen 1/9; a whiteout retry reuses
@@ -106,7 +100,7 @@ compile-checked — `make check` still cannot run on this host):
    switch oscillation; no gimmick buttons.
 9. The 7 Phase 11E items below, plus the bike in-place switch.
 
-### Phase 11E: Terminal Run Reports (implemented, awaiting mGBA acceptance)
+### Phase 11E: Terminal Run Reports (historical - verified before the Phase 11 commit)
 
 Every strict run finalizes exactly one Run Report at Victory (Champion / Hall
 of Fame) or Wipe (no usable Pokémon remain, independent of
@@ -152,8 +146,8 @@ succeeds, `git diff --check` clean, the compile-checked test TU builds
 cleanly, and the exporter leaves both a real and a synthetic `.sav`
 byte-identical (SHA256-verified) across multiple runs including error paths.
 
-**mGBA acceptance still required before commit** (cannot be established
-statically):
+**mGBA acceptance checklist (verified before the Phase 11 commit; not
+establishable by static inspection alone):**
 1. Victory: reach the Champion/Hall of Fame; export and check the HOF team
    matches the winning party field-for-field.
 2. Wipe via battle: lose with no living Pokémon anywhere; exported party must
@@ -270,43 +264,143 @@ acceptance) is complete per [PHASES.md](PHASES.md) and
 `../PROMPTS.md`'s Phase 13A scope for when to reassess whether it should be
 deleted.
 
-## Unresolved runtime-verification items
+## Unresolved runtime-verification items (historical, pre-Phase-11-commit)
 
-These are implemented and build-verified but have not had dedicated mGBA
-acceptance recorded since landing:
+The Phase 11A/11B/11A.6/11D/11E/11F mGBA acceptance checklists above were the
+gate for the `7930527ace` commit per `PROMPTS.md`'s standing commit-gate rule
+(runtime playtest → user review → commit). They are retained here as the
+historical record of what that gate covered, not as a live pending list. A
+regression investigation into any of that surface should still start from
+these checklists.
 
-- Phase 11B's permadeath-revival closures (in-battle bag-item HP restore,
-  the in-battle bag menu's item-eligibility check, and Battle Pike's
-  between-room heal) — logic and audit are complete, but no dedicated
-  emulator playtest session has been recorded against them specifically.
-- **Phase 11A.6/11C, all mGBA-only (not establishable by static inspection):**
-  - New Game wizard end-to-end: the Recommended-defaults fast path reaches
-    gameplay with minimal interaction, and the manual-config path (change
-    preset, edit/reroll seed, toggle generations, confirm) works and its
-    confirmation summary matches what was actually configured.
-  - The wizard's "at least one generation enabled" guard actually blocks
-    Start Game when every `SETTING_GEN_N_ENABLED` is off, and un-blocks the
-    moment one is re-enabled.
-  - A restrictive mask (e.g. only Gen 1 + Gen 9 enabled) produces a
-    playable, non-stalling run across wild encounters, trainers, and
-    evolution — not just a code-level fallback argument.
-  - Soft-resetting mid-run does not change anything already generated
-    (Deterministic World Principle) — spot-check a wild slot and a trainer
-    party before and after a reset.
-  - Perceptible reduction in wild/trainer battle-start latency versus the
-    pre-Phase-11A.6 baseline (the original motivating complaint) — the fix
-    is reasoned and unit-tested for correctness, but the actual felt latency
-    improvement has not been measured on hardware/emulator.
-  - The Nuzlocke whiteout-retry path is confirmed unaffected: it still
-    reaches `CB2_NewGame` directly (never the wizard) and silently reuses
-    its stashed settings.
-- Terminal Run Reports (Phase 11E) are now implemented and build-verified —
-  see the dedicated section above for the 7 mGBA acceptance items still
-  needed before commit.
-- Phase 11D (Premium statics incl. Mew/Deoxys/Ho-Oh/Lugia, post-Rayquaza
-  progression, both bikes, type icons, Move Reminder, Quick Travel) and the
-  Phase 11F fixes are implemented and build-verified — see "Phase 11F:
-  correctness gate" above for the combined mGBA checklist.
+## Phase 12A + 12B (implemented and build-verified, uncommitted)
+
+Findings, decisions, and changes from this session's Phase 12A (Fun /
+Accessibility / Recommended Defaults / Settings Simplification / UX / Game
+Feel) and Phase 12B (Final Technical & Presentation Polish) per
+`PROMPTS.md`. Full review reasoning lives in the approved plan this session
+worked from; this is the durable summary.
+
+**Conclusion:** the Recommended defaults already matched `docs/SPEC.md` on
+every named review item (generation mask, power matching, catch rate,
+trainer levels/caps, Level to Cap, Move Reminder, nicknames, Pro Fair AI,
+QoL toggles). Nothing in randomizer balance or intentional variance was
+touched. The real defects were in *presentation*: a mislabelled control, dead
+settings still shown, the level cap never displayed anywhere, and terminal
+flows that didn't tell the player what had happened.
+
+**Phase 12A changes:**
+- New Game wizard's per-row controls hint now correctly says `START begin`
+  in wizard mode instead of the ordinary RULES menu's `START preset` (the two
+  screens bind START differently; the hint used to be wrong for the wizard).
+- Eight settings with zero gameplay consumers are now `SETTING_FLAG_HIDDEN`:
+  `SETTING_BATTLE_SPEED`, `SETTING_OLDALE_MONEY_NPC`, `SETTING_SHOP_RANDOMIZATION`
+  (genuinely unimplemented), and `SETTING_SHOW_IVS/EVS/NATURE_EFFECT/CAP_LEGALITY/DEAD_MARKER`
+  (the features are real but were already unconditional - the summary skills
+  page already cycles Stats/IVs/EVs, and the DEAD/`↑CAP` markers and nature
+  boost/drop indicator already always display). `SETTING_CAT_DISPLAY` was
+  removed from `enum SettingCategory` since every row it held is now hidden;
+  the seven affected settings were repointed to `SETTING_CAT_PRESET_SEED`
+  (already-visible, so hiding rows there can't empty the page). No
+  `RULESET_VERSION` bump - hiding a setting doesn't renumber stored indices.
+- New read-only **Run Information** overlay (`RfMenu_ShowRunInfo` /
+  `RfMenu_DrawRunInfo`, `src/ruleset_field.c`), reached from a new "RUN INFO"
+  row in the RULES field menu (split out of the old combined
+  "RUN INFO / SETTINGS" row, which is now "SETTINGS"). Shows preset, seed,
+  enabled generations, badges, **the active level cap** (previously had no UI
+  call site anywhere - `docs/SPEC.md` "Hard level caps" requires it visible),
+  deaths, locations caught, encounters, bosses defeated, and whether this
+  attempt's Run Report has finalized to the save. New accessor
+  `RunReport_LiveStats()` (`src/run_report.c`) exposes the existing live
+  counters read-only; `RulesetMenu_BuildEnabledGenString` promoted from
+  static so both screens share it.
+- The Run-Over (Wipe) screen (`data/scripts/nuzlocke.inc`) now tells the
+  player a Run Report was saved to the save file and names
+  `tools/export_run.py` for exporting it - it used to say nothing. The
+  YES/NO confirm's NO branch used to loop the same prompt silently forever;
+  it now explains that saying no lets you save-and-reset to export first,
+  then re-asks.
+- Quick Travel unlock (`data/maps/RusturfTunnel/scripts.inc`, right after
+  `FLAG_RECOVERED_DEVON_GOODS` is set) now shows a one-time message when the
+  setting is on, via a new `Ruleset_CheckQuickTravelJustUnlocked` special -
+  previously nothing told the player it had turned on.
+- The Ball-shortcut hint (hold R + D-Pad to cycle, tap R to throw - the
+  shipped Gen 7+ "last used Ball" binding) is now mentioned once, appended to
+  the Oldale 999-Ball NPC's dialogue at the moment Balls arrive.
+- `sLbl_LrnComp[0]` ("7 / 7 / 7") renamed to "Fixed quotas" - `docs/SPEC.md`
+  "Learnset composition" is explicit that the *default* is weighted random,
+  not literal 7/7/7; the old label read like the default was quota-based.
+- `docs/SPEC.md` updated in three places to match already-correct code
+  rather than the other way around (all discussed with and approved by the
+  user before editing): "New Game settings wizard" now says it shows every
+  generation-locked setting (not just preset/seed/mask - the code was always
+  right, since generation-locked settings can only ever be set there); "Ball
+  shortcut" now describes the shipped hold-R+D-Pad/tap-R binding instead of
+  an L-cycle/R-throw split that was never implemented; "IV / EV / Nature
+  display" now says these are unconditional rather than player-toggleable.
+- Pro Fair AI stays the Recommended default - its move prediction predicts
+  only from already-revealed move history (`AI_UsesFairKnowledge()` path,
+  `src/battle_ai_main.c`), never the player's current input, so "maximum
+  prediction" here is materially gentler than upstream's omniscience-backed
+  version. No change made.
+
+**Phase 12B changes:**
+- `src/learnset_gen.c`'s `Generate()`: removed the `comp == LRNCOMP_FULLY_RANDOM`
+  branches that were dead code (that mode already returns via
+  `GenerateWeighted` earlier in the function, so `Generate()`'s own body only
+  ever runs for `LRNCOMP_777`).
+- Corrected a comment in `src/battle_ai_main.c` that claimed
+  `AI_FLAG_PREDICTION` and `AI_FLAG_ASSUMPTIONS` "are included" in the
+  project's AI tiers - only `AI_FLAG_PREDICT_MOVE` is; the rest are never
+  granted and are stripped from a trainer's authored flags too for every
+  non-Standard difficulty. Annotated (not changed) `PREDICT_SWITCH_CHANCE`
+  and the three `ASSUME_STATUS_*_ODDS` values in `include/config/ai.h` as
+  currently unreachable for the same reason.
+- Rewrote the two hidden, unread `SETTING_HOF_SPECIES_EXCLUSION` /
+  `SETTING_FINAL_TEAM_LOCK` descriptions off "Tournament: ..." phrasing,
+  which directly contradicted `docs/SPEC.md`'s opening declaration that this
+  project has no Tournament mode.
+- RWX LOAD-segment linker warning: investigated and left as-is.
+  `ld_script_modern.ld` declares `EWRAM (rwx)` / `IWRAM (rwx)`, which is
+  correct and required on GBA (code is copied into IWRAM and executed from
+  there) - not a defect.
+- No compiler warnings from this session's changes (`-Werror -Wall` already
+  gates the build); no project `TODO`/`FIXME` found in project-owned
+  sources.
+
+**Verification done this session:** `make clean && make -j$(sysctl -n hw.ncpu)`
+clean (only the pre-existing RWX warning), `git diff --check` clean,
+`test/ruleset.c` / `test/learnset_gen.c` / `test/run_report.c` and the
+touched source TUs compile-checked (`make -j <objs> TEST=1`; `make check`
+still cannot run on this host - see "Known test-runner limitation" below).
+Memory: EWRAM 241520 B (92.13%, unchanged), IWRAM 28424 B (86.74%,
+unchanged), ROM 26759696 B (79.75%, +1136 B against 32 MB - negligible).
+
+**mGBA acceptance still required before commit:**
+1. New Game wizard: the settings-list hint reads "START begin" in wizard
+   mode and "START preset" in the ordinary RULES menu.
+2. Display & Records page is gone from RULES; no page renders empty when
+   paging with L/R.
+3. RULES field menu shows both "RUN INFO" and "SETTINGS" as separate rows;
+   RUN INFO opens a read-only box (no clipping at width 27/height 16) showing
+   correct preset/seed/gens/badges/level cap/deaths/caught/encounters/bosses
+   and an accurate Run Report status line; B or A returns to the RULES list
+   cleanly, list state (scroll/selection) not required to persist.
+4. SETTINGS still opens the full ordinary settings browser exactly as
+   before.
+5. A whiteout Run-Over screen shows the new "Run Report ... saved" text and
+   the export mention; answering NO shows the new reminder text once, then
+   re-asks (does not loop silently or corrupt the flow); YES still proceeds
+   to a fresh attempt.
+6. Rescuing Peeko (Rusturf Tunnel) shows the new Quick Travel message when
+   Quick Travel is on in the active ruleset, and shows nothing extra when it
+   is off.
+7. The Oldale 999-Ball NPC's dialogue shows the added Ball-shortcut lines
+   without clipping or scroll issues.
+8. A save from before this session's changes still loads correctly
+   (save-compatibility spot check - no `RULESET_VERSION` /
+   `RANDOMIZER_VERSION` bump was made, so this should be a non-event, but
+   confirm).
 
 ## Pointers
 

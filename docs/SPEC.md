@@ -135,13 +135,19 @@ informational and celebratory solo-run archive only.
   through a dedicated settings screen reachable *only* from the New Game
   flow, after the naming screen and before gameplay begins. It is a distinct
   screen from the in-run Start Menu → RULES menu, not an extension of it.
-- The wizard shows exactly the settings that must be locked in before the
-  seed rolls and the world generates: the active preset, the run seed
-  (auto-rolled or manually entered), and the Generation 1-9 mask. Every
-  other setting (species-pool details, power matching, caps, Nuzlocke
-  rules, AI, QoL, display, etc.) stays exactly where it already lived, in
-  the ordinary in-run RULES menu, changeable there according to its own
-  lock class.
+- The wizard shows every setting that must be locked in before the seed
+  rolls and the world generates: the active preset, the run seed
+  (auto-rolled or manually entered), the Generation 1-9 mask, and every
+  other generation-locked setting (species-pool details, power matching,
+  encounter mapping, starter/gift/static randomization, trainer
+  randomization, learnset/move generation, TM/Tutor randomization, ability
+  randomization, item-category randomization, and the battle-gimmick
+  toggles) - all of it locks the instant the run starts, so it can only ever
+  be set here (Phase 12A: this is a correction of this section's earlier,
+  narrower wording, which the implementation was always right to ignore).
+  Every setting that stays changeable in-run (caps, Nuzlocke rules, AI, QoL,
+  display, etc.) stays exactly where it already lived, in the ordinary
+  in-run RULES menu, changeable there according to its own lock class.
 - Target flow: New Game → naming screen → wizard (preset → seed →
   Generation 1-9 mask → confirmation summary showing preset/seed/mask) →
   lock in → deterministic world initialization → gameplay. A player who
@@ -521,9 +527,12 @@ for random no-bite and input-timing failures.
 
 ## Ball shortcut
 Default: ON. Outside the shortcut, normal Bag selection remains available.
-The L button cycles forward through Ball types currently possessed and wraps
-from the last available type to the first. During a legal wild encounter, the
-R button throws the currently selected Ball. The shortcut never creates an
+During a legal wild encounter, holding R and tapping the D-Pad cycles
+forward/backward through Ball types currently possessed, wrapping at either
+end; tapping R alone throws the currently selected Ball (the shipped Gen 7+
+"last used Ball" binding - Phase 12A: this section previously described an
+L-cycle/R-throw split that was never implemented; the code's binding is kept
+and this wording corrected to match it). The shortcut never creates an
 unowned Ball and never automatically chooses the Master Ball merely because
 one is available; the player must deliberately select it. No Ball-quantity
 display is required for the shortcut.
@@ -622,9 +631,12 @@ enemy battle HUD. Species typing is public information and may be shown for
 enemy Pokémon.
 
 ## IV / EV / Nature display
-Default: ON for all. Exact IV and EV per stat shown in Summary (no external
-calculator needed). Nature shown with boosted/reduced/neutral stat
-indicated. Natures are random/natural by default; no default nature
+Always on, unconditionally (Phase 12A: the settings that used to gate these
+were dead - nothing read them - so they were removed rather than wired up).
+Exact IV and EV per stat available in Summary (no external calculator
+needed) via the skills page's existing Stats/IVs/EVs cycle. Nature shown
+with boosted/reduced/neutral stat indicated, by both colour and a text
+indicator. Natures are random/natural by default; no default nature
 editing.
 
 ## Pokémon Summary improvements

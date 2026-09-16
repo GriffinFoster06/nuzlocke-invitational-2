@@ -88,7 +88,11 @@ enum SettingCategory
     SETTING_CAT_NUZLOCKE,
     SETTING_CAT_BATTLE_AI,
     SETTING_CAT_TRAVERSAL,
-    SETTING_CAT_DISPLAY,
+    // Phase 12A: SETTING_CAT_DISPLAY removed - every setting it held had zero
+    // gameplay consumers (docs/CLAUDE_HANDOFF.md Phase 12A). The IV/EV cycle,
+    // Nature effect indicator, and DEAD/CAP markers it claimed to gate are all
+    // unconditional upstream/project behavior already. The surviving hidden
+    // settings moved to SETTING_CAT_PRESET_SEED (see src/data/ruleset.h).
     SETTING_CAT_COUNT,
 };
 

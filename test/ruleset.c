@@ -193,6 +193,23 @@ TEST("Deprecated Phase 11A controls retain IDs but are hidden")
     EXPECT_EQ(GetSettingDescriptor(SETTING_TRAINER_LEVEL_MODE)->maxValue, TRLEVEL_VANILLA);
 }
 
+// Phase 12A (docs/CLAUDE_HANDOFF.md): these eight controls had zero gameplay
+// consumers outside test/ - three unimplemented (Battle Speed, Oldale Money
+// NPC, Shop Randomization), five whose feature is real but was already
+// unconditional (the old SETTING_CAT_DISPLAY page). Hidden rather than
+// removed, so no RULESET_VERSION bump / stored-index shift is needed.
+TEST("Phase 12A dead controls are hidden")
+{
+    EXPECT((GetSettingDescriptor(SETTING_BATTLE_SPEED)->flags & SETTING_FLAG_HIDDEN));
+    EXPECT((GetSettingDescriptor(SETTING_OLDALE_MONEY_NPC)->flags & SETTING_FLAG_HIDDEN));
+    EXPECT((GetSettingDescriptor(SETTING_SHOP_RANDOMIZATION)->flags & SETTING_FLAG_HIDDEN));
+    EXPECT((GetSettingDescriptor(SETTING_SHOW_IVS)->flags & SETTING_FLAG_HIDDEN));
+    EXPECT((GetSettingDescriptor(SETTING_SHOW_EVS)->flags & SETTING_FLAG_HIDDEN));
+    EXPECT((GetSettingDescriptor(SETTING_SHOW_NATURE_EFFECT)->flags & SETTING_FLAG_HIDDEN));
+    EXPECT((GetSettingDescriptor(SETTING_SHOW_CAP_LEGALITY)->flags & SETTING_FLAG_HIDDEN));
+    EXPECT((GetSettingDescriptor(SETTING_SHOW_DEAD_MARKER)->flags & SETTING_FLAG_HIDDEN));
+}
+
 // docs/SPEC.md "AI difficulty settings" / "Maximum-strength fair AI". Standard (AIDIFF_VANILLA
 // internally, no save/API churn from the player-facing rename) must add nothing on top of a
 // trainer's authored AI flags, so it reproduces original Emerald trainer AI behavior; every

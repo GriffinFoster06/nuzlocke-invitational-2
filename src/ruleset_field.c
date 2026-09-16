@@ -10,6 +10,7 @@
 
 #include "global.h"
 #include "bike.h"
+#include "caps.h"
 #include "event_object_movement.h"
 #include "event_data.h"
 #include "field_player_avatar.h"
@@ -18,6 +19,8 @@
 #include "main.h"
 #include "malloc.h"
 #include "menu.h"
+#include "nuzlocke.h"
+#include "run_report.h"
 #include "script.h"
 #include "script_pokemon_util.h"
 #include "sound.h"
@@ -70,6 +73,15 @@ bool32 Ruleset_QuickTravelAvailable(void)
 {
     return GetRulesetSetting(SETTING_QUICK_TRAVEL) != 0
         && FlagGet(FLAG_RECOVERED_DEVON_GOODS);
+}
+
+// Phase 12A (docs/CLAUDE_HANDOFF.md): nothing told the player Quick Travel had
+// turned on. special, called from RusturfTunnel_EventScript_ResolveRescue
+// right after FLAG_RECOVERED_DEVON_GOODS is set, so Ruleset_QuickTravelAvailable()
+// already reflects the setting; gSpecialVar_Result gates the one-time msgbox.
+void Ruleset_CheckQuickTravelJustUnlocked(void)
+{
+    gSpecialVar_Result = Ruleset_QuickTravelAvailable();
 }
 
 // docs/SPEC.md "Bikes".
@@ -165,13 +177,14 @@ void Ruleset_GrantFieldKeyItems(void)
 enum
 {
     RF_ACT_RUNINFO,
+    RF_ACT_SETTINGS,
     RF_ACT_HEAL,
     RF_ACT_REPEL,
     RF_ACT_SWITCH_BIKE,
     RF_ACT_CANCEL,
 };
 
-#define RF_MAX_ROWS 5
+#define RF_MAX_ROWS 6
 #define RF_NAME_LEN 24
 
 struct RulesetFieldMenu
@@ -187,7 +200,11 @@ struct RulesetFieldMenu
 
 static EWRAM_DATA struct RulesetFieldMenu *sRfMenu = NULL;
 
-static const u8 sText_RfRunInfo[]    = _("RUN INFO / SETTINGS");
+// Phase 12A: the combined "RUN INFO / SETTINGS" row split in two - RUN INFO
+// now opens a read-only dashboard in place (see RfMenu_ShowRunInfo) instead
+// of only reaching the settings browser (docs/CLAUDE_HANDOFF.md Phase 12A).
+static const u8 sText_RfRunInfo[]    = _("RUN INFO");
+static const u8 sText_RfSettings[]   = _("SETTINGS");
 static const u8 sText_RfHeal[]       = _("HEAL PARTY");
 static const u8 sText_RfRepelOn[]    = _("REPEL: ON");
 static const u8 sText_RfRepelOff[]   = _("REPEL: OFF");
@@ -195,14 +212,49 @@ static const u8 sText_RfSwitchBike[] = _("SWITCH BIKE");
 static const u8 sText_RfCancel[]     = _("CANCEL");
 static const u8 sText_RfHealDone[]   = _("Your POKéMON were\nrestored to full health.");
 
+// Phase 12A: Run Information overlay content (docs/SPEC.md "Hard level caps"
+// requires the active cap visible somewhere in the interface; it previously
+// had no UI call site at all).
+static const u8 sText_RunInfoTitle[]      = _("RUN INFORMATION");
+static const u8 sText_RunInfoPreset[]     = _("Preset: ");
+static const u8 sText_RunInfoSeed[]       = _("Seed: 0x");
+static const u8 sText_RunInfoGens[]       = _("Gens: ");
+static const u8 sText_RunInfoBadges[]     = _("Badges: ");
+static const u8 sText_RunInfoLevelCap[]   = _("   Level cap: ");
+static const u8 sText_RunInfoDeaths[]     = _("Deaths: ");
+static const u8 sText_RunInfoCaught[]     = _("   Caught: ");
+static const u8 sText_RunInfoEncounters[] = _("Encounters: ");
+static const u8 sText_RunInfoBosses[]     = _("   Bosses: ");
+static const u8 sText_RunInfoReportSaved[]  = _("Run Report: saved to this save.");
+static const u8 sText_RunInfoReportPending[] = _("Run Report: not finalized yet.");
+static const u8 sText_RunInfoReturn[]     = _("B: return");
+
+#define RUNINFO_LINE_HEIGHT 10
+
 static const struct WindowTemplate sRfMenuWindowTemplate =
 {
     .bg = 0,
     .tilemapLeft = 1,
     .tilemapTop = 1,
     .width = 21,
-    .height = 10, // Phase 11D: +2 tiles over the original 4-row sizing (8) so
-                  // a 5th row (SWITCH BIKE) doesn't clip - verify in mGBA.
+    .height = 12, // Phase 12A: +2 tiles over the Phase 11D 5-row sizing (10)
+                  // so a 6th row (SETTINGS) doesn't clip - verify in mGBA.
+    .paletteNum = 15,
+    .baseBlock = 1,
+};
+
+// Phase 12A: Run Information overlay - a wider, taller window reusing the
+// same field-overlay convention (drawn over the frozen field, no CB2 swap).
+// Built and printed as one static text block; B/A returns via the existing
+// Task_RfMenuWaitMsg (IsFanfareTaskInactive() is TRUE when nothing played a
+// fanfare, so it's safe to reuse for a plain "press a button" wait).
+static const struct WindowTemplate sRfRunInfoWindowTemplate =
+{
+    .bg = 0,
+    .tilemapLeft = 1,
+    .tilemapTop = 1,
+    .width = 27,
+    .height = 16,
     .paletteNum = 15,
     .baseBlock = 1,
 };
@@ -216,6 +268,10 @@ static void RfMenu_BuildItems(void)
 
     StringCopy(sRfMenu->names[n], sText_RfRunInfo);
     sRfMenu->actions[n] = RF_ACT_RUNINFO;
+    n++;
+
+    StringCopy(sRfMenu->names[n], sText_RfSettings);
+    sRfMenu->actions[n] = RF_ACT_SETTINGS;
     n++;
 
     if (Ruleset_PortableHealOn())
@@ -279,6 +335,97 @@ static void RfMenu_InitList(u16 selectedRow)
     CopyWindowToVram(sRfMenu->windowId, COPYWIN_FULL);
 }
 
+// Phase 12A: builds and prints the read-only Run Information overlay into
+// windowId, one line at a time (StringAppend/ConvertIntTo*StringN into a
+// reused scratch buffer, matching RulesetMenu_FormatRow's convention rather
+// than juggling more STR_VAR slots than the format-string helpers support).
+static void RfMenu_DrawRunInfo(u8 windowId)
+{
+    u8 line[40];
+    u8 row = 0;
+    u32 badges = 0, i;
+    const struct RunStatsCounters *stats = RunReport_LiveStats();
+
+    FillWindowPixelBuffer(windowId, PIXEL_FILL(1));
+
+    AddTextPrinterParameterized(windowId, FONT_SMALL, sText_RunInfoTitle, 1, 1 + row * RUNINFO_LINE_HEIGHT, TEXT_SKIP_DRAW, NULL);
+    row += 2;
+
+    StringCopy(line, sText_RunInfoPreset);
+    StringAppend(line, GetRulesetPresetName(GetDisplayedRulesetPreset()));
+    AddTextPrinterParameterized(windowId, FONT_SMALL, line, 1, 1 + row * RUNINFO_LINE_HEIGHT, TEXT_SKIP_DRAW, NULL);
+    row++;
+
+    StringCopy(line, sText_RunInfoSeed);
+    ConvertIntToHexStringN(line + StringLength(line), GetRunSeed(), STR_CONV_MODE_LEADING_ZEROS, 8);
+    AddTextPrinterParameterized(windowId, FONT_SMALL, line, 1, 1 + row * RUNINFO_LINE_HEIGHT, TEXT_SKIP_DRAW, NULL);
+    row++;
+
+    StringCopy(line, sText_RunInfoGens);
+    RulesetMenu_BuildEnabledGenString(line + StringLength(line));
+    AddTextPrinterParameterized(windowId, FONT_SMALL, line, 1, 1 + row * RUNINFO_LINE_HEIGHT, TEXT_SKIP_DRAW, NULL);
+    row += 2;
+
+    for (i = 0; i < NUM_BADGES; i++)
+    {
+        if (FlagGet(gBadgeFlags[i]))
+            badges++;
+    }
+    StringCopy(line, sText_RunInfoBadges);
+    ConvertIntToDecimalStringN(line + StringLength(line), badges, STR_CONV_MODE_LEFT_ALIGN, 1);
+    StringAppend(line, sText_RunInfoLevelCap);
+    ConvertIntToDecimalStringN(line + StringLength(line), GetProgressionLevelCap(), STR_CONV_MODE_LEFT_ALIGN, 3);
+    AddTextPrinterParameterized(windowId, FONT_SMALL, line, 1, 1 + row * RUNINFO_LINE_HEIGHT, TEXT_SKIP_DRAW, NULL);
+    row++;
+
+    // Nuzlocke_GetDeathCount() and the two RunStatsCounters fields below are
+    // u16 (deathCount/encounters/bossesDefeated in include/global.h and
+    // include/run_report.h); 5 digits covers the full u16 range so an
+    // implausibly long run can never overflow ConvertIntToDecimalStringN's
+    // fixed digit count into a garbled '?' (it truncates from the left, it
+    // does not widen).
+    StringCopy(line, sText_RunInfoDeaths);
+    ConvertIntToDecimalStringN(line + StringLength(line), Nuzlocke_GetDeathCount(), STR_CONV_MODE_LEFT_ALIGN, 5);
+    StringAppend(line, sText_RunInfoCaught);
+    ConvertIntToDecimalStringN(line + StringLength(line), Nuzlocke_CountLocationsCaught(), STR_CONV_MODE_LEFT_ALIGN, 3);
+    AddTextPrinterParameterized(windowId, FONT_SMALL, line, 1, 1 + row * RUNINFO_LINE_HEIGHT, TEXT_SKIP_DRAW, NULL);
+    row++;
+
+    StringCopy(line, sText_RunInfoEncounters);
+    ConvertIntToDecimalStringN(line + StringLength(line), stats->encounters, STR_CONV_MODE_LEFT_ALIGN, 5);
+    StringAppend(line, sText_RunInfoBosses);
+    ConvertIntToDecimalStringN(line + StringLength(line), stats->bossesDefeated, STR_CONV_MODE_LEFT_ALIGN, 5);
+    AddTextPrinterParameterized(windowId, FONT_SMALL, line, 1, 1 + row * RUNINFO_LINE_HEIGHT, TEXT_SKIP_DRAW, NULL);
+    row += 2;
+
+    AddTextPrinterParameterized(windowId, FONT_SMALL,
+        RunReport_IsFinalized() ? sText_RunInfoReportSaved : sText_RunInfoReportPending,
+        1, 1 + row * RUNINFO_LINE_HEIGHT, TEXT_SKIP_DRAW, NULL);
+    row++;
+
+    AddTextPrinterParameterized(windowId, FONT_SMALL, sText_RunInfoReturn, 1, 1 + row * RUNINFO_LINE_HEIGHT, TEXT_SKIP_DRAW, NULL);
+
+    CopyWindowToVram(windowId, COPYWIN_FULL);
+}
+
+// Replaces the RULES list window with the (larger) Run Info window in place,
+// then waits for any button before Task_RfMenuInput's caller tears back down
+// to the field - mirrors the HEAL confirmation flow below.
+static void RfMenu_ShowRunInfo(u8 taskId)
+{
+    if (sRfMenu->listAlive)
+        DestroyListMenuTask(sRfMenu->listTaskId, NULL, NULL);
+    sRfMenu->listAlive = FALSE;
+    ClearStdWindowAndFrame(sRfMenu->windowId, TRUE);
+    RemoveWindow(sRfMenu->windowId);
+
+    sRfMenu->windowId = AddWindow(&sRfRunInfoWindowTemplate);
+    DrawStdWindowFrame(sRfMenu->windowId, FALSE);
+    RfMenu_DrawRunInfo(sRfMenu->windowId);
+
+    gTasks[taskId].func = Task_RfMenuWaitMsg;
+}
+
 void RulesetField_ShowMenu(void)
 {
     // Reconcile the key items here too, so a save made before this feature
@@ -314,7 +461,7 @@ static void RfMenu_Redraw(void)
 }
 
 // Tear the overlay down. When returningToField, hand control back to the field
-// (script + object events). RUN INFO passes FALSE because CB2_InitRulesetMenu
+// (script + object events). SETTINGS passes FALSE because CB2_InitRulesetMenu
 // rebuilds the screen itself and its saved callback restores the field.
 static void RfMenu_TearDown(u8 taskId, bool32 returningToField)
 {
@@ -354,6 +501,10 @@ static void Task_RfMenuInput(u8 taskId)
     switch (sRfMenu->actions[input])
     {
     case RF_ACT_RUNINFO:
+        PlaySE(SE_SELECT);
+        RfMenu_ShowRunInfo(taskId);
+        break;
+    case RF_ACT_SETTINGS:
         PlaySE(SE_SELECT);
         RfMenu_OpenRulesetScreen(taskId);
         break;

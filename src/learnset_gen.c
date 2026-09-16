@@ -482,40 +482,21 @@ static u32 Generate(enum Species species, struct LevelUpMove *out)
 
     PickedClear();
 
-    if (comp == LRNCOMP_FULLY_RANDOM)
-    {
-        wantStab = 0;
-        wantStatus = 0;
-        wantCoverage = n;
-    }
-    else // LRNCOMP_777
-    {
-        wantStab = (n + 2) / 3;
-        wantStatus = n / 3;
-        wantCoverage = n - wantStab - wantStatus;
-    }
+    // Only LRNCOMP_777 ("Fixed quotas") reaches here - LRNCOMP_WEIGHTED and
+    // LRNCOMP_FULLY_RANDOM already returned via GenerateWeighted above
+    // (Phase 12B: dropped the dead comp == LRNCOMP_FULLY_RANDOM branches this
+    // function used to carry; docs/CLAUDE_HANDOFF.md).
+    wantStab = (n + 2) / 3;
+    wantStatus = n / 3;
+    wantCoverage = n - wantStab - wantStatus;
 
-    if (comp == LRNCOMP_FULLY_RANDOM)
-    {
-        u32 half = n / 2;
-
-        DrawMoves(&st, 1, 0, 0, half, dmg, &nDmg);
-        DrawMoves(&st, 2, 0, 0, n - nDmg, status, &nStatus);
-        if (nDmg + nStatus < n)
-            DrawMoves(&st, 1, 0, 0, n - nDmg - nStatus, dmg, &nDmg);
-        if (nDmg + nStatus < n)
-            DrawMoves(&st, 2, 0, 0, n - nDmg - nStatus, status, &nStatus);
-    }
-    else
-    {
-        DrawMoves(&st, 0, t0, t1, wantStab, dmg, &nDmg);      // STAB
-        if (nDmg < wantStab)                                  // short -> coverage
-            DrawMoves(&st, 1, 0, 0, wantStab - nDmg, dmg, &nDmg);
-        DrawMoves(&st, 3, t0, t1, wantCoverage, dmg, &nDmg);  // non-STAB coverage
-        DrawMoves(&st, 2, 0, 0, wantStatus, status, &nStatus); // status
-        if (nStatus < wantStatus)                             // short -> coverage
-            DrawMoves(&st, 3, t0, t1, wantStatus - nStatus, dmg, &nDmg);
-    }
+    DrawMoves(&st, 0, t0, t1, wantStab, dmg, &nDmg);      // STAB
+    if (nDmg < wantStab)                                  // short -> coverage
+        DrawMoves(&st, 1, 0, 0, wantStab - nDmg, dmg, &nDmg);
+    DrawMoves(&st, 3, t0, t1, wantCoverage, dmg, &nDmg);  // non-STAB coverage
+    DrawMoves(&st, 2, 0, 0, wantStatus, status, &nStatus); // status
+    if (nStatus < wantStatus)                             // short -> coverage
+        DrawMoves(&st, 3, t0, t1, wantStatus - nStatus, dmg, &nDmg);
 
     total = nDmg + nStatus;
     if (total == 0)
@@ -523,8 +504,8 @@ static u32 Generate(enum Species species, struct LevelUpMove *out)
     if (total > n)
         total = n;
 
-    // Order the damaging moves.
-    if (order == MVORDER_FULLY_RANDOM || comp == LRNCOMP_FULLY_RANDOM)
+    // Order the damaging moves. comp is always LRNCOMP_777 here (see above).
+    if (order == MVORDER_FULLY_RANDOM)
     {
         ShuffleMoves(dmg, nDmg, &st);
     }
@@ -532,7 +513,8 @@ static u32 Generate(enum Species species, struct LevelUpMove *out)
     {
         SortByPowerKey(dmg, nDmg, &st);
 
-        // docs/SPEC.md: level 1 is a damaging STAB move (7/7/7 comp only).
+        // docs/SPEC.md: level 1 is a damaging STAB move (LRNCOMP_777 "Fixed
+        // quotas" comp only).
         if (nDmg > 1)
         {
             for (i = 0; i < nDmg; i++)

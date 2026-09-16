@@ -323,6 +323,11 @@ bool32 RunReport_IsFinalized(void);
 // SETTING_WHITEOUT_BEHAVIOR; see RUN_REPORT_FLAG_RUN_LOST for that).
 bool32 RunReport_WipeConditionMet(void);
 
+// Phase 12A (docs/CLAUDE_HANDOFF.md): read-only view of this attempt's live
+// counters, for the in-run Run Information overlay (src/ruleset_field.c).
+// Never NULL; always points at gSaveBlock3Ptr->runReport.stats.
+const struct RunStatsCounters *RunReport_LiveStats(void);
+
 // ---- live counter hooks (see docs/CLAUDE_HANDOFF.md Phase 11E notes for
 // the exact call sites) ----
 void RunReport_NoteEncounterStart(bool32 shiny);

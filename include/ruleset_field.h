@@ -36,6 +36,11 @@ void Ruleset_SetInfiniteRepelActive(bool32 active);
 // callers still enforce the existing outdoor-map and visited-town checks.
 bool32 Ruleset_QuickTravelAvailable(void);
 
+// special (docs/CLAUDE_HANDOFF.md Phase 12A): gSpecialVar_Result = TRUE if
+// Quick Travel just became available. Called once, right after
+// FLAG_RECOVERED_DEVON_GOODS is set, so the player is told it unlocked.
+void Ruleset_CheckQuickTravelJustUnlocked(void);
+
 // docs/SPEC.md "Bikes": the player permanently owns both bikes once received
 // (the Bike Shop script already gives both in one visit) and can switch
 // which one is active from a menu outside battle, with no return trip to

@@ -271,9 +271,15 @@ static bool32 IsSmartBattle(void)
 // Every omniscience flag is deliberately absent - AI_FLAG_OMNISCIENT,
 // AI_FLAG_ABILITY/ITEM/MOVE_OMNISCIENCE, and AI_FLAG_KNOW_OPPONENT_PARTY
 // (the spec lists unseen reserve Pokemon as information the AI must not have).
-// AI_FLAG_PREDICTION and AI_FLAG_ASSUMPTIONS are included: the spec's "AI
-// uncertainty" section explicitly sanctions probabilistic hedging against
-// plausible moves, and neither flag reveals the player's actual choice.
+// Of AI_FLAG_PREDICTION's three members, only AI_FLAG_PREDICT_MOVE is granted
+// (by Pro Fair) - see its own comment below for how it stays fair-information
+// (predicts only from already-revealed move history, never the player's
+// current input). AI_FLAG_PREDICT_SWITCH/PREDICT_INCOMING_MON and every
+// AI_FLAG_ASSUMPTIONS member (ASSUME_STAB, ASSUME_STATUS_MOVES,
+// WEIGH_ABILITY_PREDICTION) are never granted here, and AI_FLAGS_HIDDEN_INFORMATION
+// below strips them from the union with a trainer's authored flags too, for
+// every non-Standard difficulty (Phase 12B: corrected this comment, which
+// used to claim both flag families were included; docs/CLAUDE_HANDOFF.md).
 // ---------------------------------------------------------------------------
 #define AI_FLAGS_RULESET_IMPROVED   (AI_FLAG_BASIC_TRAINER                      \
                                    | AI_FLAG_TRY_TO_2HKO                        \

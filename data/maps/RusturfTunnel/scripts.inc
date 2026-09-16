@@ -347,6 +347,12 @@ RusturfTunnel_EventScript_ResolveRescue::
 	setflag FLAG_HIDE_RUSTURF_TUNNEL_PEEKO
 	clearflag FLAG_DEVON_GOODS_STOLEN
 	setflag FLAG_RECOVERED_DEVON_GOODS
+	@ Phase 12A (docs/CLAUDE_HANDOFF.md): docs/SPEC.md "Quick Travel" unlocks
+	@ here but nothing told the player - announce it once, if it's actually on.
+	special Ruleset_CheckQuickTravelJustUnlocked
+	goto_if_eq VAR_RESULT, FALSE, RusturfTunnel_EventScript_SkipQuickTravelNotice
+	msgbox RusturfTunnel_Text_QuickTravelUnlocked, MSGBOX_DEFAULT
+RusturfTunnel_EventScript_SkipQuickTravelNotice:
 	setflag FLAG_RETURNED_DEVON_GOODS
 	setflag FLAG_SYS_POKENAV_GET
 	setflag FLAG_RECEIVED_POKENAV
@@ -492,6 +498,12 @@ RusturfTunnel_Text_PeekoGladToSeeYouSafe:
 RusturfTunnel_Text_ThankYouLetsGoHomePeeko:
 	.string "MR. BRINEY: PEEKO is safe thanks to\n"
 	.string "you. Let's head home, PEEKO!$"
+
+@ Phase 12A (docs/CLAUDE_HANDOFF.md): docs/SPEC.md "Quick Travel".
+RusturfTunnel_Text_QuickTravelUnlocked:
+	.string "Quick Travel is now available!\p"
+	.string "Use the TOWN MAP and press {R_BUTTON} to\n"
+	.string "fast-travel to a town you've visited.$"
 
 RusturfTunnel_Text_WhyCantTheyKeepDigging:
 	.string "… …\p"

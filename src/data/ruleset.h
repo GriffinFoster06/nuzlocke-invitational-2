@@ -72,7 +72,7 @@ static const u8 *const sLbl_TrLevel[] =
 static const u8 *const sLbl_BossMatch[] = { COMPOUND_STRING("Same as route"), COMPOUND_STRING("Stricter") };
 static const u8 *const sLbl_LrnComp[] =
 {
-    COMPOUND_STRING("7 / 7 / 7"),
+    COMPOUND_STRING("Fixed quotas"),
     COMPOUND_STRING("Fully random"),
     COMPOUND_STRING("Weighted random"),
 };
@@ -156,7 +156,6 @@ static const u8 *const sSettingCategoryNames[SETTING_CAT_COUNT] =
     [SETTING_CAT_NUZLOCKE]     = COMPOUND_STRING("Nuzlocke Rules"),
     [SETTING_CAT_BATTLE_AI]    = COMPOUND_STRING("Battle & AI"),
     [SETTING_CAT_TRAVERSAL]    = COMPOUND_STRING("Traversal & QoL"),
-    [SETTING_CAT_DISPLAY]      = COMPOUND_STRING("Display & Records"),
 };
 
 // ---------------------------------------------------------------------------
@@ -345,7 +344,9 @@ static const struct SettingDescriptor sSettingDescriptors[NUM_SETTINGS] =
     [SETTING_GIFT_ITEM_RANDOMIZATION] = DESC_BOOL(SETTING_CAT_ITEMS, GEN, 1, SETTING_FLAG_NONE,
         "Randomize Gift Items",
         "Randomize given items (key items stay protected)."),
-    [SETTING_SHOP_RANDOMIZATION] = DESC_BOOL(SETTING_CAT_ITEMS, GEN, 0, SETTING_FLAG_NONE,
+    // Phase 12A: hidden - shop-inventory randomization was never implemented,
+    // so this row promised behavior that does not exist.
+    [SETTING_SHOP_RANDOMIZATION] = DESC_BOOL(SETTING_CAT_ITEMS, GEN, 0, SETTING_FLAG_HIDDEN,
         "Randomize Shops",
         "Randomize shop inventories."),
     [SETTING_UNLIMITED_MONEY] = DESC_BOOL(SETTING_CAT_ITEMS, FREE, 1, SETTING_FLAG_NONE,
@@ -435,7 +436,10 @@ static const struct SettingDescriptor sSettingDescriptors[NUM_SETTINGS] =
     [SETTING_ALLOW_TERASTAL] = DESC_BOOL(SETTING_CAT_BATTLE_AI, GEN, 0, SETTING_FLAG_NONE,
         "Terastallization",
         "Enable Terastallization as a battle mechanic."),
-    [SETTING_BATTLE_SPEED] = DESC_ENUM(SETTING_CAT_BATTLE_AI, FREE, BATSPEED_FAST, SETTING_FLAG_NOT_RULESET,
+    // Phase 12A: hidden - nothing reads this setting, and New Game already
+    // sets vanilla OPTIONS text speed/battle scene to fast unconditionally
+    // (src/new_game.c), making this row a non-functional duplicate.
+    [SETTING_BATTLE_SPEED] = DESC_ENUM(SETTING_CAT_BATTLE_AI, FREE, BATSPEED_FAST, SETTING_FLAG_NOT_RULESET | SETTING_FLAG_HIDDEN,
         sLbl_BattleSpeed, 2, "Battle Speed",
         "Pacing of battle intros, HP bars and animations."),
 
@@ -458,32 +462,46 @@ static const struct SettingDescriptor sSettingDescriptors[NUM_SETTINGS] =
     [SETTING_SKIP_CLOCK_SET] = DESC_BOOL(SETTING_CAT_TRAVERSAL, FREE, 1, SETTING_FLAG_NONE,
         "Skip Clock Setting",
         "Skip the Littleroot wall-clock setting sequence."),
-    [SETTING_OLDALE_MONEY_NPC] = DESC_BOOL(SETTING_CAT_TRAVERSAL, FREE, 1, SETTING_FLAG_NONE,
+    // Phase 12A: hidden - nothing reads this setting, its own description
+    // calls the NPC "redundant", and Unlimited Money is on by default anyway.
+    [SETTING_OLDALE_MONEY_NPC] = DESC_BOOL(SETTING_CAT_TRAVERSAL, FREE, 1, SETTING_FLAG_HIDDEN,
         "Oldale Money NPC",
         "Keep the redundant Oldale money-refill NPC."),
 
     // -- Display & Records --
-    [SETTING_SHOW_IVS] = DESC_BOOL(SETTING_CAT_DISPLAY, FREE, 1, SETTING_FLAG_NOT_RULESET,
+    // Phase 12A: SETTING_CAT_DISPLAY removed; every row below is hidden and
+    // parked here (an already-visible page, so hiding these can't empty it).
+    // Show IVs/EVs/Nature Effect: the summary skills page already cycles
+    // Stats -> IVs -> EVs unconditionally (P_SUMMARY_SCREEN_IV_EV_INFO), and
+    // nature boost/drop already always shows both a colour AND a text
+    // indicator (GetNatureStatIndicator) - there was nothing left to toggle.
+    // Show Cap Legality/Dead Marker: the DEAD/CAP markers are load-bearing
+    // for a Nuzlocke and already unconditional (GetSummaryPortraitStatusMarker).
+    [SETTING_SHOW_IVS] = DESC_BOOL(SETTING_CAT_PRESET_SEED, FREE, 1, SETTING_FLAG_NOT_RULESET | SETTING_FLAG_HIDDEN,
         "Show IVs",
         "Show exact per-stat IVs in the summary screen."),
-    [SETTING_SHOW_EVS] = DESC_BOOL(SETTING_CAT_DISPLAY, FREE, 1, SETTING_FLAG_NOT_RULESET,
+    [SETTING_SHOW_EVS] = DESC_BOOL(SETTING_CAT_PRESET_SEED, FREE, 1, SETTING_FLAG_NOT_RULESET | SETTING_FLAG_HIDDEN,
         "Show EVs",
         "Show exact per-stat EVs in the summary screen."),
-    [SETTING_SHOW_NATURE_EFFECT] = DESC_BOOL(SETTING_CAT_DISPLAY, FREE, 1, SETTING_FLAG_NOT_RULESET,
+    [SETTING_SHOW_NATURE_EFFECT] = DESC_BOOL(SETTING_CAT_PRESET_SEED, FREE, 1, SETTING_FLAG_NOT_RULESET | SETTING_FLAG_HIDDEN,
         "Show Nature Effect",
         "Mark the nature's boosted/reduced stat."),
-    [SETTING_SHOW_CAP_LEGALITY] = DESC_BOOL(SETTING_CAT_DISPLAY, FREE, 1, SETTING_FLAG_NOT_RULESET,
+    [SETTING_SHOW_CAP_LEGALITY] = DESC_BOOL(SETTING_CAT_PRESET_SEED, FREE, 1, SETTING_FLAG_NOT_RULESET | SETTING_FLAG_HIDDEN,
         "Show Cap Legality",
         "Mark Pokemon that are over the current legal cap."),
-    [SETTING_SHOW_DEAD_MARKER] = DESC_BOOL(SETTING_CAT_DISPLAY, FREE, 1, SETTING_FLAG_NOT_RULESET,
+    [SETTING_SHOW_DEAD_MARKER] = DESC_BOOL(SETTING_CAT_PRESET_SEED, FREE, 1, SETTING_FLAG_NOT_RULESET | SETTING_FLAG_HIDDEN,
         "Show Dead Marker",
         "Clearly mark dead Pokemon in menus."),
-    [SETTING_HOF_SPECIES_EXCLUSION] = DESC_BOOL(SETTING_CAT_DISPLAY, GEN, 0, SETTING_FLAG_HIDDEN,
+    // Phase 12A: rewritten off "Tournament" phrasing - docs/SPEC.md is explicit
+    // that this project has no Tournament mode, competitive final-team
+    // locking, or persistent cross-run species-ban system. Both rows were
+    // already SETTING_FLAG_HIDDEN and unread; only the stale text changes.
+    [SETTING_HOF_SPECIES_EXCLUSION] = DESC_BOOL(SETTING_CAT_PRESET_SEED, GEN, 0, SETTING_FLAG_HIDDEN,
         "HoF Species Exclusion",
-        "Tournament: winning species are banned from later runs."),
-    [SETTING_FINAL_TEAM_LOCK] = DESC_BOOL(SETTING_CAT_DISPLAY, RUL, 0, SETTING_FLAG_HIDDEN,
+        "Reserved: exclude Hall-of-Fame species from later generation."),
+    [SETTING_FINAL_TEAM_LOCK] = DESC_BOOL(SETTING_CAT_PRESET_SEED, RUL, 0, SETTING_FLAG_HIDDEN,
         "Final Team Lock",
-        "Tournament: lock/export the final six for records."),
+        "Reserved: lock the final six Pokemon for the run record."),
 
     [SETTING_SPECIES_BANS] = DESC_BOOL(SETTING_CAT_SPECIES_POOL, GEN, 0, SETTING_FLAG_NOT_RULESET,
         "Species Bans",

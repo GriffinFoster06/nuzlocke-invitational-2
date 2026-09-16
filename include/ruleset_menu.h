@@ -12,4 +12,10 @@ void CB2_InitRulesetMenu(void);
 // never from the Nuzlocke retry path (see src/ruleset_menu.c for details).
 void RulesetMenu_EnterNewGameWizard(void);
 
+// Phase 12A: writes the enabled-generation list ("1,2,3,...,9", or "none")
+// into dst, EOS-terminated. Shared by the wizard confirmation screen and the
+// in-run Run Information overlay (src/ruleset_field.c). dst must be able to
+// hold the longest case: "1,2,3,4,5,6,7,8,9" (17 chars) + EOS.
+void RulesetMenu_BuildEnabledGenString(u8 *dst);
+
 #endif // GUARD_RULESET_MENU_H

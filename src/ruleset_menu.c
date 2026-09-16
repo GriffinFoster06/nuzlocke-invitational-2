@@ -96,6 +96,10 @@ static const u8 sText_HeaderFmt[]     = _("{STR_VAR_1} R{STR_VAR_2}/G{STR_VAR_3}
 static const u8 sText_CategoryFmt[]   = _("{STR_VAR_1}/{STR_VAR_2}  {STR_VAR_3}");
 static const u8 sText_Locked[]        = _(" (L)");
 static const u8 sText_Controls[]      = _("{DPAD_LEFTRIGHT} change   L/R page   START preset");
+// Phase 12A: wizard mode's START opens the confirm/Start-Game overlay, not the
+// preset cycle sText_Controls advertises - show the correct hint there instead
+// (docs/SPEC.md "New Game settings wizard").
+static const u8 sText_WizardListControls[] = _("{DPAD_LEFTRIGHT} change   L/R page   START begin");
 static const u8 sText_SeedPrefix[]    = _("0x");
 static const u8 sText_Open[]          = _("Open");
 static const u8 sText_Confirm[]       = _("Confirm");
@@ -262,7 +266,8 @@ static void RulesetMenu_DrawDescription(s32 row)
     StringCopy(descBuf, d->description);
     BreakStringAutomatic(descBuf, WindowWidthPx(sState->windowIds[RSWIN_DESC]), 2, FONT_SMALL, HIDE_SCROLL_PROMPT);
     AddTextPrinterParameterized(sState->windowIds[RSWIN_DESC], FONT_SMALL, descBuf, 0, 0, TEXT_SKIP_DRAW, NULL);
-    AddTextPrinterParameterized(sState->windowIds[RSWIN_DESC], FONT_SMALL, sText_Controls, 0, 26, TEXT_SKIP_DRAW, NULL);
+    AddTextPrinterParameterized(sState->windowIds[RSWIN_DESC], FONT_SMALL,
+        sState->wizardMode ? sText_WizardListControls : sText_Controls, 0, 26, TEXT_SKIP_DRAW, NULL);
     CopyWindowToVram(sState->windowIds[RSWIN_DESC], COPYWIN_FULL);
 }
 
@@ -553,7 +558,9 @@ static bool32 RulesetMenu_AnyGenerationEnabled(void)
     return FALSE;
 }
 
-static void RulesetMenu_BuildEnabledGenString(u8 *dst)
+// Phase 12A: promoted from static so src/ruleset_field.c's Run Information
+// overlay can reuse it (docs/CLAUDE_HANDOFF.md Phase 12A).
+void RulesetMenu_BuildEnabledGenString(u8 *dst)
 {
     u32 gen;
     u32 n = 0;

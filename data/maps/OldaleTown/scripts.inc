@@ -385,7 +385,9 @@ OldaleTown_Text_Take999PokeBalls:
 	.string "Then running out of POKé BALLS is the\n"
 	.string "last thing you should be worrying about.\p"
 	.string "Here, take 999 of them. Go catch your\n"
-	.string "team and give it everything you've got!$"
+	.string "team and give it everything you've got!\p"
+	.string "Oh - hold {R_BUTTON} and tap {DPAD_UPDOWN} to pick a\n"
+	.string "BALL, then just tap {R_BUTTON} to throw it!$"
 
 OldaleTown_Text_HopeThePokeBallsHelped:
 	.string "Those 999 POKé BALLS should see you\n"

@@ -3,15 +3,16 @@
 
 // ============================================================================
 // Phase 4 - generated level-up learnsets (docs/SPEC.md "Randomized level-up
-// moves", "Learnset size", "7/7/7 learnset composition", "Move-power
-// progression").
+// moves", "Learnset size", "Learnset composition", "Move-power progression").
 //
 // When SETTING_MOVE_RANDOMIZATION is on, every species gets a deterministic
 // generated learnset of SETTING_LEARNSET_SIZE moves (default 21) placed on an
-// even level grid (1, 4, 7, ... 61 for N=21). Default composition is 7 STAB
-// damaging / 7 other damaging / 7 status, with stronger attacks weighted
-// toward later levels. The learnset for a (run seed, species) pair never
-// changes.
+// even level grid (1, 4, 7, ... 61 for N=21). Default composition is
+// LRNCOMP_WEIGHTED (weighted random, no fixed quotas - see SPEC "Learnset
+// composition"); the non-default LRNCOMP_777 "Fixed quotas" mode instead uses
+// 7 STAB damaging / 7 other damaging / 7 status. Either way stronger attacks
+// are weighted toward later levels, and the learnset for a (run seed,
+// species) pair never changes.
 //
 // Hook point: GetSpeciesLevelUpLearnset() in src/pokemon.c.
 // ============================================================================

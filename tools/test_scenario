@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""Load a developer test-scenario fixture into mGBA without touching your
+personal save.
+
+Copies test_fixtures/<name>/save.sav into an isolated run directory
+(build/test_runs/<name>/) next to a symlink to the normal pokeemerald.gba,
+then launches mGBA on that pair. mGBA writes savedata next to the ROM path
+it was given, so this never opens the canonical fixture .sav or your
+repo-root pokeemerald.sav for writing.
+
+    tools/test_scenario --list
+    tools/test_scenario <name>
+    tools/test_scenario <name> --fresh          # discard prior play in the run dir
+    tools/test_scenario <name> --state          # also load test_fixtures/<name>/state.ss1
+    tools/test_scenario <name> --state PATH     # load an arbitrary savestate path
+    tools/test_scenario <name> --print-only     # print the mGBA command instead of launching it
+
+To return to normal play, just (re)launch pokeemerald.gba from the repo root
+as usual - nothing here changes it.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+ROM = REPO_ROOT / "pokeemerald.gba"
+FIXTURES_DIR = REPO_ROOT / "test_fixtures"
+RUNS_DIR = REPO_ROOT / "build/test_runs"
+
+DEFAULT_MGBA = "/Applications/mGBA.app/Contents/MacOS/mGBA"
+
+
+def list_scenarios() -> list[str]:
+    if not FIXTURES_DIR.exists():
+        return []
+    return sorted(p.name for p in FIXTURES_DIR.iterdir() if (p / "save.sav").exists())
+
+
+def find_mgba() -> str:
+    env = os.environ.get("MGBA")
+    if env:
+        return env
+    if Path(DEFAULT_MGBA).exists():
+        return DEFAULT_MGBA
+    found = shutil.which("mgba-qt") or shutil.which("mgba")
+    if found:
+        return found
+    sys.exit(
+        f"error: no mGBA found at {DEFAULT_MGBA} or on PATH. "
+        "Set $MGBA to your mGBA binary path."
+    )
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("name", nargs="?", help="scenario name (see --list)")
+    ap.add_argument("--list", action="store_true", help="list available fixtures and exit")
+    ap.add_argument("--fresh", action="store_true", help="re-copy the fixture .sav even if the run dir already has one")
+    ap.add_argument(
+        "--state",
+        nargs="?",
+        const="__default__",
+        default=None,
+        help="also load an mGBA savestate: with no path, test_fixtures/<name>/state.ss1",
+    )
+    ap.add_argument("--print-only", action="store_true", help="print the mGBA command instead of launching it")
+    args = ap.parse_args()
+
+    if args.list or not args.name:
+        names = list_scenarios()
+        if not names:
+            print("No fixtures generated yet. Run tools/generate_test_fixture --all first.")
+        else:
+            for n in names:
+                print(n)
+        return
+
+    name = args.name
+    fixture_dir = FIXTURES_DIR / name
+    fixture_sav = fixture_dir / "save.sav"
+    if not fixture_sav.exists():
+        available = ", ".join(list_scenarios()) or "(none generated yet)"
+        sys.exit(f"error: no fixture '{name}' (test_fixtures/{name}/save.sav missing). Available: {available}")
+
+    if not ROM.exists():
+        sys.exit(f"error: {ROM} not found - build it first (make).")
+    if ROM.stat().st_mtime < fixture_sav.stat().st_mtime:
+        print(
+            f"note: {ROM.name} is older than the {name} fixture - "
+            "consider rebuilding (make) if behavior looks stale.",
+            file=sys.stderr,
+        )
+
+    run_dir = RUNS_DIR / name
+    run_dir.mkdir(parents=True, exist_ok=True)
+    run_rom = run_dir / f"{name}.gba"
+    run_sav = run_dir / f"{name}.sav"
+
+    # (Re)point the run ROM at the current pokeemerald.gba.
+    if run_rom.is_symlink() or run_rom.exists():
+        run_rom.unlink()
+    try:
+        run_rom.symlink_to(ROM)
+    except OSError:
+        shutil.copy2(ROM, run_rom)
+
+    if args.fresh or not run_sav.exists():
+        shutil.copy2(fixture_sav, run_sav)
+        print(f"Loaded fixture: {fixture_sav} -> {run_sav}")
+    else:
+        print(f"Reusing existing run save: {run_sav} (--fresh to reset it)")
+
+    state_path = None
+    if args.state is not None:
+        state_path = (
+            fixture_dir / "state.ss1" if args.state == "__default__" else Path(args.state)
+        )
+        if not state_path.exists():
+            sys.exit(f"error: savestate not found: {state_path}")
+
+    mgba = find_mgba()
+    cmd = [mgba]
+    if state_path:
+        cmd += ["-t", str(state_path)]
+    cmd += [str(run_rom)]
+
+    print("Personal save untouched:", REPO_ROOT / "pokeemerald.sav")
+    print("Canonical fixture untouched:", fixture_sav)
+    if args.print_only:
+        print(" ".join(cmd))
+        return
+
+    print("Launching:", " ".join(cmd))
+    subprocess.Popen(cmd, cwd=run_dir, start_new_session=True)
+
+
+if __name__ == "__main__":
+    main()

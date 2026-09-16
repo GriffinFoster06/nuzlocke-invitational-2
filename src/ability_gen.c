@@ -39,6 +39,18 @@ static EWRAM_DATA bool8 sBuilding = FALSE; // re-entrancy guard: the build walks
                                            // evolution table, which must never end up
                                            // back inside GetSpeciesAbility().
 
+// Perf: GetSpeciesAbility() (src/pokemon.c) - which is called on every
+// switch-in, every AI party scan and every mon construction - resolves
+// through here, and each resolution runs up to NUM_ABILITY_SLOTS
+// RunRng_Seed()+reroll passes. All three slots are a pure function of species
+// (all consumers of a species see the same result, per docs/SPEC.md), so a
+// small direct-mapped cache turns repeat lookups into one array read. Cleared
+// alongside the family-root/pool rebuild in AbilityGen_EnsureBuilt(), which
+// already re-runs on every signature-affecting change.
+#define AG_CACHE_SLOTS 64   // direct-mapped; a collision just recomputes, never wrong
+static EWRAM_DATA u16 sAbCacheKey[AG_CACHE_SLOTS] = {0}; // species + 1; 0 == empty
+static EWRAM_DATA u16 sAbCacheAbility[AG_CACHE_SLOTS][NUM_ABILITY_SLOTS] = {0}; // ABILITY_NONE == 0; ABILITIES_COUNT exceeds u8
+
 // ---- signature -----------------------------------------------------------
 
 static u32 CurrentSignature(void)
@@ -195,6 +207,8 @@ void AbilityGen_EnsureBuilt(void)
     BuildAbilityPool();
     sBuilding = FALSE;
 
+    memset(sAbCacheKey, 0, sizeof(sAbCacheKey));
+
     sSignature = CurrentSignature();
     sBuilt = TRUE;
 }
@@ -225,29 +239,14 @@ bool32 AbilityGen_IsActive(void)
     return GetRulesetSetting(SETTING_ABILITY_RANDOMIZATION) != 0;
 }
 
-enum Ability AbilityGen_Get(enum Species species, u8 slot)
+// Runs the full seeded resolution for every slot of `species`. Split out of
+// AbilityGen_Get() so the cache below has one place to fill on a miss.
+static void ComputeAbilities(enum Species species, enum Ability chosen[NUM_ABILITY_SLOTS])
 {
-    enum Ability chosen[NUM_ABILITY_SLOTS];
-    u32 key, s;
+    u32 key = GetRulesetSetting(SETTING_ABILITY_EVO_CONSISTENCY) ? sFamilyRoot[species] : species;
+    u32 s;
 
-    if (slot >= NUM_ABILITY_SLOTS || species == SPECIES_NONE || species >= NUM_SPECIES)
-        return ABILITY_NONE;
-    if (!IsSpeciesEnabled(species))
-        return ABILITY_NONE;
-    // docs/SPEC.md "Shedinja": its Wonder Guard / 1 HP pairing is the species,
-    // so it is never randomized regardless of the Wonder Guard setting.
-    if (species == SPECIES_SHEDINJA)
-        return ABILITY_NONE;
-
-    AbilityGen_EnsureBuilt();
-    if (!sBuilt || sPoolCount == 0)
-        return ABILITY_NONE;
-
-    key = GetRulesetSetting(SETTING_ABILITY_EVO_CONSISTENCY) ? sFamilyRoot[species] : species;
-
-    // Resolve every slot up to the requested one so a later slot can avoid
-    // duplicating an earlier one. At most NUM_ABILITY_SLOTS iterations.
-    for (s = 0; s <= slot; s++)
+    for (s = 0; s < NUM_ABILITY_SLOTS; s++)
     {
         rng_value_t st;
         u32 attempt;
@@ -278,6 +277,36 @@ enum Ability AbilityGen_Get(enum Species species, u8 slot)
                 break;
         }
     }
+}
 
-    return chosen[slot];
+enum Ability AbilityGen_Get(enum Species species, u8 slot)
+{
+    u32 line;
+
+    if (slot >= NUM_ABILITY_SLOTS || species == SPECIES_NONE || species >= NUM_SPECIES)
+        return ABILITY_NONE;
+    if (!IsSpeciesEnabled(species))
+        return ABILITY_NONE;
+    // docs/SPEC.md "Shedinja": its Wonder Guard / 1 HP pairing is the species,
+    // so it is never randomized regardless of the Wonder Guard setting.
+    if (species == SPECIES_SHEDINJA)
+        return ABILITY_NONE;
+
+    AbilityGen_EnsureBuilt();
+    if (!sBuilt || sPoolCount == 0)
+        return ABILITY_NONE;
+
+    line = species % AG_CACHE_SLOTS;
+    if (sAbCacheKey[line] != (u16)(species + 1))
+    {
+        enum Ability chosen[NUM_ABILITY_SLOTS];
+        u32 s;
+
+        ComputeAbilities(species, chosen);
+        for (s = 0; s < NUM_ABILITY_SLOTS; s++)
+            sAbCacheAbility[line][s] = chosen[s];
+        sAbCacheKey[line] = (u16)(species + 1);
+    }
+
+    return sAbCacheAbility[line][slot];
 }

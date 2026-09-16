@@ -46,6 +46,9 @@ LTO          ?= 0
 # Makes an optimized build for release, also enabling NDEBUG macro and disabling other debugging features
 # Enables LTO by default, but can be changed in the config.mk file
 RELEASE      ?= 0
+# Developer-only test-scenario fixture generator (tools/generate_test_fixture).
+# Never set for a normal or release build. See src/test_fixtures.c.
+FIXTURES     ?= 0
 
 ifeq (compare,$(MAKECMDGOALS))
   COMPARE := 1
@@ -58,6 +61,9 @@ ifeq (debug,$(MAKECMDGOALS))
 endif
 ifneq (,$(filter release tidyrelease,$(MAKECMDGOALS)))
   RELEASE := 1
+endif
+ifeq (fixtures,$(MAKECMDGOALS))
+  FIXTURES := 1
 endif
 
 include config.mk
@@ -95,12 +101,16 @@ CPP := $(PREFIX)cpp
 ifeq ($(RELEASE),1)
 	FILE_NAME := $(FILE_NAME)-release
 endif
+ifeq ($(FIXTURES),1)
+	FILE_NAME := $(FILE_NAME)-fixtures
+endif
 
 ROM_NAME := $(FILE_NAME).gba
 OBJ_DIR_NAME := $(BUILD_DIR)/$(BUILD_NAME)
 OBJ_DIR_NAME_TEST := $(BUILD_DIR)/$(BUILD_NAME)-test
 OBJ_DIR_NAME_DEBUG := $(BUILD_DIR)/$(BUILD_NAME)-debug
 OBJ_DIR_NAME_RELEASE := $(BUILD_DIR)/$(BUILD_NAME)-release
+OBJ_DIR_NAME_FIXTURES := $(BUILD_DIR)/$(BUILD_NAME)-fixtures
 ASSETS_DIR_NAME := $(BUILD_DIR)/assets
 
 ELF_NAME := $(ROM_NAME:.gba=.elf)
@@ -120,6 +130,9 @@ else
 endif
 ifeq ($(DEBUG),1)
   OBJ_DIR := $(OBJ_DIR_NAME_DEBUG)
+endif
+ifeq ($(FIXTURES),1)
+  OBJ_DIR := $(OBJ_DIR_NAME_FIXTURES)
 endif
 ifeq ($(RELEASE),1)
   OBJ_DIR := $(OBJ_DIR_NAME_RELEASE)
@@ -156,7 +169,7 @@ O_LEVEL ?= g
 else
 O_LEVEL ?= 2
 endif
-CPPFLAGS := $(INCLUDE_CPP_ARGS) -Wno-trigraphs -DMODERN=1 -DTESTING=$(TEST) -D$(GAME_VERSION) -std=gnu17
+CPPFLAGS := $(INCLUDE_CPP_ARGS) -Wno-trigraphs -DMODERN=1 -DTESTING=$(TEST) -DTEST_FIXTURES=$(FIXTURES) -D$(GAME_VERSION) -std=gnu17
 ifeq ($(RELEASE),1)
 	override CPPFLAGS += -DRELEASE
 	ifeq ($(USE_LTO_ON_RELEASE),1)
@@ -335,6 +348,7 @@ modern: all
 compare: all
 debug: all
 release: all
+fixtures: all
 # Uncomment the next line, and then comment the 4 lines after it to reenable agbcc.
 #agbcc: all
 agbcc:

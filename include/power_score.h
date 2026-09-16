@@ -49,6 +49,15 @@ u32 GetSpeciesMatchMetric(enum Species species, enum PowerMatchMode mode);
 
 enum EvoStageBucket GetSpeciesEvoStageBucket(enum Species species);
 
+// Ascending-order dense list of every species currently passing
+// InPool(s, POOL_STRICT_ORDINARY) in src/randomizer.c (power-eligible, not
+// category-banned, not Premium) - built alongside the score cache so the
+// selector's hot loop can walk this instead of re-testing every one of
+// NUM_SPECIES candidates. Returns the count and points *out at the list
+// (stable until the next EnsureBuilt rebuild); 0/unchanged *out on
+// out-of-heap build failure.
+u32 PowerScore_OrdinaryList(const u16 **out);
+
 // Species-pool predicates, evaluated against the current ruleset toggles.
 bool32 IsSpeciesPowerEligible(enum Species species);   // enabled, not a hard-excluded form, form-category gates
 bool32 IsSpeciesCategoryBanned(enum Species species);  // legendary/mythical/sub/UB/paradox vs SETTING_ALLOW_*

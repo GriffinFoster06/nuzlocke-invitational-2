@@ -1,5 +1,6 @@
 #include "global.h"
 #include "battle.h"
+#include "battle_ai_main.h"
 #include "battle_setup.h"
 #include "berry.h"
 #include "clock.h"
@@ -43,6 +44,7 @@
 #include "pokemon_storage_system.h"
 #include "random.h"
 #include "random_mon_generation.h"
+#include "randomizer.h"
 #include "region_map.h"
 #include "rtc.h"
 #include "ruleset_menu.h"
@@ -172,6 +174,15 @@ enum DebugMenuTypes
     DEBUG_FLAGS_MENU,
     DEBUG_TRAINERS_MENU,
     DEBUG_OUTBREAK_MENU,
+};
+
+// Test Fixtures submenu trainer ids; see sFixtureTrainers below.
+enum FixtureTrainerIds
+{
+    FIXTURE_TRAINER_AI_SWITCH,
+    FIXTURE_TRAINER_AI_FORCED,
+    FIXTURE_TRAINER_NUZLOCKE_WIPE,
+    FIXTURE_TRAINERS_COUNT
 };
 
 // *******************************
@@ -323,6 +334,8 @@ static void DebugAction_Party_ClearParty(u8 taskId);
 static void DebugAction_Party_SetParty(u8 taskId);
 static void DebugAction_Party_BattleSingle(u8 taskId);
 
+static void DebugAction_Fixture_StartBattle(u8 taskId, const void *fixtureIndex);
+
 static void DebugAction_Trainers_SwitchDoublesFlag(u8 taskId);
 static void DebugAction_Trainers_SetRematch(u8 taskId);
 static void DebugAction_Trainers_SetRematchReadiness(u8 taskId);
@@ -405,6 +418,7 @@ extern const u8 PlayersHouse_2F_EventScript_SetWallClock[];
 extern const u8 PlayersHouse_2F_EventScript_CheckWallClock[];
 extern const u8 Debug_CheckSaveBlock[];
 extern const u8 Debug_CheckROMSpace[];
+extern const u8 Debug_CheckRandomizerPool[];
 extern const u8 Debug_BoxFilledMessage[];
 extern const u8 Debug_ShowExpansionVersion[];
 extern const u8 Debug_EventScript_EWRAMCounters[];
@@ -725,7 +739,8 @@ static const struct DebugMenuOption sDebugMenu_Actions_MassOutbreak[] =
 
 static const struct DebugMenuOption sDebugMenu_Actions_Encounters[] =
 {
-    { COMPOUND_STRING("Mass outbreak…"), DebugAction_OpenOutbreakMenu, sDebugMenu_Actions_MassOutbreak },
+    { COMPOUND_STRING("Mass outbreak…"),      DebugAction_OpenOutbreakMenu, sDebugMenu_Actions_MassOutbreak },
+    { COMPOUND_STRING("Randomizer pool size"), DebugAction_ExecuteScript, Debug_CheckRandomizerPool },
     { NULL }
 };
 
@@ -785,6 +800,22 @@ static const struct DebugMenuOption sDebugMenu_Actions_Nuzlocke[] =
     { NULL }
 };
 
+// Test Fixtures: curated battles for the developer-only fixture .sav files
+// built by `make fixtures` / tools/generate_test_fixture (see
+// src/test_fixtures.c, src/data/fixture_trainers.party). Present in every
+// build like sDebugTrainers above; only reachable through this gated menu.
+// gDebugAIFlags is set from GetRulesetAiFlags() at battle start (not from
+// the fixture trainer's own, empty, authored AI flags), so switching RULES
+// > AI Difficulty between attempts compares Standard/Improved/Expert/Pro
+// Fair on the exact same curated matchup.
+static const struct DebugMenuOption sDebugMenu_Actions_Fixtures[] =
+{
+    { COMPOUND_STRING("AI Switch Oscillation"), DebugAction_Fixture_StartBattle, (void *)FIXTURE_TRAINER_AI_SWITCH },
+    { COMPOUND_STRING("AI Forced Replacement"), DebugAction_Fixture_StartBattle, (void *)FIXTURE_TRAINER_AI_FORCED },
+    { COMPOUND_STRING("Nuzlocke Wipe Test"),    DebugAction_Fixture_StartBattle, (void *)FIXTURE_TRAINER_NUZLOCKE_WIPE },
+    { NULL }
+};
+
 static const struct DebugMenuOption sDebugMenu_Actions_Main[] =
 {
     { COMPOUND_STRING("Utilities…"),    DebugAction_OpenSubMenu, sDebugMenu_Actions_Utilities, },
@@ -800,6 +831,7 @@ static const struct DebugMenuOption sDebugMenu_Actions_Main[] =
     { COMPOUND_STRING("ROM Info…"),     DebugAction_OpenSubMenu, sDebugMenu_Actions_ROMInfo2, },
     { COMPOUND_STRING("Ruleset Settings…"), DebugAction_OpenRulesetMenu, },
     { COMPOUND_STRING("Nuzlocke State…"), DebugAction_OpenSubMenu, sDebugMenu_Actions_Nuzlocke, },
+    { COMPOUND_STRING("Test Fixtures…"), DebugAction_OpenSubMenu, sDebugMenu_Actions_Fixtures, },
     { COMPOUND_STRING("Cancel"),        DebugAction_Cancel, },
     { NULL }
 };
@@ -1945,6 +1977,33 @@ void CheckROMSize(struct ScriptContext *ctx)
     u32 currROMFreeKB = ((const u8 *)ROM_END - __rom_end) / 1024;
     ConvertQ22_10ToDecimalString(gStringVar1, currROMSizeKB, 2, ROUND_CEILING);
     ConvertQ22_10ToDecimalString(gStringVar2, currROMFreeKB, 2, ROUND_FLOOR);
+}
+
+// Randomizer pool-variety readout (see include/randomizer.h
+// Randomizer_DebugPoolCounts). Reports how many POOL_STRICT_ORDINARY
+// candidates the live SETTING_POWER_MATCHING / SETTING_EVO_STAGE_MATCHING
+// settings accept for the lead party Pokemon's species, at ladder rung 0
+// (strictest) and rung 1 (first fallback) - lets a player/tester check
+// whether "feels samey" reflects a genuinely narrow candidate set before
+// anyone touches src/randomizer.c's sBaseWindow[] tuning.
+void CheckRandomizerPoolCounts(struct ScriptContext *ctx)
+{
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][0];
+    enum Species species = GetMonData(mon, MON_DATA_SPECIES);
+    u32 rung0, rung1;
+
+    if (species == SPECIES_NONE)
+    {
+        StringCopy(gStringVar1, gText_None);
+        rung0 = rung1 = 0;
+    }
+    else
+    {
+        StringCopy(gStringVar1, GetSpeciesName(species));
+        Randomizer_DebugPoolCounts(species, &rung0, &rung1);
+    }
+    ConvertIntToDecimalStringN(gStringVar2, rung0, STR_CONV_MODE_LEFT_ALIGN, 5);
+    ConvertIntToDecimalStringN(gStringVar3, rung1, STR_CONV_MODE_LEFT_ALIGN, 5);
 }
 
 static void DebugSelectionStep_UpdateWeather(u8 taskId, u8 digits, u32 min, u32 max)
@@ -4888,6 +4947,30 @@ const struct Trainer sDebugTrainers[DIFFICULTY_COUNT][DEBUG_TRAINERS_COUNT] =
 const struct Trainer* GetDebugAiTrainer(void)
 {
     return &sDebugTrainers[DIFFICULTY_NORMAL][DEBUG_TRAINER_AI];
+}
+
+// See src/data/fixture_trainers.party and sDebugMenu_Actions_Fixtures above.
+const struct Trainer sFixtureTrainers[DIFFICULTY_COUNT][FIXTURE_TRAINERS_COUNT] =
+{
+#include "data/fixture_trainers.h"
+};
+
+static void DebugAction_Fixture_StartBattle(u8 taskId, const void *fixtureIndex)
+{
+    u32 idx = (u32)fixtureIndex;
+
+    ZeroEnemyPartyMons();
+    CreateNPCTrainerPartyFromTrainer(gParties[B_TRAINER_OPPONENT_A], &sFixtureTrainers[DIFFICULTY_NORMAL][idx], TRAINER_NONE);
+    gBattleTypeFlags = BATTLE_TYPE_TRAINER;
+    // Driven by the current RULES > AI Difficulty setting (not a hardcoded
+    // flag set) so the same fixture compares Standard/Improved/Expert/Pro
+    // Fair by just changing that setting between attempts.
+    gDebugAIFlags = GetRulesetAiFlags();
+    gIsDebugBattle = TRUE;
+    gBattleEnvironment = BattleSetup_GetEnvironmentId();
+    CalculateEnemyPartyCount();
+    BattleSetup_StartTrainerBattle_Debug();
+    Debug_DestroyMenu_Full(taskId);
 }
 
 static void DebugAction_Party_SetParty(u8 taskId)

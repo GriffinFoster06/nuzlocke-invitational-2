@@ -114,10 +114,12 @@ void Ruleset_SwitchBikeMode(void)
     {
         gSaveBlock1Ptr->registeredItem = ITEM_ACRO_BIKE;
     }
-    else
+    else if (gSaveBlock1Ptr->registeredItem == ITEM_ACRO_BIKE)
     {
         gSaveBlock1Ptr->registeredItem = ITEM_MACH_BIKE;
     }
+    // else: Select is registered to something other than a bike (or nothing) -
+    // leave it alone rather than clobbering the player's chosen quick-item.
 }
 
 bool32 Ruleset_InfiniteRepelActive(void)

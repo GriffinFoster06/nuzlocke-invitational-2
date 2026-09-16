@@ -105,4 +105,12 @@ enum Item Randomizer_FieldItem(enum Item vanilla, u32 objectId);
 enum Item Randomizer_HiddenItem(enum Item vanilla, u32 hiddenItemId);
 enum Item Randomizer_GiftItem(enum Item vanilla);
 
+// ---- debug -----------------------------------------------------------------
+// Reports how many POOL_STRICT_ORDINARY candidates the current
+// SETTING_POWER_MATCHING/SETTING_EVO_STAGE_MATCHING settings accept for
+// `vanilla` at ladder rung 0 (the strictest rung PickReplacementCoreExcluding
+// tries first) and rung 1 (the next rung it falls back to). Read-only; used
+// by the debug menu to measure pool variety instead of guessing at it.
+void Randomizer_DebugPoolCounts(enum Species vanilla, u32 *outRung0, u32 *outRung1);
+
 #endif // GUARD_RANDOMIZER_H

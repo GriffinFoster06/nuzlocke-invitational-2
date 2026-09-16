@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+"""Build developer-only test-scenario .sav fixtures.
+
+Builds the `make fixtures` ROM (pokeemerald-fixtures.gba, -DTEST_FIXTURES=1;
+see src/test_fixtures.c) if it is missing or stale, then for each requested
+scenario: patches the scenario id into a scratch copy of that ROM, runs it
+headlessly under tools/mgba/mgba-rom-test-mac until it hits the exit SWI
+(scenario built with the project's normal save/Pokemon/ruleset/Nuzlocke
+helpers, saved via the real save machinery, then the resulting 128 KB flash
+image is dumped hex-encoded over the mGBA debug-print channel), and
+reassembles that into test_fixtures/<name>/save.sav.
+
+This never touches a personal pokeemerald.sav - it only ever reads
+pokeemerald-fixtures.gba and writes into test_fixtures/<name>/.
+
+    tools/generate_test_fixture --list
+    tools/generate_test_fixture <name>
+    tools/generate_test_fixture --all
+"""
+
+from __future__ import annotations
+
+import argparse
+import platform
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+FIXTURES_ROM = REPO_ROOT / "pokeemerald-fixtures.gba"
+FIXTURES_DIR = REPO_ROOT / "test_fixtures"
+FIXTURE_MAGIC = b"FIXTREQ\x00"
+FLASH_SIZE = 128 * 1024
+
+# Order matters: this is the scenario id the ROM's sFixtureBuilders[] table
+# uses (src/test_fixtures.c). Add a new scenario there and here together.
+SCENARIOS = [
+    "ai_switch_oscillation",
+    "ai_forced_replacement",
+    "nuzlocke_wipe",
+    "move_reminder",
+    "premium_static",
+    "generation_mask",
+]
+
+
+def find_romtest() -> Path:
+    candidates = []
+    system = platform.system()
+    if system == "Darwin":
+        candidates.append(REPO_ROOT / "tools/mgba/mgba-rom-test-mac")
+    elif system == "Windows":
+        candidates.append(REPO_ROOT / "tools/mgba/mgba-rom-test.exe")
+    else:
+        candidates.append(REPO_ROOT / "tools/mgba/mgba-rom-test")
+    for c in candidates:
+        if c.exists():
+            return c
+    sys.exit(f"error: no mgba-rom-test binary found (tried {candidates})")
+
+
+def rom_is_stale() -> bool:
+    if not FIXTURES_ROM.exists():
+        return True
+    rom_mtime = FIXTURES_ROM.stat().st_mtime
+    for pattern in ("src/**/*.c", "include/**/*.h", "src/**/*.party"):
+        for f in REPO_ROOT.glob(pattern):
+            if f.stat().st_mtime > rom_mtime:
+                return True
+    return False
+
+
+def build_fixtures_rom() -> None:
+    print("Building pokeemerald-fixtures.gba (make fixtures)...", file=sys.stderr)
+    subprocess.run(["make", "fixtures"], cwd=REPO_ROOT, check=True)
+    if not FIXTURES_ROM.exists():
+        sys.exit("error: make fixtures did not produce pokeemerald-fixtures.gba")
+
+
+def patch_scenario_id(rom_bytes: bytearray, scenario_id: int) -> None:
+    idx = rom_bytes.find(FIXTURE_MAGIC)
+    if idx < 0:
+        sys.exit(
+            "error: FIXTREQ magic not found in pokeemerald-fixtures.gba - "
+            "was it built with FIXTURES=1? (make fixtures)"
+        )
+    rom_bytes[idx + len(FIXTURE_MAGIC)] = scenario_id
+
+
+def run_headless(romtest: Path, rom_path: Path) -> str:
+    proc = subprocess.run(
+        [str(romtest), "-l", "8", "-S", "3", str(rom_path)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    return proc.stdout
+
+
+def parse_flash_dump(output: str) -> bytes:
+    hex_chunks = []
+    began = False
+    ended = False
+    for line in output.splitlines():
+        if "FIXBEGIN:" in line:
+            began = True
+            continue
+        if "FIXDATA:" in line:
+            hex_chunks.append(line.split("FIXDATA:", 1)[1].strip())
+        elif "FIXEND" in line:
+            ended = True
+            break
+    if not began or not ended:
+        sys.exit(
+            "error: fixture ROM run did not produce a complete flash dump "
+            "(FIXBEGIN/FIXEND not both seen) - see raw output below\n" + output[-2000:]
+        )
+    blob = bytes.fromhex("".join(hex_chunks))
+    if len(blob) != FLASH_SIZE:
+        sys.exit(f"error: dumped {len(blob)} bytes, expected {FLASH_SIZE}")
+    return blob
+
+
+def generate_one(name: str, romtest: Path) -> None:
+    if name not in SCENARIOS:
+        sys.exit(f"error: unknown scenario '{name}'. --list to see valid names.")
+    scenario_id = SCENARIOS.index(name)
+
+    rom_bytes = bytearray(FIXTURES_ROM.read_bytes())
+    patch_scenario_id(rom_bytes, scenario_id)
+
+    out_dir = FIXTURES_DIR / name
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        scratch_rom = Path(tmp) / f"{name}.gba"
+        scratch_rom.write_bytes(rom_bytes)
+        print(f"Generating {name}...", file=sys.stderr)
+        output = run_headless(romtest, scratch_rom)
+        blob = parse_flash_dump(output)
+
+    tmp_sav = out_dir / "save.sav.tmp"
+    tmp_sav.write_bytes(blob)
+    tmp_sav.replace(out_dir / "save.sav")
+    print(f"  wrote {out_dir / 'save.sav'} ({len(blob)} bytes)")
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("names", nargs="*", help="scenario name(s) to generate")
+    ap.add_argument("--all", action="store_true", help="generate every scenario")
+    ap.add_argument("--list", action="store_true", help="list scenario names and exit")
+    ap.add_argument("--no-rebuild", action="store_true", help="never run 'make fixtures' even if stale")
+    args = ap.parse_args()
+
+    if args.list:
+        for s in SCENARIOS:
+            print(s)
+        return
+
+    names = SCENARIOS if args.all else args.names
+    if not names:
+        ap.error("give scenario name(s), --all, or --list")
+
+    if not args.no_rebuild and rom_is_stale():
+        build_fixtures_rom()
+    elif not FIXTURES_ROM.exists():
+        sys.exit("error: pokeemerald-fixtures.gba missing and --no-rebuild given")
+
+    romtest = find_romtest()
+    for name in names:
+        generate_one(name, romtest)
+
+
+if __name__ == "__main__":
+    main()

@@ -626,15 +626,24 @@ static void SpriteCB_HealthboxTypeIcon(struct Sprite *sprite)
 // icon sprites for one battler's healthbox, called from UpdateHealthboxAttribute
 // at every point that already refreshes the nickname (switch-in, Illusion
 // reveal, Tera activation) - exactly the set of moments the displayed
-// species/type can change. The fixed per-icon offset from the healthbox's own
-// base position reuses type_icons.c's already-tuned sTypeIconPositions rather
-// than inventing new coordinates, so both icon systems agree on placement;
+// species/type can change. The base position reuses type_icons.c's
+// sTypeIconPositions - the same on-screen coordinates the move-selection
+// icon overlay already renders at safely - rather than a from-scratch
+// local-coordinate guess (an earlier version of this comment tried that and
+// it sent the icon sailing off the healthbox entirely; the sprite's "local"
+// text-printer coordinates used elsewhere in this file are not in the same
+// space as this sprite's own x/y). HEALTHBOX_TYPE_ICON_NUDGE_X only pushes
+// a little further outward from that known-good baseline (further right for
+// the player's own Pokemon, further left for the opponent's) to clear the
+// nickname text UpdateNickInHealthbox prints into the same sprite.
 // SpriteCB_HealthboxTypeIcon (above) keeps the icon glued to the healthbox's
 // current (possibly animating) position every frame.
+#define HEALTHBOX_TYPE_ICON_NUDGE_X 8
 static void UpdateHealthboxTypeIcons(u8 healthboxSpriteId, enum BattlerId battler)
 {
     bool32 isDoubles = (GetBattlerCoordsIndex(battler) == BATTLE_COORDS_DOUBLES);
     enum BattlerPosition position = GetBattlerPosition(battler);
+    bool32 onPlayerSide = IsOnPlayerSide(battler);
     s16 healthboxBaseX, healthboxBaseY;
     enum Type types[2];
     bool32 invisible = FALSE;
@@ -643,6 +652,18 @@ static void UpdateHealthboxTypeIcons(u8 healthboxSpriteId, enum BattlerId battle
     GetBattlerHealthboxCoords(battler, &healthboxBaseX, &healthboxBaseY);
     types[0] = GetMonPublicType(battler, 0);
     types[1] = GetMonPublicType(battler, 1);
+
+    // No real Pokemon is ever typeless, so types[0] == TYPE_NONE only means
+    // gBattleMons[battler].types isn't populated yet - this fires earlier for
+    // the opponent than the player during battle intro, since GetMonPublicType
+    // reads that battle-struct cache rather than the species' own data (it has
+    // to, to reflect Tera/ability type changes). Rendering it anyway used to
+    // flash the TYPE_NONE anim slot (same "Mystery ?" frame as TYPE_MYSTERY)
+    // for a frame before the next refresh corrected it. Bail out and leave
+    // whatever's already there (nothing, on the first call) instead.
+    if (types[0] == TYPE_NONE)
+        return;
+
     if (types[0] == types[1])
         types[1] = TYPE_NONE; // signals "no second icon" below
 
@@ -672,6 +693,7 @@ static void UpdateHealthboxTypeIcons(u8 healthboxSpriteId, enum BattlerId battle
             continue;
 
         offsetX = sTypeIconPositions[position][isDoubles].x - healthboxBaseX;
+        offsetX += onPlayerSide ? HEALTHBOX_TYPE_ICON_NUDGE_X : -HEALTHBOX_TYPE_ICON_NUDGE_X;
         offsetY = sTypeIconPositions[position][isDoubles].y - healthboxBaseY + (i * 11);
         TypeIcons_LoadGraphics();
         spriteId = CreateStaticTypeIconSprite(types[i], 0, 0, 0);

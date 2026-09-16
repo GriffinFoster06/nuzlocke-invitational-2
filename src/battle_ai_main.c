@@ -307,6 +307,7 @@ static bool32 IsSmartBattle(void)
                                    | AI_FLAG_KNOW_OPPONENT_PARTY                \
                                    | AI_FLAG_ASSUME_STAB                        \
                                    | AI_FLAG_ASSUME_STATUS_MOVES                \
+                                   | AI_FLAG_WEIGH_ABILITY_PREDICTION           \
                                    | AI_FLAG_PREDICT_SWITCH                     \
                                    | AI_FLAG_PREDICT_INCOMING_MON)
 

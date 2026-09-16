@@ -95,6 +95,7 @@ static void Task_RulesetMenuFadeOutToNewGame(u8 taskId);
 static const u8 sText_HeaderFmt[]     = _("{STR_VAR_1} R{STR_VAR_2}/G{STR_VAR_3}");
 static const u8 sText_CategoryFmt[]   = _("{STR_VAR_1}/{STR_VAR_2}  {STR_VAR_3}");
 static const u8 sText_Locked[]        = _(" (L)");
+static const u8 sText_Space[]         = _(" ");
 static const u8 sText_Controls[]      = _("{DPAD_LEFTRIGHT} change   L/R page   START preset");
 // Phase 12A: wizard mode's START opens the confirm/Start-Game overlay, not the
 // preset cycle sText_Controls advertises - show the correct hint there instead
@@ -176,6 +177,12 @@ static void RulesetMenu_FormatRow(u8 row)
     u8 valueBuf[24];
 
     StringCopyPadded(dst, d->name, CHAR_SPACE, RSMENU_NAME_PAD);
+    // StringCopyPadded pads with 0 chars (not "at least 1") once the source
+    // already reaches the pad width, so names >= RSMENU_NAME_PAD chars (about
+    // a third of settings - e.g. "Ability Evo Consistency") would otherwise
+    // run directly into the value text with no separator at all.
+    if (StringLength(d->name) >= RSMENU_NAME_PAD)
+        StringAppend(dst, sText_Space);
 
     if (settingId == SETTING_RUN_SEED)
     {

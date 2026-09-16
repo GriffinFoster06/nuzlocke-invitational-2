@@ -9,6 +9,7 @@
 #include "rtc.h"
 #include "scanline_effect.h"
 #include "overworld.h"
+#include "test_fixtures.h"
 #include "play_time.h"
 #include "random.h"
 #include "dma3.h"
@@ -185,7 +186,11 @@ static void InitMainCallbacks(void)
     gTrainerHillVBlankCounter = NULL;
     gMain.vblankCounter2 = 0;
     gMain.callback1 = NULL;
+#if TEST_FIXTURES
+    SetMainCallback2(CB2_TestFixtureBoot);
+#else
     SetMainCallback2(gInitialMainCB2);
+#endif
     gSaveBlock2Ptr = &gSaveblock2.block;
     gPokemonStoragePtr = &gPokemonStorage.block;
 }

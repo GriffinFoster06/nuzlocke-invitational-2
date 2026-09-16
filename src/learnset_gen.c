@@ -24,7 +24,13 @@
 
 #define LG_MIN_MOVES     4
 #define LG_MAX_MOVES     25   // SETTING_LEARNSET_SIZE max
-#define LG_CACHE_SLOTS   8
+// Perf: a trainer party (up to 6 unique species) plus the player's own party
+// plus a couple of recently-seen wild species routinely exceeds 8 slots, so
+// the old cap meant nearly every enemy mon in a gym/E4 battle regenerated its
+// learnset from scratch. 32 slots costs ~3.3KB EWRAM (each slot is
+// (LG_MAX_MOVES + 1) * sizeof(struct LevelUpMove)) - cheap next to the
+// generation cost it avoids.
+#define LG_CACHE_SLOTS   32
 #define LG_POOL_CAP      MOVES_COUNT
 #define LG_LAST_LEVEL    61   // checkpoint for the final move at the default size
 
@@ -35,6 +41,13 @@
 
 static EWRAM_DATA u16 sPool[LG_POOL_CAP] = {0};
 static EWRAM_DATA u8  sDmgType[LG_POOL_CAP] = {0}; // parallel, damaging region only
+// Perf: MovePotency(move) is a pure function of the move (5 ROM reads + two
+// divides) but GenerateWeighted() used to call it fresh for every one of its
+// ~sDmgCount+status pool visits, every checkpoint - the single largest cost on
+// the randomized-learnset path. It depends only on which move a flat pool
+// index names, so it can be computed once per pool build instead, indexed the
+// same way PoolMoveRaw() indexes sPool.
+static EWRAM_DATA u8  sPotency[LG_POOL_CAP] = {0}; // parallel to sPool, both regions
 static EWRAM_DATA u16 sDmgCount = 0;
 static EWRAM_DATA u16 sStatusStart = 0; // real value set by BuildPool; guarded by sPoolBuilt
 static EWRAM_DATA bool8 sPoolBuilt = FALSE;
@@ -150,6 +163,36 @@ static u32 CacheSignature(void)
          ^ GetRunSeed();
 }
 
+// A 0..255 "how strong" figure used only to seed GenerateWeighted()'s timing
+// curve - not the per-checkpoint jittered PowerKey() the LRNCOMP_777 path
+// uses below. Pure function of the move, so it is computed once per pool
+// build (see sPotency) rather than on every one of GenerateWeighted()'s pool
+// visits.
+static u32 MovePotency(enum Move move)
+{
+    u32 power, accuracy, strikes10, effective;
+
+    if (GetMoveCategory(move) == DAMAGE_CATEGORY_STATUS)
+        return 128;
+    power = GetMovePower(move);
+    accuracy = GetMoveAccuracy(move);
+    strikes10 = GetMoveStrikeCount(move) * 10;
+    if (power <= 1)
+        power = 60;
+    if (accuracy == 0)
+        accuracy = 100;
+    if (IsMultiHitMove(move))
+        strikes10 = 31; // Gen 5+ 2-5-hit distribution has 3.1 expected strikes.
+    if (strikes10 < 10)
+        strikes10 = 10;
+    effective = power * accuracy * strikes10 / 1000;
+    if (effective < 10)
+        effective = 10;
+    if (effective > 150)
+        effective = 150;
+    return (effective - 10) * 255 / 140;
+}
+
 static void BuildPool(void)
 {
     enum Move m;
@@ -168,11 +211,13 @@ static void BuildPool(void)
         if (GetMoveCategory(m) == DAMAGE_CATEGORY_STATUS)
         {
             sPool[--sStatusStart] = m;
+            sPotency[sStatusStart] = (u8)MovePotency(m);
         }
         else
         {
             sPool[sDmgCount] = m;
             sDmgType[sDmgCount] = GetMoveType(m);
+            sPotency[sDmgCount] = (u8)MovePotency(m);
             sDmgCount++;
         }
     }
@@ -243,6 +288,20 @@ static enum Move PoolMoveRaw(u32 index)
     if (index < LG_POOL_CAP)
         return sPool[index];
     return MOVE_NONE;
+}
+
+// sPotency is parallel to sPool (same underlying slot), so it uses the same
+// flat-index remap PoolMoveRaw() does. Perf: replaces a MovePotency() call
+// (5 ROM reads + divides) with one EWRAM byte read on GenerateWeighted's hot
+// path.
+static u8 PoolPotencyRaw(u32 index)
+{
+    if (index < sDmgCount)
+        return sPotency[index];
+    index += sStatusStart - sDmgCount;
+    if (index < LG_POOL_CAP)
+        return sPotency[index];
+    return 0;
 }
 
 // Flat index over the pool: [0, sDmgCount) are damaging, the rest are status.
@@ -371,42 +430,39 @@ static u16 CheckpointLevel(u32 idx, u32 n)
     return (u16)(1 + (idx * (LG_LAST_LEVEL - 1)) / (n - 1));
 }
 
-static u32 MovePotency(enum Move move)
+// Weight of pool index i under the checkpoint-current timingLut, ignoring
+// whether it has already been picked (both GenerateWeighted passes below
+// check PickedGet() themselves before calling this).
+static u32 CandidateWeight(u32 i, const u16 *timingLut, u32 compositionMode, u8 t0, u8 t1)
 {
-    u32 power, accuracy, strikes10, effective;
-
-    if (GetMoveCategory(move) == DAMAGE_CATEGORY_STATUS)
-        return 128;
-    power = GetMovePower(move);
-    accuracy = GetMoveAccuracy(move);
-    strikes10 = GetMoveStrikeCount(move) * 10;
-    if (power <= 1)
-        power = 60;
-    if (accuracy == 0)
-        accuracy = 100;
-    if (IsMultiHitMove(move))
-        strikes10 = 31; // Gen 5+ 2-5-hit distribution has 3.1 expected strikes.
-    if (strikes10 < 10)
-        strikes10 = 10;
-    effective = power * accuracy * strikes10 / 1000;
-    if (effective < 10)
-        effective = 10;
-    if (effective > 150)
-        effective = 150;
-    return (effective - 10) * 255 / 140;
+    u32 timing = timingLut[PoolPotencyRaw(i)];
+    // Status moves live at i >= sDmgCount (never STAB-eligible); for damaging
+    // moves at i < sDmgCount, sDmgType[i] is the move's type (parallel to
+    // sPool) - both replace a GetMoveCategory()/IsStab()/GetMoveType() call
+    // chain with EWRAM reads already made during BuildPool().
+    u32 composition = (compositionMode == LRNCOMP_WEIGHTED && i < sDmgCount
+                    && (sDmgType[i] == t0 || sDmgType[i] == t1)) ? 2 : 1;
+    return composition * timing;
 }
 
 // Phase 11A approved weighted formula: one combined pool, no quotas, sampled
 // without replacement. STAB damage receives composition weight 2; timing is
 // the exact checkpoint/potency interpolation from the approved plan.
 //
-// Phase 11A.6: single-pass weighted reservoir sampling replaces the old
-// weight-sum pass followed by a separate pick pass. Accepting candidate i
-// (weight w_i) as the running choice with probability w_i / (running total)
-// reproduces exactly the same w_k / totalWeight selection distribution as
-// the two-pass version, in one scan. Combined with PoolMoveRaw() (skips the
-// redundant per-element EnsureBuilt() the public accessor used to pay), this
-// removes the single largest redundant cost on the randomized-learnset path.
+// Phase 13B: two-pass weighted selection - sum every live candidate's weight,
+// draw one LocalRandom32() % totalWeight, then walk the prefix sum to find
+// it. This replaces the Phase 11A.6 single-pass weighted reservoir sampler,
+// which drew one LocalRandom32() *and* one variable-divisor modulo per pool
+// element per checkpoint (up to ~850 divides x 21 checkpoints per species) -
+// the single largest cost on the randomized-learnset path even after the
+// Phase 13B potency/STAB precomputation above. Both forms select each
+// candidate with exactly w_k/totalWeight probability, but this form draws
+// the modulo only once per checkpoint; the prefix-sum walk stops at the
+// chosen candidate (~half the pool on average) instead of visiting every
+// element unconditionally like the reservoir form did.
+//
+// This changes the RNG draw sequence for a given seed - RANDOMIZER_VERSION
+// bumped (see include/constants/ruleset.h) alongside this commit.
 static u32 GenerateWeighted(enum Species species, struct LevelUpMove *out, u32 n,
                             u32 compositionMode, u32 order, rng_value_t *st)
 {
@@ -414,36 +470,59 @@ static u32 GenerateWeighted(enum Species species, struct LevelUpMove *out, u32 n
     u8 t1 = GetSpeciesType(species, 1);
     u32 poolCount = (u32)sDmgCount + (LG_POOL_CAP - sStatusStart);
     u32 checkpoint, count = 0;
+    // Perf: `timing` depends only on the checkpoint-constant p and potency q
+    // (0..255) - 256 entries covers every possible q, so a per-checkpoint
+    // lookup table replaces re-deriving the formula for every pool element
+    // (up to ~850 of them). MOVE_POWER_PROGRESSION's fully-random branch is a
+    // flat 256 regardless of q, so the table degenerates to a constant there.
+    u16 timingLut[256];
 
     PickedClear();
     for (checkpoint = 0; checkpoint < n; checkpoint++)
     {
         u32 p = (n <= 1) ? 0 : checkpoint * 20 / (n - 1);
-        u32 totalWeight = 0;
+        u32 totalWeight = 0, acc, roll;
         enum Move chosen = MOVE_NONE;
         u32 i;
 
+        if (order == MVORDER_FULLY_RANDOM)
+        {
+            for (i = 0; i < 256; i++)
+                timingLut[i] = 256;
+        }
+        else
+        {
+            for (i = 0; i < 256; i++)
+                timingLut[i] = (u16)(64 + (((20 - p) * (255 - i) + p * i) * 192) / (20 * 255));
+        }
+
+        // Pass 1: sum the weights of every candidate still available.
         for (i = 0; i < poolCount; i++)
         {
-            enum Move move = PoolMoveRaw(i);
-            u32 q, timing, composition, weight;
-
-            if (PickedGet(move))
+            if (PickedGet(PoolMoveRaw(i)))
                 continue;
-            q = MovePotency(move);
-            timing = (order == MVORDER_FULLY_RANDOM)
-                   ? 256
-                   : 64 + (((20 - p) * (255 - q) + p * q) * 192) / (20 * 255);
-            composition = (compositionMode == LRNCOMP_WEIGHTED
-                        && GetMoveCategory(move) != DAMAGE_CATEGORY_STATUS
-                        && IsStab(move, t0, t1)) ? 2 : 1;
-            weight = composition * timing;
-            totalWeight += weight;
-            if (LocalRandom32(st) % totalWeight < weight)
-                chosen = move;
+            totalWeight += CandidateWeight(i, timingLut, compositionMode, t0, t1);
         }
         if (totalWeight == 0)
             break;
+
+        // Pass 2: one draw for the whole checkpoint, then walk the prefix sum
+        // to the candidate it lands in.
+        roll = LocalRandom32(st) % totalWeight;
+        acc = 0;
+        for (i = 0; i < poolCount; i++)
+        {
+            enum Move move = PoolMoveRaw(i);
+
+            if (PickedGet(move))
+                continue;
+            acc += CandidateWeight(i, timingLut, compositionMode, t0, t1);
+            if (roll < acc)
+            {
+                chosen = move;
+                break;
+            }
+        }
 
         out[count].move = chosen;
         out[count].level = CheckpointLevel(checkpoint, n);

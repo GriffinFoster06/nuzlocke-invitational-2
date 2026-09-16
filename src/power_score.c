@@ -45,7 +45,19 @@
 
 static EWRAM_DATA u16 sScoreCache[NUM_SPECIES] = {0};
 static EWRAM_DATA bool8 sBuilt = FALSE;         // gates the very first build; sSignature is only trusted once set
-static EWRAM_DATA u16 sSignature = 0;           // ruleset-toggle snapshot the cache was built for
+static EWRAM_DATA u32 sSignature = 0;           // ruleset-toggle snapshot the cache was built for
+
+// Perf: src/randomizer.c's selector (PickReplacementCoreExcluding) used to
+// scan every one of NUM_SPECIES candidates per ladder rung for its single
+// most common case, POOL_STRICT_ORDINARY (wild/starter/gift/ordinary static/
+// most trainer slots), calling InPool() -> IsSpeciesPremium() per candidate.
+// That membership is fixed for the run the moment the power cache is built,
+// so compact it once here into a dense list the selector can walk directly.
+// Built in ascending species order - load-bearing, since the reservoir
+// sampler's chosen candidate depends on visitation order and this must match
+// the order the old full 1..NUM_SPECIES scan visited them in.
+static EWRAM_DATA u16 sOrdinaryList[NUM_SPECIES] = {0};
+static EWRAM_DATA u16 sOrdinaryCount = 0;
 
 // Phase 11A.6: SETTING_GEN_1_ENABLED..SETTING_GEN_9_ENABLED are consecutive
 // ids (see include/constants/ruleset.h), so generation `gen` (1-9) maps to
@@ -58,12 +70,17 @@ static bool32 IsGenerationEnabled(u8 gen)
 }
 
 // Snapshot of the species-pool toggles that affect eligibility / bans, so
-// EnsureBuilt can detect a stale cache after a menu change. Widened to u16
-// (Phase 11A.6) to fit the nine generation-mask bits alongside the original
-// seven species-pool bits.
-static u16 CurrentSignature(void)
+// EnsureBuilt can detect a stale cache after a menu change. Widened to u32
+// (Phase 13B perf work) - bits 0..15 were already fully used by the seven
+// species-pool bits plus the nine generation-mask bits, and
+// SETTING_PREMIUM_POOL_MODE needed to join them: sOrdinaryList excludes
+// IsSpeciesPremium() species regardless of pool mode, but POOL_PREMIUM's own
+// membership (InPool(), src/randomizer.c) depends on it, and that pool mode
+// used to rely solely on the setter calling PowerScore_Invalidate() rather
+// than on this signature.
+static u32 CurrentSignature(void)
 {
-    u16 sig = (GetRulesetSetting(SETTING_ALLOW_LEGENDARY)      ? (1 << 0) : 0)
+    u32 sig = (GetRulesetSetting(SETTING_ALLOW_LEGENDARY)      ? (1 << 0) : 0)
             | (GetRulesetSetting(SETTING_ALLOW_MYTHICAL)       ? (1 << 1) : 0)
             | (GetRulesetSetting(SETTING_ALLOW_SUB_LEGENDARY)  ? (1 << 2) : 0)
             | (GetRulesetSetting(SETTING_ALLOW_ULTRA_BEAST)    ? (1 << 3) : 0)
@@ -75,8 +92,9 @@ static u16 CurrentSignature(void)
     for (gen = 1; gen <= 9; gen++)
     {
         if (IsGenerationEnabled(gen))
-            sig |= (u16)(1 << (6 + gen)); // bits 7..15
+            sig |= (u32)(1 << (6 + gen)); // bits 7..15
     }
+    sig |= (u32)GetRulesetSetting(SETTING_PREMIUM_POOL_MODE) << 16; // bit 16 (0/1)
     return sig;
 }
 
@@ -333,11 +351,12 @@ void PowerScore_EnsureBuilt(void)
 
     // Pass 2: blend toward the strongest reachable final form, bucket the stage,
     // evaluate the pool predicates, and pack.
+    sOrdinaryCount = 0;
     for (s = 1; s < NUM_SPECIES; s++)
     {
         const struct SpeciesInfo *si = &gSpeciesInfo[s];
         u32 blended, stage;
-        bool32 hasPre, hasEvo, elig, banned;
+        bool32 hasPre, hasEvo, elig, banned, premium;
 
         if (!IsSpeciesEnabled(s))
         {
@@ -361,8 +380,16 @@ void PowerScore_EnsureBuilt(void)
 
         elig = ComputeEligible(s, si);
         banned = ComputeCategoryBanned(si);
+        premium = IsSpeciesPremium(s);
 
         sScoreCache[s] = PS_PACK(blended, stage, elig ? 1 : 0, banned ? 1 : 0);
+
+        // Mirrors InPool(s, POOL_STRICT_ORDINARY) in src/randomizer.c exactly
+        // (elig && !banned && !premium), built in ascending species order so
+        // PickReplacementCoreExcluding()'s reservoir sampler visits candidates
+        // in the same order the old full 1..NUM_SPECIES scan did.
+        if (elig && !banned && !premium)
+            sOrdinaryList[sOrdinaryCount++] = s;
     }
 
     Free(rawTbl);
@@ -370,6 +397,17 @@ void PowerScore_EnsureBuilt(void)
     Free(hasPreBits);
     sSignature = CurrentSignature();
     sBuilt = TRUE;
+}
+
+// Ascending-order species passing InPool(s, POOL_STRICT_ORDINARY) - see the
+// build comment above. Triggers a build if needed; returns 0 on out-of-heap
+// (matches PowerScore_EnsureBuilt's existing failure mode: callers already
+// tolerate an empty/failed cache by falling back to the vanilla species).
+u32 PowerScore_OrdinaryList(const u16 **out)
+{
+    PowerScore_EnsureBuilt();
+    *out = sOrdinaryList;
+    return sBuilt ? sOrdinaryCount : 0;
 }
 
 // ---- accessors ----------------------------------------------------------------

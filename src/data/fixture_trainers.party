@@ -1,0 +1,119 @@
+/*
+
+Trainer parties for the developer-only Test Fixtures debug submenu
+(src/test_fixtures.c, src/debug.c). Present in every build, same as
+src/data/debug_trainers.party — only reachable through the R+START debug
+menu (DEBUG_OVERWORLD_MENU), never from a map script.
+
+These trainers use AI_FLAG_* purely by way of GetRulesetAiFlags() at battle
+start (see DebugAction_Fixture_StartBattle in src/debug.c): no "AI:" line is
+given here, so the authored flags are 0 and the only AI behavior in play is
+whichever tier the RULES > AI Difficulty setting currently selects. That is
+what lets the same fixture compare Standard/Improved/Expert/Pro Fair by just
+changing the setting and re-running the fixture battle.
+
+*/
+
+=== FIXTURE_TRAINER_AI_SWITCH ===
+Name: AI-Switch
+Class: Pkmn Trainer 1
+Battle Type: Singles
+Pic: Brendan
+Gender: Male
+Music: Male
+
+Torkoal
+Quiet Nature
+Level: 50
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+EVs: 252 HP / 252 SpA / 6 SpD
+- Flamethrower
+- Lava Plume
+- Body Slam
+- Yawn
+
+Ludicolo
+Modest Nature
+Level: 50
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+EVs: 252 HP / 252 SpA / 6 SpD
+- Giga Drain
+- Surf
+- Ice Beam
+- Protect
+
+Pelipper
+Bold Nature
+Level: 50
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+EVs: 252 HP / 252 Def / 6 SpD
+- Hurricane
+- Scald
+- Roost
+- Protect
+
+=== FIXTURE_TRAINER_AI_FORCED ===
+Name: AI-Forced
+Class: Pkmn Trainer 1
+Battle Type: Singles
+Pic: Brendan
+Gender: Male
+Music: Male
+
+Exeggcute
+Bashful Nature
+Level: 45
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+EVs: 252 HP / 252 SpA / 6 SpD
+- Giga Drain
+- Psychic
+- Leech Seed
+- Sleep Powder
+
+Wailmer
+Relaxed Nature
+Level: 50
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+EVs: 252 HP / 252 SpA / 6 SpD
+- Surf
+- Water Spout
+- Rest
+- Sleep Talk
+
+Geodude
+Adamant Nature
+Level: 50
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+EVs: 252 HP / 252 Atk / 6 Def
+- Earthquake
+- Rock Slide
+- Explosion
+- Toxic
+
+Swellow
+Jolly Nature
+Level: 50
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+EVs: 6 HP / 252 Atk / 252 Spe
+- Aerial Ace
+- Facade
+- U-turn
+- Protect
+
+=== FIXTURE_TRAINER_NUZLOCKE_WIPE ===
+Name: Wipe-Test
+Class: Pkmn Trainer 1
+Battle Type: Singles
+Pic: Brendan
+Gender: Male
+Music: Male
+
+Linoone
+Adamant Nature
+Level: 25
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+EVs: 252 HP / 252 Atk / 6 Spe
+- Slash
+- Belly Drum
+- Extreme Speed
+- Shadow Claw

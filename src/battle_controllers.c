@@ -23,6 +23,7 @@
 #include "palette.h"
 #include "party_menu.h"
 #include "pokemon_animation.h"
+#include "randomizer.h"
 #include "recorded_battle.h"
 #include "string_util.h"
 #include "sound.h"
@@ -153,8 +154,14 @@ void SetUpBattleVarsAndBirchZigzagoon(void)
     BattleAI_SetupItems();
     BattleAI_SetupFlags();
 
+    // This scripted rescue battle bypassed the wild randomizer entirely -
+    // CreateWildMon(SPECIES_ZIGZAGOON, ...) is a hardcoded vanilla call, not
+    // a tall-grass roll through wild_encounter.c, so the very first battle
+    // of a run was never randomized. Route it through the same special-wild
+    // hook mass_outbreak.c/wild_encounter_ow.c use for other hardcoded
+    // wild mons (Feebas, outbreaks) so it respects SETTING_WILD_RANDOMIZATION.
     if (!IS_FRLG && gBattleTypeFlags & BATTLE_TYPE_FIRST_BATTLE)
-        CreateWildMon(SPECIES_ZIGZAGOON, 2);
+        CreateWildMon(Randomizer_SpecialWildSpecies(SPECIES_ZIGZAGOON, 0xB12C0001, 0xB12C0001), 2);
 }
 
 void InitBattleControllers(void)

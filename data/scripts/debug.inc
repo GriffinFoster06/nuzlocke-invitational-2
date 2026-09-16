@@ -270,6 +270,21 @@ Debug_ROMSize::
 	.string "ROM size: {STR_VAR_1}MB/32MB.\n"
 	.string "Free space: {STR_VAR_2}MB.$"
 
+@ Randomizer pool-variety readout (src/randomizer.c Randomizer_DebugPoolCounts,
+@ src/debug.c CheckRandomizerPoolCounts). Reports how many
+@ POOL_STRICT_ORDINARY candidates the live power-matching settings accept for
+@ the lead party Pokemon's species at ladder rung 0/1.
+Debug_CheckRandomizerPool::
+	callnative CheckRandomizerPoolCounts
+	msgbox Debug_RandomizerPoolCounts, MSGBOX_DEFAULT
+	release
+	end
+
+Debug_RandomizerPoolCounts::
+	.string "{STR_VAR_1}\n"
+	.string "Rung 0 (strict): {STR_VAR_2}\n"
+	.string "Rung 1 (fallback): {STR_VAR_3}$"
+
 Debug_HatchAnEgg::
 	lockall
 	getpartysize

@@ -524,6 +524,94 @@ completion left no trace in the new run's randomization. The terminal
 `READY FOR FINAL RELEASE` / `PRODUCT COMPLETE` verdict is withheld until the
 user reports this playthrough passed.
 
+## Randomizer performance + RNG audit (uncommitted, build-verified)
+
+Player report: stutter entering trainer/gym battles and on fresh encounters,
+plus a suspicion that different seeds were producing the same Pokémon. Full
+detail is in the session's approved plan; this is the durable summary.
+
+**RNG audit: the generator itself is sound.** Host-replicated the exact
+pipeline (`Crc32B` seed mix → SFC32 → the reservoir-sampling selector) and ran
+chi-squared tests over 200k trials at several candidate-pool sizes, with both
+scattered and sequential run seeds — every cell tracked its degrees of
+freedom. No change was made to the selection algorithm's fairness. The real
+defect: `Randomizer_WildSlotSpecies`'s wild-slot LRU cache
+(`src/randomizer.c`) was keyed on `slotSeed` alone, unlike every other
+generation cache in the project (Tm/Learnset/Ability all fold `GetRunSeed()`
+into their signature) — so loading a save with a different run seed in the
+same emulator session kept serving the previous seed's resolved species until
+some unrelated ruleset setter happened to call
+`Randomizer_InvalidateWildSlotCache()`. Fixed by adding a signature check
+(seed + `RANDOMIZER_VERSION` + encounter-mapping mode) to the cache-line
+lookup, so a stale cache is caught on the very next query regardless of how
+the save was reached.
+
+**Performance: `GenerateWeighted()` (`src/learnset_gen.c`) was the dominant
+cost** — with defaults (learnset size 21, weighted composition), ~21
+checkpoints × ~850 eligible moves ≈ 17,850 inner iterations per species, each
+recomputing move potency from ROM (5 accessor calls + divides) and paying a
+variable-divisor modulo. Landed in two commits:
+
+- **Output-identical (no `RANDOMIZER_VERSION` bump):** potency/STAB
+  precomputed once per pool build instead of per checkpoint-visit
+  (`sPotency[]`/`sDmgType[]`, indexed the same way `PoolMoveRaw()` is); a
+  per-checkpoint 256-entry timing lookup table; the learnset LRU cache
+  widened 8→32 slots (a 6-mon enemy party plus the player's party routinely
+  exceeded the old cap); `Crc32B` moved from a bit-serial loop to a table
+  lookup (host-verified bit-identical over every 1-byte input and 2M random
+  24-byte buffers — the `RunRng_Seed` shape); generated abilities memoized
+  per species (`AbilityGen_Get` used to re-derive up to 3 seeded streams on
+  every call, including every AI party scan); the selector's
+  `POOL_STRICT_ORDINARY` scan (wild/starter/gift/ordinary static/most trainer
+  slots) now walks a precomputed dense, ascending-order species list
+  (`PowerScore_OrdinaryList()`) instead of re-testing all ~1573 species per
+  ladder rung. Also added a read-only debug-menu entry ("Encounters… >
+  Randomizer pool size") reporting the live rung-0/rung-1 candidate counts for
+  the lead party species, so "feels samey" can be measured before anyone
+  tunes `sBaseWindow[]`.
+- **`RANDOMIZER_VERSION` 5→6 (separate commit):** `GenerateWeighted`'s
+  per-checkpoint selection moved from single-pass weighted reservoir sampling
+  (one RNG draw *and* one variable-divisor modulo per pool element) to a
+  two-pass draw (sum weights, one modulo per checkpoint, walk the prefix sum).
+  Same `w_k/totalWeight` distribution (host chi-squared verified against a
+  synthetic weight array over 500k trials) but a different RNG draw count/
+  order for a given seed, so **this resets in-progress runs** the same way the
+  Phase 11D/13A version bumps did — the existing lazy-reinit already handles
+  it (default preset, fresh seed) on next load of a stale save.
+
+**User-confirmed design invariant that shaped this work:** a species'
+generated ability/learnset is a pure function of `(species, run seed,
+settings)` and identical for every instance of that species in the world
+(only a player's own in-battle move replacement is per-mon). This is what
+makes per-species caching always correct rather than a shortcut.
+
+**Verification done this session:** `make -j$(sysctl -n hw.ncpu)` clean after
+every stage (only the pre-existing RWX linker warning); zero new
+warnings from the touched translation units. Memory after all changes: EWRAM
+248684 B (94.87%, up from 245016 B/93.47% pre-session — the learnset cache
+widen, dense ordinary-species list, and ability cache account for the
+increase; ~13.4 KB EWRAM headroom remains), IWRAM unchanged (86.74%), ROM
+26762800 B (79.76%, negligible increase). Host-side equivalence/chi-squared
+harnesses are one-off scripts in this session's scratchpad, not committed to
+the repo.
+
+**Not yet done — mGBA playtesting required, cannot be accepted by
+inspection:**
+1. Confirm two different run seeds produce different Route 101 encounters,
+   *and* that loading a save without rebooting still shows that save's own
+   seed's encounters (the regression case that failed on `main` before the
+   cache-signature fix).
+2. Time the pause on a fresh grass encounter, entering Roxanne's gym battle,
+   and entering a 6-mon Elite Four battle; compare against a pre-change build.
+3. Confirm generated learnsets/abilities are still identical across every
+   instance of a species (catch two of the same species and compare).
+4. With only the output-identical commit checked out, confirm a pre-change
+   save's world is byte-for-byte unchanged (same route species, TM moves,
+   starter trio).
+5. Read the new debug pool-count entry on a few early-route species and
+   decide, with real numbers, whether `sBaseWindow[]` needs widening — not
+   done speculatively this session.
+
 ## Pointers
 
 - [SPEC.md](SPEC.md) — authoritative product-behavior specification.

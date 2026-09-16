@@ -162,23 +162,42 @@ static enum Species PickReplacementCoreExcluding(rng_value_t *st, enum Species v
     enum EvoStageBucket tgtStage = GetSpeciesEvoStageBucket(vanilla);
     struct LadderRung ladder[6];
     u32 rungs = BuildLadder(ladder, mode, evoMode);
+    // Perf: POOL_STRICT_ORDINARY is by far the common case (wild, starter,
+    // gift, ordinary static, most trainer slots), and used to re-test
+    // InPool() -> IsSpeciesPremium() (ROM reads) for every one of NUM_SPECIES
+    // candidates on every ladder rung. That membership is fixed for the run
+    // once the power cache is built, so power_score.c precomputes it into a
+    // dense, ascending-order list this loop can walk directly instead -
+    // ascending order matters, since the reservoir sampler's outcome depends
+    // on visitation order and must match the old full-scan order exactly.
+    const u16 *ordinaryList = NULL;
+    u32 ordinaryCount = 0;
     u32 i;
+
+    if (kind == POOL_STRICT_ORDINARY)
+        ordinaryCount = PowerScore_OrdinaryList(&ordinaryList);
 
     for (i = 0; i < rungs; i++)
     {
         // Phase 11A.6: reservoir sampling (Algorithm R) - a single pass over
-        // NUM_SPECIES instead of a count pass followed by a pick pass. Each
-        // accepted candidate replaces the running choice with probability
-        // 1/count-so-far, which is exactly uniform over every candidate this
-        // rung accepts. This changes the RNG draw sequence for a given seed
-        // relative to the old two-pass selector (RANDOMIZER_VERSION bumped).
+        // every pool candidate instead of a count pass followed by a pick
+        // pass. Each accepted candidate replaces the running choice with
+        // probability 1/count-so-far, which is exactly uniform over every
+        // candidate this rung accepts. This changes the RNG draw sequence for
+        // a given seed relative to the old two-pass selector (RANDOMIZER_VERSION
+        // bumped, historical).
         u32 count = 0;
         enum Species chosen = SPECIES_NONE;
-        enum Species s;
+        u32 idx;
+        u32 n = (ordinaryList != NULL) ? ordinaryCount : (NUM_SPECIES - 1);
 
-        for (s = 1; s < NUM_SPECIES; s++)
+        for (idx = 0; idx < n; idx++)
         {
-            if (!InPool(s, kind) || SpeciesIsExcluded(s, excluded, excludedCount))
+            enum Species s = (ordinaryList != NULL) ? ordinaryList[idx] : (enum Species)(idx + 1);
+
+            if (ordinaryList == NULL && !InPool(s, kind))
+                continue;
+            if (SpeciesIsExcluded(s, excluded, excludedCount))
                 continue;
             if (!RungAccepts(&ladder[i], s, mode, target, tgtStage))
                 continue;
@@ -232,6 +251,17 @@ static EWRAM_DATA u16 sWildSlotCacheSpecies[WILD_SLOT_CACHE_LINES][WILD_SLOT_CAC
 static EWRAM_DATA u16 sWildSlotCacheValidBits[WILD_SLOT_CACHE_LINES] = {0}; // bit per resolved slot
 static EWRAM_DATA u32 sWildSlotCacheLru[WILD_SLOT_CACHE_LINES] = {0};
 static EWRAM_DATA u32 sWildSlotCacheClock = 0;
+// Bug fix: every other generation cache (Tm/Learnset/Ability) folds
+// GetRunSeed() into its build signature, so a stale cache is detected and
+// rebuilt automatically. This one didn't - it was keyed on slotSeed alone,
+// so loading a save with a different run seed (e.g. testing seeds by
+// soft-resetting into a different save slot in the same emulator session)
+// kept serving the previous seed's resolved species until some ruleset
+// setter happened to call Randomizer_InvalidateWildSlotCache() explicitly.
+// Track the seed/version/mapping-mode signature here too, so a stale cache
+// is caught on the very next query regardless of how the save was reached.
+static EWRAM_DATA u32 sWildSlotCacheSig = 0;
+static EWRAM_DATA bool8 sWildSlotCacheSigValid = FALSE;
 
 void Randomizer_InvalidateWildSlotCache(void)
 {
@@ -240,11 +270,26 @@ void Randomizer_InvalidateWildSlotCache(void)
         sWildSlotCacheTag[i] = 0;
 }
 
+static u32 WildSlotCacheSignature(void)
+{
+    return GetRunSeed()
+         ^ ((u32)GetSavedRandomizerVersion() << 16)
+         ^ ((u32)GetRulesetSetting(SETTING_ENCOUNTER_MAPPING) << 8);
+}
+
 // Returns the cache line for `tag` (a table's slotSeed+1), creating/evicting
 // one if this table isn't already resident.
 static u32 FindOrClaimWildSlotCacheLine(u32 tag)
 {
-    u32 i, victim;
+    u32 i, victim, sig;
+
+    sig = WildSlotCacheSignature();
+    if (!sWildSlotCacheSigValid || sWildSlotCacheSig != sig)
+    {
+        Randomizer_InvalidateWildSlotCache();
+        sWildSlotCacheSig = sig;
+        sWildSlotCacheSigValid = TRUE;
+    }
 
     for (i = 0; i < WILD_SLOT_CACHE_LINES; i++)
     {
@@ -1159,4 +1204,42 @@ void ApplyFieldItemRandomization(void)
 void ApplyGiftItemRandomization(void)
 {
     gSpecialVar_0x8000 = Randomizer_GiftItem(gSpecialVar_0x8000);
+}
+
+// ---- debug -----------------------------------------------------------------
+
+void Randomizer_DebugPoolCounts(enum Species vanilla, u32 *outRung0, u32 *outRung1)
+{
+    enum PowerMatchMode mode = GetRulesetSetting(SETTING_POWER_MATCHING);
+    u32 evoMode = GetRulesetSetting(SETTING_EVO_STAGE_MATCHING);
+    u32 target;
+    enum EvoStageBucket tgtStage;
+    struct LadderRung ladder[6];
+    u32 rungs;
+    const u16 *ordinaryList;
+    u32 ordinaryCount, r, idx;
+    u32 counts[2] = { 0, 0 };
+
+    if (outRung0 != NULL) *outRung0 = 0;
+    if (outRung1 != NULL) *outRung1 = 0;
+    if (!IsReplaceableTarget(vanilla))
+        return;
+
+    PowerScore_EnsureBuilt();
+    target = GetSpeciesMatchMetric(vanilla, mode);
+    tgtStage = GetSpeciesEvoStageBucket(vanilla);
+    rungs = BuildLadder(ladder, mode, evoMode);
+    ordinaryCount = PowerScore_OrdinaryList(&ordinaryList);
+
+    for (r = 0; r < rungs && r < 2; r++)
+    {
+        for (idx = 0; idx < ordinaryCount; idx++)
+        {
+            if (RungAccepts(&ladder[r], ordinaryList[idx], mode, target, tgtStage))
+                counts[r]++;
+        }
+    }
+
+    if (outRung0 != NULL) *outRung0 = counts[0];
+    if (outRung1 != NULL) *outRung1 = (rungs > 1) ? counts[1] : counts[0];
 }

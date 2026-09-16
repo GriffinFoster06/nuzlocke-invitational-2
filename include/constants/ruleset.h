@@ -55,7 +55,15 @@
 //       only the Master Ball (docs/SPEC.md "Poke Ball availability"). This
 //       changes the eligible-item count PickPoolItem() draws over, so it
 //       alters what a given seed generates for field items.
-#define RANDOMIZER_VERSION 5
+//   v6: Phase 13B perf work - GenerateWeighted() (src/learnset_gen.c) moved
+//       from single-pass weighted reservoir sampling (one LocalRandom32() AND
+//       one variable-divisor modulo per pool element per checkpoint) to a
+//       two-pass draw (one weight-sum pass, one LocalRandom32() per
+//       checkpoint, a prefix-sum walk to the chosen candidate). Same
+//       w_k/totalWeight selection distribution (host-verified: chi-squared
+//       against a synthetic weight array over 500k trials), different RNG
+//       draw sequence for a given seed, so generated learnsets change.
+#define RANDOMIZER_VERSION 6
 
 // ----------------------------------------------------------------------------
 // Presets
